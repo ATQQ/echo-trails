@@ -1,33 +1,27 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
 import HelloWorld from './components/HelloWorld.vue'
-import EXIF from 'exif-js'
+import ExifReader from 'exifreader';
+import { ref } from 'vue';
 
-function getImageExif(img) {
-  return new Promise((resolve) => {
-    img.onload = () => {
-      EXIF.getData(img, function () {
-        const tags = EXIF.getAllTags(this);
-        resolve(tags)
-        const pretty = EXIF.pretty(this);
-        console.log(pretty);
-      });
-    }
-  })
+
+function getImageExif(file: File) {
+  return ExifReader.load(file)
 }
 
 const startUpload = () => {
   console.log('开始上传');
 }
 
-const afterRead = async (files) => {
+const showJSON = ref('')
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const afterRead = async (files: any) => {
   // TODO: 校验格式，过滤出图片
   // 解析获取图片信息
-  const fileInfoList = [files].flat().map((value) => {
+  const fileInfoList = await Promise.all([files].flat().map(async (value) => {
     const { file, objectUrl } = value
-    const image = new Image()
-    image.src = objectUrl
-    const exifData = getImageExif(image)
+    const exifData = await getImageExif(file)
+    showJSON.value = JSON.stringify(exifData, null, 2)
     return {
       file,
       objectUrl,
@@ -36,14 +30,9 @@ const afterRead = async (files) => {
       date: file.lastModifiedDate.toLocaleString(),
       exifData
     }
-  })
-  fileInfoList.forEach(async (fileInfo) => {
-    const { exifData, ...rest } = fileInfo
-    console.log(await exifData);
-    console.log(rest);
-  })
+  }))
+  console.log(fileInfoList);
   // 加入上传预览列表
-  // console.log(fileInfoList);
   startUpload();
 }
 
@@ -56,15 +45,13 @@ const afterRead = async (files) => {
       <van-uploader :after-read="afterRead" multiple>
         <van-button icon="plus" type="primary">上传文件</van-button>
       </van-uploader>
-      <HelloWorld msg="You did it!" />
-      <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/about">About</RouterLink>
-      </nav>
+
     </div>
   </header>
 
-  <RouterView />
+  <pre>
+    {{ showJSON }}
+  </pre>
 </template>
 
 <style scoped>
