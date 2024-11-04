@@ -1,41 +1,62 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
-import ExifReader from 'exifreader';
-import { ref } from 'vue';
-
+import ExifReader from 'exifreader'
+import { ref } from 'vue'
+import { addFileInfo } from './service';
+import { generateFileKey } from './lib/file';
+const showJSON = ref('')
 
 function getImageExif(file: File) {
   return ExifReader.load(file)
 }
 
-const startUpload = () => {
-  console.log('开始上传');
+const startUpload = async (values: any) => {
+  for (const value of values) {
+    const { exif, lastModified, file } = value
+    let name = file.name
+    name = name.replace(/\s+/g, '_') // 去除空格
+    const info = {
+      key: generateFileKey(value),
+      name,
+      lastModified,
+      exif,
+      size: file.size,
+      type: file.type,
+    }
+    showJSON.value = JSON.stringify(info, null, 2)
+    addFileInfo(info)
+  }
+  // 加入上传列表
+  // 遍历上传
+  // key 生成（图片日期），
+  // 获取token
+
+  // 上传中状态修改
+  // 上传结果状态修改
+  // 上传完成记录数据
+  // 展示列表更新
 }
 
-const showJSON = ref('')
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const afterRead = async (files: any) => {
   // TODO: 校验格式，过滤出图片
   // 解析获取图片信息
-  const fileInfoList = await Promise.all([files].flat().map(async (value) => {
-    const { file, objectUrl } = value
-    const exifData = await getImageExif(file)
-    showJSON.value = JSON.stringify(exifData, null, 2)
-    return {
-      file,
-      objectUrl,
-      name: file.name,
-      lastModified: file.lastModified,
-      date: file.lastModifiedDate.toLocaleString(),
-      exifData
-    }
-  }))
-  console.log(fileInfoList);
-  // 加入上传预览列表
-  startUpload();
-}
+  const fileInfoList = await Promise.all(
+    [files].flat().map(async value => {
+      const { file, objectUrl } = value
+      const exif = await getImageExif(file)
 
+      return {
+        file,
+        objectUrl,
+        name: file.name,
+        lastModified: file.lastModified,
+        date: file.lastModifiedDate,
+        exif,
+      }
+    }),
+  )
+  // TODO：加入上传预览列表
+  startUpload(fileInfoList)
+}
 </script>
 
 <template>
@@ -45,7 +66,6 @@ const afterRead = async (files: any) => {
       <van-uploader :after-read="afterRead" multiple>
         <van-button icon="plus" type="primary">上传文件</van-button>
       </van-uploader>
-
     </div>
   </header>
 
