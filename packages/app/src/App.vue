@@ -3,6 +3,7 @@ import ExifReader from 'exifreader'
 import { ref } from 'vue'
 import { addFileInfo } from './service';
 import { generateFileKey } from './lib/file';
+
 const showJSON = ref('')
 
 function getImageExif(file: File) {
@@ -22,6 +23,13 @@ const startUpload = async (values: any) => {
       size: file.size,
       type: file.type,
     }
+    // 加入待上传列表，同时预览
+    //  待上传展示列表用computed 过滤
+    // 触发上传
+    //  上传完修改状态，闭包 通过key 遍历修改状态
+    //  数据落库
+    //  正式列表数据更新
+    //  正式列表展示使用 computed 进行groupBy分组
     showJSON.value = JSON.stringify(info, null, 2)
     addFileInfo(info)
   }
@@ -54,86 +62,46 @@ const afterRead = async (files: any) => {
       }
     }),
   )
-  // TODO：加入上传预览列表
   startUpload(fileInfoList)
+}
+
+const previewImage = (idx: number) => {
+  // TODO: 图片预览
+  // showImagePreview({
+  //   images: [
+  //     'https://fastly.jsdelivr.net/npm/@vant/assets/apple-1.jpeg',
+  //     'https://fastly.jsdelivr.net/npm/@vant/assets/apple-2.jpeg',
+  //   ],
+  //   startPosition: idx,
+  // });
 }
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
-    <div class="wrapper">
-      <van-uploader :after-read="afterRead" multiple>
-        <van-button icon="plus" type="primary">上传文件</van-button>
-      </van-uploader>
-    </div>
-  </header>
-
+  <div class="wrapper">
+    <!-- 待上传列表 -->
+    <!-- 正常列表 -->
+    <van-grid square>
+      <van-grid-item v-for="value in 100" :key="value">
+        <van-image @click="previewImage(value)" fit="cover" position="center" width="100%" height="100%" lazy-load
+          src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg">
+          <template v-slot:loading>
+            <van-loading type="spinner" size="20" />
+          </template>
+        </van-image>
+      </van-grid-item>
+    </van-grid>
+  </div>
+  <!-- <van-uploader :after-read="afterRead" multiple>
+    <van-button icon="plus" type="primary">上传文件</van-button>
+  </van-uploader>
   <pre>
     {{ showJSON }}
-  </pre>
+  </pre> -->
 </template>
 
 <style scoped>
-header {
-  line-height: 1.5;
-  max-height: 100vh;
-}
-
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-nav {
-  width: 100%;
-  font-size: 12px;
-  text-align: center;
-  margin-top: 2rem;
-}
-
-nav a.router-link-exact-active {
-  color: var(--color-text);
-}
-
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
-}
-
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
-}
-
-nav a:first-of-type {
-  border: 0;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  nav {
-    text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
-
-    padding: 1rem 0;
-    margin-top: 1rem;
-  }
+.wrapper :deep(.van-grid-item__content) {
+  padding: 0;
 }
 </style>
