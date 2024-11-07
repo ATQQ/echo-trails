@@ -5,8 +5,7 @@ export function generateFileKey(fileInfo: {
   lastModified: number;
   date: Date;
   exifData: ExifReader.Tags;
-}){
-  console.log(fileInfo);
+}) {
   // 年-月-日/时分/上传时间-文件名
   const year = fileInfo.date.getFullYear();
   const month = (fileInfo.date.getMonth() + 1).toString().padStart(2, '0');
@@ -14,5 +13,6 @@ export function generateFileKey(fileInfo: {
   const hour = fileInfo.date.getHours().toString().padStart(2, '0');
   const minute = fileInfo.date.getMinutes().toString().padStart(2, '0');
   const uploadTime = new Date().getTime()
-  return `${year}-${month}-${day}/${hour}-${minute}/${uploadTime}-${fileInfo.name}`
+
+  return `${import.meta.env.VITE_S3_PREFIX}/${year}-${month}-${day}/${hour}-${minute}/${uploadTime}-${fileInfo.name}`
 }

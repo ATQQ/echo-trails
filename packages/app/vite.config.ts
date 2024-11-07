@@ -16,6 +16,13 @@ export default defineConfig({
       resolvers: [VantResolver()],
     }),
   ],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern'
+      }
+    }
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

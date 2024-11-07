@@ -16,9 +16,16 @@ const s3Client = new S3Client({
 
 export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.get('upload/token', async (ctx) => {
+    const key = ctx.req.query('key')
+    if (!key) {
+      return ctx.json({
+        code: 1,
+        message: 'key is required'
+      })
+    }
     const putCmd = new PutObjectCommand({
       Bucket: process.env.S3_BUCKET,
-      Key: 'test/abc'
+      Key: key
     });
     //获取签名
     const url = await getSignedUrl(s3Client, putCmd, { expiresIn: 3600 })

@@ -5,8 +5,10 @@ export function getUploadUrl(key: string) {
   return api
     .get<{
       url: string
+      code: number
+      message?: string
     }>('file/upload/token', {
-      searchParams:{
+      searchParams: {
         key
       }
     })
@@ -23,14 +25,26 @@ export function addFileInfo(body: {
   lastModified: number,
   size: number,
   type: string,
-}){
-  return api.post('file/add/info',{
+}) {
+  return api.post('file/add/info', {
     json: body
-  })
+  }).json()
 }
 
 export function uploadFile(file: File, url: string) {
   return ky.put(url, {
     body: file
   })
+}
+
+export function getPhotos(page: number, pageSize: number): Promise<any[]> {
+  return api.get('photo/list', {
+    searchParams: {
+      page,
+      pageSize
+    }
+  }).json()
+    .then((v: any) => {
+      return v.data
+    })
 }
