@@ -11,11 +11,11 @@ export async function initConnect() {
 export async function exec<T extends (...args: any[]) => any>(fn: T) {
   const closeConnection = await initConnect();
   try {
-    const result = await fn();
+    const result: ReturnType<T> = await fn();
+    await closeConnection();
     return result;
   } catch (error) {
     console.error(error);
   }
   await closeConnection();
-  return
 }

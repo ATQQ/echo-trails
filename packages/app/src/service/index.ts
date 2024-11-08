@@ -38,7 +38,7 @@ export function uploadFile(file: File, url: string) {
 }
 
 export function getPhotos(page: number, pageSize: number): Promise<any[]> {
-  return api.get('photo/list', {
+  return api.get('file/photo/list', {
     searchParams: {
       page,
       pageSize

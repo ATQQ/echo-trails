@@ -1,17 +1,34 @@
 import { Hono } from 'hono'
-import { basicAuth } from 'hono/basic-auth'
+import { bearerAuth } from 'hono/bearer-auth'
 import mountedRouters from './routers'
+// import { compress } from 'hono/compress'
+import { users } from './users'
+
+declare module 'hono' {
+  // can be used with (c: Context)
+  interface ContextVariableMap {
+    username: string;
+  }
+}
 
 const app = new Hono().basePath('/api')
 
+// app.use(compress())
+
 // 简单BA鉴权
-const { BASIC_AUTH_USERNAME = 'atqq', BASIC_AUTH_PASSWORD = 'atqq', BASIC_AUTH_REALM } = process.env
 app.use(
   '*',
-  basicAuth({
-    username: BASIC_AUTH_USERNAME,
-    password: BASIC_AUTH_PASSWORD,
-    realm: BASIC_AUTH_REALM,
+  bearerAuth({
+    verifyToken: async (token, c) => {
+      Object.entries(users).some(([name, _token]) => {
+        const matched = _token === token
+        if (matched) {
+          c.set('username', name)
+        }
+        return matched
+      })
+      return [process.env.AUTH_TOKEN].includes(token)
+    },
   }),
 )
 

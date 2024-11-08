@@ -1,5 +1,6 @@
 import * as mongoose from 'mongoose';
 const photoSchema = new mongoose.Schema({
+  username: { type: String, required: true },
   key: { type: String, required: true },
   uploadDate: { type: Date, required: true },
   lastModified: { type: Date, required: true },
@@ -10,6 +11,7 @@ const photoSchema = new mongoose.Schema({
   fileType: { type: String, required: true },
   type: { type: String, required: true },
   bucket: { type: String, required: false },
+  deleted: { type: Boolean, required: false, default: false },
   exif: {
     type: mongoose.Schema.Types.Mixed,
     required: true,
