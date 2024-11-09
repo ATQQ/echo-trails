@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
-import { reactive, computed, watch, toRefs } from 'vue'
+import { reactive, computed, watch, toRefs, ref } from 'vue'
 import { addFileInfo, getPhotos, getUploadUrl, uploadFile } from './../service';
 import { generateFileKey } from '../lib/file';
 import { UploadStatus } from '../constants/index'
-import { showImagePreview } from 'vant';
 import { useScroll } from '@vueuse/core'
+import PreviewImage from '@/components/PreviewImage.vue';
 
 const { arrivedState } = useScroll(window, {
   offset: { bottom: 200 },
@@ -155,12 +155,13 @@ const afterRead = async (files: any) => {
   startUpload(fileInfoList)
 }
 
+const showPreview = ref(false)
+
+const startPosition = ref(0)
+
 const previewImage = (idx: number) => {
-  // TODO: 图片预览优化
-  showImagePreview({
-    images: photoList.map(v => v.preview),
-    startPosition: idx,
-  });
+  showPreview.value = true
+  startPosition.value = idx
 }
 </script>
 
@@ -198,8 +199,14 @@ const previewImage = (idx: number) => {
       </van-uploader>
     </div>
   </main>
+  <PreviewImage v-model:show="showPreview" :images="photoList" :start="startPosition" />
 </template>
 <style scoped lang="scss">
+h1,
+h2 {
+  padding-left: 10px;
+}
+
 h1 {
   font-weight: lighter;
   margin-bottom: 0;

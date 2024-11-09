@@ -93,7 +93,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         deleted: false
       }).skip(skip)
         .limit(+pageSize)
-        .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType'])
+        .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type'])
         .sort({
           lastModified: -1
         })
@@ -111,6 +111,34 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
     return ctx.json({
       data
+    })
+  })
+
+
+  router.put('photo/update/description', async (ctx) => {
+    const { id, description } = await ctx.req.json()
+    const username = ctx.get('username')
+
+    await exec(async () => {
+      const photo = await Photo.findById(id)
+      if (!photo) {
+        return ctx.json({
+          code: 1,
+          message: 'photo not found'
+        })
+      }
+      if (photo.username !== username) {
+        return ctx.json({
+          code: 1,
+          message: 'permission denied'
+        })
+      }
+      photo.description = description
+      await photo.save()
+    })
+    return ctx.json({
+      code: 0,
+      message: 'update success'
     })
   })
 

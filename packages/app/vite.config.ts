@@ -11,7 +11,7 @@ import { VantResolver } from 'unplugin-vue-components/resolvers'
 export default defineConfig({
   plugins: [
     vue(),
-    vueDevTools(),
+    // vueDevTools(),
     Components({
       resolvers: [VantResolver()],
     }),

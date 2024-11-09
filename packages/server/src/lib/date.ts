@@ -13,5 +13,5 @@ export function formatDateTitle(date: Date) {
   if (isThisYear) {
     return dayjs(date).format('MM月DD日');
   }
-  return dayjs(date).format('YYYY年MM-DD');
+  return dayjs(date).format('YYYY年MM月DD日');
 }

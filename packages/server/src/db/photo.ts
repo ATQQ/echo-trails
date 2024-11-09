@@ -12,6 +12,7 @@ const photoSchema = new mongoose.Schema({
   type: { type: String, required: true },
   bucket: { type: String, required: false },
   deleted: { type: Boolean, required: false, default: false },
+  description: { type: String, required: false, default: '' },
   exif: {
     type: mongoose.Schema.Types.Mixed,
     required: true,

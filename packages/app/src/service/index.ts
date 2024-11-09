@@ -37,7 +37,7 @@ export function uploadFile(file: File, url: string) {
   })
 }
 
-export function getPhotos(page: number, pageSize: number){
+export function getPhotos(page: number, pageSize: number) {
   return api.get<ServerResponse<Photo[]>>('file/photo/list', {
     searchParams: {
       page,
@@ -47,4 +47,13 @@ export function getPhotos(page: number, pageSize: number){
     .then((v) => {
       return v.data
     })
+}
+
+export function updateDescription(id: string, description: string) {
+  return api.put<ServerResponse<Photo>>('file/photo/update/description', {
+    json: {
+      id,
+      description
+    }
+  })
 }
