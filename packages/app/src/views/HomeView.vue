@@ -25,6 +25,15 @@ const pageInfo = reactive({
 const photoList = reactive<Photo[]>([])
 
 const existPhotoMap = new Map<string, Photo>()
+
+const addPhoto2List = (photo: Photo) => {
+  if (!existPhotoMap.has(photo.key)) {
+    existPhotoMap.set(photo.key, photo)
+    photoList.push(photo)
+    return true
+  }
+  return false
+}
 const loadNext = () => {
   if (pageInfo.lock) return
   pageInfo.lock = true
@@ -33,10 +42,8 @@ const loadNext = () => {
     let addCount = 0
     // 数据去重
     res.forEach(v => {
-      if (!existPhotoMap.has(v.key)) {
-        existPhotoMap.set(v.key, v)
-        photoList.push(v)
-        addCount++
+      if (addPhoto2List(v)) {
+        addCount += 1
       }
     })
     if (addCount === pageInfo.pageSize) {
@@ -51,8 +58,6 @@ const loadNext = () => {
 
 watch(bottom, () => {
   if (bottom.value) {
-    // TODO: bug
-    console.log('到底了');
     loadNext()
   }
 })
@@ -118,8 +123,9 @@ const startUpload = async (values: any) => {
           //  数据落库
           const result = await addFileInfo(info)
           //  正式列表数据更新
-          photoList.push(result)
-          photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
+          if (addPhoto2List(result)) {
+            photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
+          }
         })
         .catch(() => {
           wrapperItem.status = UploadStatus.ERROR
