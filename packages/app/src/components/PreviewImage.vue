@@ -34,7 +34,7 @@
             </transition>
           </div>
         </transition>
-        <!-- 底部操作栏 -->
+        <!-- 编辑description -->
         <transition name="van-fade">
           <div v-show="showMoreOperate">
             <div v-show="!editMode" class="edit-btn icon-btn" @click="handleEditDescription">
@@ -48,6 +48,20 @@
             </div>
           </div>
         </transition>
+        <!-- 底部操作栏 -->
+        <transition name="van-slide-up">
+          <footer v-show="showMoreOperate" class="cover-footer">
+            <div class="footer-item" @click.stop="handleUpdateLike">
+              <van-icon :color="activeImage.isLiked ? '#f53f3f' : '#000'"
+                :name="activeImage.isLiked ? 'like' : 'like-o'" size="22" />
+              <span class="title">我喜欢</span>
+            </div>
+            <div class="footer-item">
+              <van-icon @click.stop="handleUpdateLike" name="flag-o" size="22" />
+              <span class="title">添加相册</span>
+            </div>
+          </footer>
+        </transition>
       </template>
     </van-image-preview>
   </div>
@@ -55,7 +69,7 @@
 
 <script lang="ts" setup>
 import { formatSize } from '@/lib/file';
-import { updateDescription } from '@/service';
+import { updateDescription, updateLike } from '@/service';
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import { showToast } from 'vant';
@@ -138,6 +152,12 @@ const handleSaveDescription = () => {
     showToast('更新成功!')
   })
 }
+
+const handleUpdateLike = () => {
+  updateLike(activeImage.value._id).then(() => {
+    activeImage.value.isLiked = !activeImage.value.isLiked
+  })
+}
 </script>
 
 <style lang="scss">
@@ -172,7 +192,7 @@ const handleSaveDescription = () => {
 
 .cover-header {
   padding: 10px;
-  transition: all 0.3s ease;
+  transition: all 0.5s ease;
   background-color: var(--van-image-preview-overlay-background);
   position: relative;
 
@@ -224,11 +244,37 @@ const handleSaveDescription = () => {
 }
 
 .description-info {
+  transition: all 0.5s ease;
   padding: var(--van-cell-vertical-padding) var(--van-cell-horizontal-padding);
   overflow: hidden;
   color: var(--van-cell-text-color);
   font-size: var(--van-cell-font-size);
   line-height: var(--van-cell-line-height);
-  background: var(--van-cell-background);
+  background: var(--van-image-preview-overlay-background);
+}
+
+.cover-footer {
+  padding: 4px;
+  transition: all 0.5s ease;
+  background-color: var(--van-image-preview-overlay-background);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+
+  .footer-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    span.title {
+      font-size: 10px;
+      margin-top: 5px;
+    }
+  }
 }
 </style>

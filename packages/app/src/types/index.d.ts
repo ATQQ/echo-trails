@@ -14,6 +14,8 @@ interface Photo {
   category: string;
   width: number;
   height: number;
+  isLiked: boolean;
+  albumId?: string[];
   description?: string;
 }
 

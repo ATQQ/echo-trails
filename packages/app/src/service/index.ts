@@ -57,3 +57,11 @@ export function updateDescription(id: string, description: string) {
     }
   })
 }
+
+export function updateLike(id: string){
+  return api.put<ServerResponse<Photo>>('file/photo/update/like', {
+    json: {
+      id
+    }
+  })
+}

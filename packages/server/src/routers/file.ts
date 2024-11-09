@@ -93,7 +93,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         deleted: false
       }).skip(skip)
         .limit(+pageSize)
-        .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type'])
+        .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId'])
         .sort({
           lastModified: -1
         })
@@ -136,6 +136,60 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       photo.description = description
       await photo.save()
     })
+    return ctx.json({
+      code: 0,
+      message: 'update success'
+    })
+  })
+
+  router.put('photo/update/like', async (ctx) => {
+    const { id } = await ctx.req.json()
+    const username = ctx.get('username')
+
+    await exec(async () => {
+      const photo = await Photo.findById(id, {
+        username
+      })
+      if (!photo) {
+        return ctx.json({
+          code: 1,
+          message: 'photo not found'
+        })
+      }
+
+      photo.isLiked = !photo.isLiked
+      await photo.save()
+    })
+
+    return ctx.json({
+      code: 0,
+      message: 'update success'
+    })
+  })
+
+  router.put('photo/update/album', async (ctx) => {
+    const { id, albumIds } = await ctx.req.json()
+    const username = ctx.get('username')
+    if (!Array.isArray(albumIds)) {
+      return ctx.json({
+        code: 1,
+        message: 'albumIds should be an array'
+      })
+    }
+    await exec(async () => {
+      const photo = await Photo.findById(id, {
+        username
+      })
+      if (!photo) {
+        return ctx.json({
+          code: 1,
+          message: 'photo not found'
+        })
+      }
+      photo.albumId = albumIds
+      await photo.save()
+    })
+
     return ctx.json({
       code: 0,
       message: 'update success'

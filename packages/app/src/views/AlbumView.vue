@@ -1,6 +1,6 @@
 <template>
   <div class="album">
-    <h1>This is an AlbumView</h1>
+    <!-- 相册列表 -->
   </div>
 </template>
 
