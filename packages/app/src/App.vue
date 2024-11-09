@@ -5,7 +5,7 @@ import FooterNav from './components/FooterNav.vue';
 <template>
   <div class="wrapper">
     <router-view v-slot="{ Component, route }">
-      <KeepAlive :include="['HomeView', 'AlbumView']">
+      <KeepAlive :include="['HomeView', 'AlbumView', 'LikeView']">
         <component :is="Component" :key="route.fullPath"></component>
       </KeepAlive>
     </router-view>

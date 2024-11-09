@@ -37,11 +37,14 @@ export function uploadFile(file: File, url: string) {
   })
 }
 
-export function getPhotos(page: number, pageSize: number) {
+export function getPhotos(page: number, pageSize: number, options:{
+  likedMode: boolean,
+}) {
   return api.get<ServerResponse<Photo[]>>('file/photo/list', {
     searchParams: {
       page,
-      pageSize
+      pageSize,
+      likedMode: options.likedMode
     }
   }).json()
     .then((v) => {

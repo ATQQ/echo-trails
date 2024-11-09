@@ -85,12 +85,14 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       })
     }
 
-    const { pageSize = 20, page = 1 } = ctx.req.query()
+    const { pageSize = 20, page = 1, likedMode } = ctx.req.query()
+    const isLiked = likedMode === 'true'
     const skip = (+page - 1) * +pageSize;
     const photos = await exec(() => {
       return Photo.find({
         username,
-        deleted: false
+        deleted: false,
+        ...(isLiked ? { isLiked } : {})
       }).skip(skip)
         .limit(+pageSize)
         .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId'])
@@ -120,19 +122,16 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const username = ctx.get('username')
 
     await exec(async () => {
-      const photo = await Photo.findById(id)
+      const photo = await Photo.findById(id, ['description'], {
+        username
+      })
       if (!photo) {
         return ctx.json({
           code: 1,
           message: 'photo not found'
         })
       }
-      if (photo.username !== username) {
-        return ctx.json({
-          code: 1,
-          message: 'permission denied'
-        })
-      }
+
       photo.description = description
       await photo.save()
     })
@@ -147,7 +146,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const username = ctx.get('username')
 
     await exec(async () => {
-      const photo = await Photo.findById(id, {
+      const photo = await Photo.findById(id, ['isLiked'], {
         username
       })
       if (!photo) {
@@ -156,7 +155,6 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
           message: 'photo not found'
         })
       }
-
       photo.isLiked = !photo.isLiked
       await photo.save()
     })

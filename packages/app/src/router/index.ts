@@ -22,6 +22,15 @@ const router = createRouter({
         componentName: 'AlbumView'
       }
     },
+    {
+      path: '/like',
+      name: 'like',
+      component: () => import('../views/LikeView.vue'),
+      meta: {
+        keepAlive: true,
+        componentName: 'LikeView'
+      }
+    },
   ],
 })
 

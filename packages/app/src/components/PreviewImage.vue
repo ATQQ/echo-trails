@@ -57,7 +57,7 @@
               <span class="title">我喜欢</span>
             </div>
             <div class="footer-item">
-              <van-icon @click.stop="handleUpdateLike" name="flag-o" size="22" />
+              <van-icon @click.stop="handleAddAlbum" name="flag-o" size="22" />
               <span class="title">添加相册</span>
             </div>
           </footer>
@@ -157,6 +157,10 @@ const handleUpdateLike = () => {
   updateLike(activeImage.value._id).then(() => {
     activeImage.value.isLiked = !activeImage.value.isLiked
   })
+}
+
+const handleAddAlbum = () => {
+  console.log('TODO：弹窗选择相册');
 }
 </script>
 

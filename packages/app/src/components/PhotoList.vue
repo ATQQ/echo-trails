@@ -1,11 +1,27 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
-import { reactive, computed, watch, toRefs, ref } from 'vue'
+import { reactive, computed, watch, toRefs, ref, onDeactivated, onActivated } from 'vue'
 import { addFileInfo, getPhotos, getUploadUrl, uploadFile } from '../service';
 import { generateFileKey } from '../lib/file';
 import { UploadStatus } from '../constants/index'
 import { useScroll } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage.vue';
+const isActive = ref(true)
+onActivated(() => {
+  // 调用时机为首次挂载
+  // 以及每次从缓存中被重新插入时
+  isActive.value = true
+})
+
+onDeactivated(() => {
+  // 在从 DOM 上移除、进入缓存
+  // 以及组件卸载时调用
+  isActive.value = false
+})
+
+const { likedMode = false } = defineProps<{
+  likedMode?: boolean
+}>()
 
 const { arrivedState } = useScroll(window, {
   offset: { bottom: 200 },
@@ -35,10 +51,13 @@ const addPhoto2List = (photo: Photo) => {
   return false
 }
 const loadNext = () => {
+  if (!isActive.value) return
   if (pageInfo.lock) return
   pageInfo.lock = true
   // 获取数据
-  getPhotos(pageInfo.pageIndex, pageInfo.pageSize).then(res => {
+  getPhotos(pageInfo.pageIndex, pageInfo.pageSize, {
+    likedMode
+  }).then(res => {
     let addCount = 0
     // 数据去重
     res.forEach(v => {
