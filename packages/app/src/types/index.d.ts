@@ -24,3 +24,13 @@ type ServerResponse<T> = {
   message?: string;
   data: T;
 }
+
+
+interface Album {
+  _id: string;
+  name: string;
+  description: string;
+  count: number;
+  cover: string;
+  style: 'large' | 'small';
+}

@@ -243,7 +243,5 @@ main {
   bottom: 60px;
   --van-button-icon-size: 1em;
   z-index: 1;
-
-  :deep(.van-uploader__input) {}
 }
 </style>

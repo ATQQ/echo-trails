@@ -68,3 +68,18 @@ export function updateLike(id: string){
     }
   })
 }
+
+
+export function loadAlbums(){
+  return api.get<ServerResponse<Album[]>>('album/list').json()
+}
+
+export function createAlbum(name: string, description: string, isLarge: boolean){
+  return api.post<ServerResponse<Album>>('album/create', {
+    json: {
+      name,
+      description,
+      isLarge
+    }
+  })
+}
