@@ -1,21 +1,28 @@
 import * as mongoose from 'mongoose';
 
-export async function initConnect() {
-  await mongoose.connect('mongodb://127.0.0.1:27017/mongoose-app');
+let timer: Timer
+let isConnected = false
 
-  return async function closeConnection() {
-    await mongoose.disconnect();
-  }
+export async function initConnect() {
+  if (isConnected) return
+  await mongoose.connect('mongodb://127.0.0.1:27017/mongoose-app');
+  isConnected = true
 }
 
 export async function exec<T extends (...args: any[]) => any>(fn: T) {
-  const closeConnection = await initConnect();
+  await initConnect();
+  if (timer) clearTimeout(timer);
+
   try {
     const result: ReturnType<T> = await fn();
-    await closeConnection();
     return result;
   } catch (error) {
     console.error(error);
+  } finally {
+    timer = setTimeout(async () => {
+      await mongoose.disconnect();
+      isConnected = false
+    }, 1000 * 10);
   }
-  await closeConnection();
+
 }

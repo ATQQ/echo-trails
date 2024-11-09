@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
-import { reactive, computed, onMounted, ref, watch } from 'vue'
+import { reactive, computed, ref, watch } from 'vue'
 import { addFileInfo, getPhotos, getUploadUrl, uploadFile } from './../service';
 import { generateFileKey } from '../lib/file';
 import { UploadStatus } from '../constants/index'
@@ -111,19 +111,11 @@ const startUpload = async (values: any) => {
           const result = await addFileInfo(info)
           //  正式列表数据更新
           photoList.push(result)
+          photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
         })
         .catch(() => {
           wrapperItem.status = UploadStatus.ERROR
         })
-      // setTimeout(async () => {
-      //   //  上传完修改状态
-      //   wrapperItem.status = UploadStatus.SUCCESS
-      //   //  数据落库
-      //   const result = await addFileInfo(info)
-      //   //  正式列表数据更新
-      //   photoList.push(result)
-      // }, 1000)
-
     })
 
   }

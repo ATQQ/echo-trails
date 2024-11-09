@@ -11,3 +11,9 @@ interface Photo {
   size: number;
   category: string;
 }
+
+type ServerResponse<T> = {
+  code?: number;
+  message?: string;
+  data: T;
+}

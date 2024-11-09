@@ -26,9 +26,9 @@ export function addFileInfo(body: {
   size: number,
   type: string,
 }) {
-  return api.post('file/add/info', {
+  return api.post<ServerResponse<Photo>>('file/add/info', {
     json: body
-  }).json()
+  }).json().then(((v: any) => v.data))
 }
 
 export function uploadFile(file: File, url: string) {
@@ -37,14 +37,14 @@ export function uploadFile(file: File, url: string) {
   })
 }
 
-export function getPhotos(page: number, pageSize: number): Promise<any[]> {
-  return api.get('file/photo/list', {
+export function getPhotos(page: number, pageSize: number){
+  return api.get<ServerResponse<Photo[]>>('file/photo/list', {
     searchParams: {
       page,
       pageSize
     }
   }).json()
-    .then((v: any) => {
+    .then((v) => {
       return v.data
     })
 }

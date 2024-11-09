@@ -4,9 +4,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Photo } from "../db/photo";
 import { exec } from "../db";
-import { createCoverLink, createFileLink, createPreviewLink } from "../lib/bitiful";
-import { formatDateTitle } from "../lib/date";
-
+import photoService from "../service/photoService";
 
 const s3Client = new S3Client({
   endpoint: "https://s3.bitiful.net",
@@ -69,9 +67,11 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     await exec(async () => {
       await photo.save()
     })
+    const addData = await photoService.parsePhoto(photo)
 
     return ctx.json({
-      code: 0
+      code: 0,
+      data: addData
     })
   })
 
@@ -106,14 +106,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       })
     }
     const data = await Promise.all(photos.map(async (photo) => {
-      return {
-        ...photo.toJSON(),
-        // 生成链接
-        url: await createFileLink(photo.key, s3Client),
-        cover: await createCoverLink(photo.key, s3Client),
-        preview: await createPreviewLink(photo.key, s3Client),
-        category: formatDateTitle(photo.lastModified)
-      }
+      return await photoService.parsePhoto(photo)
     }))
 
     return ctx.json({
