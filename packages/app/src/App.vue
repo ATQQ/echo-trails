@@ -16,6 +16,6 @@ import FooterNav from './components/FooterNav.vue';
 
 <style scoped>
 .wrapper {
-  height: 100vh;
+  background-color: #fff;
 }
 </style>

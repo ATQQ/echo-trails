@@ -1,19 +1,16 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
-import { reactive, computed, ref, watch } from 'vue'
+import { reactive, computed, watch, toRefs } from 'vue'
 import { addFileInfo, getPhotos, getUploadUrl, uploadFile } from './../service';
 import { generateFileKey } from '../lib/file';
 import { UploadStatus } from '../constants/index'
 import { showImagePreview } from 'vant';
 import { useScroll } from '@vueuse/core'
 
-const el = ref<HTMLElement | null>(null)
-const { arrivedState } = useScroll(el, {
-  offset: {
-    bottom: 0
-  }
+const { arrivedState } = useScroll(window, {
+  offset: { bottom: 200 },
 })
-
+const { bottom } = toRefs(arrivedState)
 
 const waitUploadList = reactive<{ key: string, url: string, status: UploadStatus }[]>([])
 
@@ -27,22 +24,33 @@ const pageInfo = reactive({
 
 const photoList = reactive<Photo[]>([])
 
+const existPhotoMap = new Map<string, Photo>()
 const loadNext = () => {
   if (pageInfo.lock) return
   pageInfo.lock = true
   // 获取数据
   getPhotos(pageInfo.pageIndex, pageInfo.pageSize).then(res => {
-    // TODO：数据去重
-    // TODO：数据有更新，不够时，页码重新计算
-    pageInfo.pageIndex += 1
-    photoList.push(...res)
+    let addCount = 0
+    // 数据去重
+    res.forEach(v => {
+      if (!existPhotoMap.has(v.key)) {
+        existPhotoMap.set(v.key, v)
+        photoList.push(v)
+        addCount++
+      }
+    })
+    if (addCount === pageInfo.pageSize) {
+      // 数据不够时，不新增页码
+      pageInfo.pageIndex += 1
+    }
+
   }).finally(() => {
     pageInfo.lock = false
   })
 }
 
-watch(() => arrivedState.bottom, () => {
-  if (arrivedState.bottom) {
+watch(bottom, () => {
+  if (bottom.value) {
     // TODO: bug
     console.log('到底了');
     loadNext()
@@ -122,7 +130,6 @@ const startUpload = async (values: any) => {
 }
 
 const afterRead = async (files: any) => {
-  // TODO: 校验格式，过滤出图片
   // 解析获取图片信息
   const fileInfoList = await Promise.all(
     [files].flat().map(async value => {
@@ -143,7 +150,7 @@ const afterRead = async (files: any) => {
 }
 
 const previewImage = (idx: number) => {
-  // TODO: 图片预览
+  // TODO: 图片预览优化
   showImagePreview({
     images: photoList.map(v => v.preview),
     startPosition: idx,
@@ -152,7 +159,7 @@ const previewImage = (idx: number) => {
 </script>
 
 <template>
-  <main ref="el">
+  <main>
     <h1>照片</h1>
     <!-- 待上传列表 -->
     <van-grid square>
@@ -178,16 +185,7 @@ const previewImage = (idx: number) => {
         </van-grid-item>
       </van-grid>
     </template>
-    <!-- <van-grid square>
-      <van-grid-item v-for="(item, idx) in showPhotoList" :key="item.key">
-        <van-image @click="previewImage(idx)" fit="cover" position="center" width="100%" height="100%" lazy-load
-          :src="item.cover">
-          <template v-slot:loading>
-            <van-loading type="spinner" size="20" />
-          </template>
-        </van-image>
-      </van-grid-item>
-    </van-grid> -->
+    <!-- 上传 -->
     <div class="upload-container">
       <van-uploader :after-read="afterRead" multiple>
         <van-button icon="plus" type="primary" round></van-button>
@@ -210,7 +208,7 @@ main :deep(.van-grid-item__content) {
 }
 
 main {
-  margin-bottom: 60px;
+  padding-bottom: 60px;
   background-color: #fff;
 }
 
