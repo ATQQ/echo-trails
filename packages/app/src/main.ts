@@ -1,5 +1,6 @@
 import 'vant/es/toast/style';
 import 'vant/es/image-preview/style'
+import 'vant/es/notify/style'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { Lazyload, ImagePreview } from 'vant';

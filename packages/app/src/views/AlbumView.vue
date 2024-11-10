@@ -1,10 +1,23 @@
 <script lang="ts" setup>
+import { createAlbum, getAlbums } from '@/service';
+import { showToast } from 'vant';
 import { ref, onMounted, reactive } from 'vue'
 
-const albumList = ref<any[]>([])
+const albumList = reactive<{
+  large: Album[],
+  small: Album[]
+}>({
+  large: [],
+  small: []
+})
+
+const showEmpty = ref(false)
 
 const loadAlbum = () => {
-
+  getAlbums().then((res) => {
+    Object.assign(albumList, res)
+    showEmpty.value = !albumList.large?.length && !albumList.small?.length
+  })
 }
 
 onMounted(() => {
@@ -19,58 +32,46 @@ const addData = reactive({
   isLarge: false,
 })
 const onSubmit = () => {
-
+  createAlbum(addData.name, addData.description, addData.isLarge).then(() => {
+    showToast('创建成功')
+    showAddModal.value = false
+    addData.name = ''
+    addData.description = ''
+    addData.isLarge = false
+    loadAlbum()
+  })
 }
 </script>
 
 <template>
   <div class="album">
     <h1>相册</h1>
+    <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
     <!-- 大卡片 -->
     <van-grid :column-num="1" :border="false">
-      <van-grid-item>
+      <van-grid-item v-for="album in albumList.large" :key="album._id">
         <div class="large-card">
-          <van-image fit="cover" position="center" width="100%" height="100%" lazy-load
-            src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg">
-            <template v-slot:loading>
-              <van-loading type="spinner" size="20" />
-            </template>
+          <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
           </van-image>
           <!-- 标题和描述 -->
-          <div class="title-desc">
-            <h2>真不错噢</h2>
-            <p>描述信息噢</p>
+          <div class="title-desc" :class="{
+            noCover: !album.cover
+          }">
+            <h2>{{ album.name }}</h2>
+            <p>{{ album.description }}</p>
           </div>
         </div>
       </van-grid-item>
     </van-grid>
     <!-- 小卡片分类 -->
     <van-grid :gutter="10" :column-num="2" :border="false">
-      <van-grid-item>
+      <van-grid-item v-for="album in albumList.small" :key="album._id">
         <div class="small-card">
-          <van-image fit="cover" position="center" width="100%" height="100%" lazy-load
-            src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg">
-            <template v-slot:loading>
-              <van-loading type="spinner" size="20" />
-            </template>
+          <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
           </van-image>
           <div class="title-desc">
-            <h2>真不错噢</h2>
-            <p>123</p>
-          </div>
-        </div>
-      </van-grid-item>
-      <van-grid-item>
-        <div class="small-card">
-          <van-image fit="cover" position="center" width="100%" height="100%" lazy-load
-            src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg">
-            <template v-slot:loading>
-              <van-loading type="spinner" size="20" />
-            </template>
-          </van-image>
-          <div class="title-desc">
-            <h2>真不错噢</h2>
-            <p>132</p>
+            <h2>{{ album.name }}</h2>
+            <p>{{ album.count }}</p>
           </div>
         </div>
       </van-grid-item>
@@ -84,10 +85,12 @@ const onSubmit = () => {
     :style="{ height: '50%' }">
     <van-form @submit="onSubmit">
       <van-cell-group inset>
-        <van-field v-model="addData.name" name="相册名" label="相册名" placeholder="请输入相册名"
-          :rules="[{ required: true, message: '请填写相册名' }]" />
-        <van-field v-model="addData.description" show-word-limit maxlength="100" type="textarea" name="描述" label="描述"
-          placeholder="描述" />
+        <van-field required v-model="addData.name" name="相册名" label="相册名" placeholder="请输入相册名"
+          :rules="[{ required: true, message: '请填写相册名' }]">
+          <template #left-icon></template>
+        </van-field>
+        <van-field v-model="addData.description" autosize show-word-limit rows="5" maxlength="100" type="textarea"
+          name="描述" label="描述" placeholder="描述" />
         <van-field name="switch" label="大卡片">
           <template #input>
             <van-switch v-model="addData.isLarge" />
@@ -119,16 +122,17 @@ h1 {
   border-radius: 10px;
   overflow: hidden;
   height: 100vw;
+  width: 100%;
 
   .title-desc {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
+    color: #fff;
 
     h2,
     p {
-      color: #fff;
       padding-left: 20px;
     }
 
@@ -139,6 +143,10 @@ h1 {
     p {
       margin-top: 0;
     }
+  }
+
+  .noCover {
+    color: #000;
   }
 }
 

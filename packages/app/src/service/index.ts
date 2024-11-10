@@ -37,7 +37,7 @@ export function uploadFile(file: File, url: string) {
   })
 }
 
-export function getPhotos(page: number, pageSize: number, options:{
+export function getPhotos(page: number, pageSize: number, options: {
   likedMode: boolean,
 }) {
   return api.get<ServerResponse<Photo[]>>('file/photo/list', {
@@ -61,7 +61,7 @@ export function updateDescription(id: string, description: string) {
   })
 }
 
-export function updateLike(id: string){
+export function updateLike(id: string) {
   return api.put<ServerResponse<Photo>>('file/photo/update/like', {
     json: {
       id
@@ -69,12 +69,24 @@ export function updateLike(id: string){
   })
 }
 
-
-export function loadAlbums(){
-  return api.get<ServerResponse<Album[]>>('album/list').json()
+export function updatePhotoAlbum(id: string, albumIds: string[]) {
+  return api.put<ServerResponse<Photo>>('file/photo/update/album', {
+    json: {
+      id,
+      albumIds
+    }
+  })
 }
 
-export function createAlbum(name: string, description: string, isLarge: boolean){
+
+export function getAlbums() {
+  return api.get<ServerResponse<{
+    large: Album[],
+    small: Album[]
+  }>>('album/list').json().then((v) => v.data)
+}
+
+export function createAlbum(name: string, description: string, isLarge: boolean) {
   return api.post<ServerResponse<Album>>('album/create', {
     json: {
       name,

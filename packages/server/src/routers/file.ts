@@ -1,20 +1,11 @@
 import { BlankEnv, BlankSchema } from "hono/types";
 import { Hono } from 'hono'
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Photo } from "../db/photo";
 import { exec } from "../db";
 import photoService from "../service/photoService";
-
-const s3Client = new S3Client({
-  endpoint: "https://s3.bitiful.net",
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY,
-    secretAccessKey: process.env.S3_SECRET_KEY,
-  },
-  region: 'ap-northeast-1'
-});
-
+import { s3Client } from "../lib/bitiful";
 
 export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.get('upload/token', async (ctx) => {
@@ -175,7 +166,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       })
     }
     await exec(async () => {
-      const photo = await Photo.findById(id, {
+      const photo = await Photo.findById(id, ['albumId'], {
         username
       })
       if (!photo) {

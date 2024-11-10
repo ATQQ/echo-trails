@@ -57,22 +57,47 @@
               <span class="title">我喜欢</span>
             </div>
             <div class="footer-item">
-              <van-icon @click.stop="handleAddAlbum" name="flag-o" size="22" />
+              <van-icon @click.stop="handleAddAlbum" name="add-o" size="22" />
               <span class="title">添加相册</span>
             </div>
           </footer>
         </transition>
       </template>
     </van-image-preview>
+
+    <!-- 选择相册 -->
+    <van-action-sheet v-model:show="showAlbumSelect" title="添加到相册">
+      <van-empty v-if="!albumList.length" description="空空如也，快去创建吧" />
+      <div v-else class="album-list">
+        <van-checkbox-group v-model="selectedAlbums">
+          <van-grid :gutter="10" :column-num="2" :border="false">
+            <van-grid-item v-for="(album, idx) in albumList" :key="album._id">
+              <div class="small-card" @click.stop.prevent="toggleSelectAlbum(idx)">
+                <div class="cover">
+                  <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover" />
+                  <van-checkbox :ref="el => checkboxRefs[idx] = el" :name="album._id" class="selected" />
+                </div>
+                <div class="title-desc">
+                  <h2>{{ album.name }}</h2>
+                  <p>{{ album.count }}</p>
+                </div>
+              </div>
+            </van-grid-item>
+          </van-grid>
+        </van-checkbox-group>
+      </div>
+    </van-action-sheet>
+    <van-floating-bubble @click="handleSaveAlbumSelect" v-if="showAlbumSelect" :gap="16" class="save-album-select"
+      axis="xy" icon="success" magnetic="x" />
   </div>
 </template>
 
 <script lang="ts" setup>
 import { formatSize } from '@/lib/file';
-import { updateDescription, updateLike } from '@/service';
+import { getAlbums, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
-import { showToast } from 'vant';
+import { showNotify, showToast } from 'vant';
 import { computed, ref } from 'vue';
 
 const { images = [], start = 0 } = defineProps<{
@@ -159,8 +184,35 @@ const handleUpdateLike = () => {
   })
 }
 
-const handleAddAlbum = () => {
-  console.log('TODO：弹窗选择相册');
+const albumList = ref<Album[]>([])
+const showAlbumSelect = ref(false)
+const loadAlbum = () => {
+  return getAlbums().then((res) => {
+    const newValue = [...res.large, ...res.small]
+    albumList.value = newValue
+  })
+}
+const selectedAlbums = ref<string[]>([])
+const checkboxRefs = ref<any[]>([])
+const toggleSelectAlbum = (idx: number) => {
+  checkboxRefs.value[idx].toggle()
+}
+const handleAddAlbum = async () => {
+  showAlbumSelect.value = true
+  if (activeImage.value.albumId?.length) {
+    selectedAlbums.value = [...activeImage.value.albumId]
+  } else {
+    selectedAlbums.value = []
+  }
+  loadAlbum()
+}
+
+const handleSaveAlbumSelect = async () => {
+  const albumIds = selectedAlbums.value
+  await updatePhotoAlbum(activeImage.value._id, albumIds)
+  activeImage.value.albumId = albumIds
+  showAlbumSelect.value = false
+  showNotify({ type: 'success', message: '更改成功' });
 }
 </script>
 
@@ -178,6 +230,13 @@ const handleAddAlbum = () => {
 .zoom-enter-to,
 .zoom-leave {
   transform: scale(1);
+}
+
+.save-album-select {
+  z-index: 3000 !important;
+  --van-floating-bubble-icon-size: 20;
+  --van-floating-bubble-size: 30px;
+  --van-floating-bubble-background: var(--van-success-color);
 }
 </style>
 
@@ -278,6 +337,48 @@ const handleAddAlbum = () => {
     span.title {
       font-size: 10px;
       margin-top: 5px;
+    }
+  }
+}
+
+.album-list {
+  // padding: 10px;
+}
+
+.small-card {
+  overflow: hidden;
+
+  :deep(.van-image) {
+    border-radius: 10px;
+    height: 40vw !important;
+    width: 40vw !important;
+    overflow: hidden;
+  }
+
+  .title-desc {
+    h2 {
+      margin: 2px 0;
+      color: #000;
+      font-size: 14px;
+      font-weight: normal;
+    }
+
+    p {
+      margin-top: 0;
+      font-size: 10px;
+      color: #666;
+      font-weight: lighter;
+    }
+  }
+
+  .cover {
+    position: relative;
+
+    .selected {
+      position: absolute;
+
+      right: 10px;
+      bottom: 10px;
     }
   }
 }

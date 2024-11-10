@@ -1,9 +1,30 @@
-import { Album } from "../db/album";
+import { exec } from "../db";
+import { Album, AlbumStyle } from "../db/album";
 import type { Document } from 'mongoose'
+import { Photo } from "../db/photo";
+import { createAlbumLink, createCoverLink } from "../lib/bitiful";
 
-async function parseAlbum(photo: Document<unknown, any, Album>) {
-  const parseData = photo.toJSON()
-  return parseData
+async function parseAlbum(album: Document<unknown, any, Album>) {
+  const { _id, name, description, coverKey, style, username } = album.toJSON()
+  const photos = await exec(async () => {
+    return Photo.find({
+      username,
+      deleted: false,
+      albumId: _id
+    }, ['key'])
+  }) || []
+  const count = photos.length
+  const coverFn = style === AlbumStyle.Large ? createAlbumLink : createCoverLink
+  const cover = coverKey ? await coverFn(coverKey) : (count > 0 ? await coverFn(photos[0].key) : '')
+
+  return {
+    _id,
+    name,
+    description,
+    count,
+    style: style === AlbumStyle.Large ? 'large' : 'small',
+    cover
+  }
 }
 export default {
   parseAlbum

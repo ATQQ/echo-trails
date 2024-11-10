@@ -11,5 +11,6 @@ declare namespace NodeJS {
     AUTH_NAME: string;
     BITIFUL_COVER_STYLE: string;
     BITIFUL_PREVIEW_STTYLE: string;
+    BITIFUL_ALBUM_STYLE: string;
   }
 }

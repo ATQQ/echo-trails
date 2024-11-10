@@ -11,8 +11,9 @@ const albumSchema = new mongoose.Schema({
   description: { type: String, required: false },
   coverKey: { type: String, required: false },
   createdAt: { type: Date, default: () => new Date() },
-  style: { type: Number, default: AlbumStyle.Small }
+  style: { type: Number, default: AlbumStyle.Small },
+  deleted: { type: Boolean, default: false }
 });
 
 export type Album = mongoose.InferSchemaType<typeof albumSchema>;
-export const Album = mongoose.model('Photo', albumSchema);
+export const Album = mongoose.model('Album', albumSchema);
