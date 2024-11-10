@@ -12,5 +12,6 @@ declare namespace NodeJS {
     BITIFUL_COVER_STYLE: string;
     BITIFUL_PREVIEW_STTYLE: string;
     BITIFUL_ALBUM_STYLE: string;
+    DB_NAME: string;
   }
 }
