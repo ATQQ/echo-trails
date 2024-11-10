@@ -54,5 +54,20 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     })
   })
 
+  router.put('/update/cover', async (ctx) => {
+    const { id, key } = await ctx.req.json()
+    const username = ctx.get('username')
+
+    const updatedAlbum = await exec(async () => {
+      const album = await Album.findOneAndUpdate({ _id: id, username, deleted: false }, { $set: { coverKey: key } }, { new: true })
+      return album && albumService.parseAlbum(album)
+    })
+
+    return ctx.json({
+      code: 0,
+      data: updatedAlbum,
+    })
+  })
+
   return 'album'
 }

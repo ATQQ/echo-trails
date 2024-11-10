@@ -106,3 +106,13 @@ export function getAlbumInfo(id: string) {
     }
   }).json().then((v) => v.data)
 }
+
+
+export function updateAlbumCover(id: string, key: string){
+  return api.put<ServerResponse<Album>>('album/update/cover', {
+    json: {
+      id,
+      key
+    }
+  })
+}

@@ -33,6 +33,7 @@ interface Album {
   description: string;
   count: number;
   cover: string;
+  coverKey: string;
   style: 'large' | 'small';
 }
 

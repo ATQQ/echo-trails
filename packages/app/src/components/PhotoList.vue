@@ -19,9 +19,9 @@ onDeactivated(() => {
   isActive.value = false
 })
 
-const { likedMode = false, albumId } = defineProps<{
+const { likedMode = false, album } = defineProps<{
   likedMode?: boolean
-  albumId?: string
+  album?: Album
 }>()
 
 const { arrivedState } = useScroll(window, {
@@ -59,7 +59,7 @@ const loadNext = () => {
   // 获取数据
   getPhotos(pageInfo.pageIndex, pageInfo.pageSize, {
     likedMode,
-    albumId
+    albumId: album?._id
   }).then(res => {
     let addCount = 0
     // 数据去重
@@ -127,7 +127,7 @@ const startUpload = async (values: any) => {
       exif,
       size: file.size,
       type: file.type,
-      ...(albumId ? { albumId: [albumId] } : {})
+      ...(album ? { albumId: [album._id] } : {})
     }
     // 加入待上传列表，同时预览
     const temp = {
@@ -222,7 +222,7 @@ const previewImage = (idx: number) => {
       </van-uploader>
     </div>
   </main>
-  <PreviewImage v-model:show="showPreview" :images="photoList" :start="startPosition" />
+  <PreviewImage :album="album" v-model:show="showPreview" :images="photoList" :start="startPosition" />
 </template>
 <style scoped lang="scss">
 h2 {

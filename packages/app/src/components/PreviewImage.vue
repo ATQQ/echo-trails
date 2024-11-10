@@ -56,8 +56,12 @@
                 :name="activeImage.isLiked ? 'like' : 'like-o'" size="22" />
               <span class="title">我喜欢</span>
             </div>
+            <div v-show="showSetCover" class="footer-item" @click.stop="handleSetCover">
+              <van-icon name="bookmark-o" size="22" />
+              <span class="title">设为封面</span>
+            </div>
             <div class="footer-item">
-              <van-icon @click.stop="handleAddAlbum" name="add-o" size="22" />
+              <van-icon @click.stop="handleAddAlbum" name="star-o" size="22" />
               <span class="title">添加相册</span>
             </div>
           </footer>
@@ -93,16 +97,19 @@
 </template>
 
 <script lang="ts" setup>
+import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { formatSize } from '@/lib/file';
-import { getAlbums, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
+import { getAlbums, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import { showNotify, showToast } from 'vant';
 import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
-const { images = [], start = 0 } = defineProps<{
+const { images = [], start = 0, album } = defineProps<{
   images: Photo[]
   start?: number
+  album?: Album
 }>()
 
 const show = defineModel("show", { type: Boolean, default: false })
@@ -213,6 +220,22 @@ const handleSaveAlbumSelect = async () => {
   activeImage.value.albumId = albumIds
   showAlbumSelect.value = false
   showNotify({ type: 'success', message: '更改成功' });
+}
+
+// 设置封面
+const route = useRoute()
+const albumPhotoStore = useAlbumPhotoStore()
+const isAlbumPage = computed(() => albumPhotoStore && route.name === 'album-photo')
+const showSetCover = computed(() => isAlbumPage.value && activeImage.value.key !== album?.coverKey)
+const handleSetCover = () => {
+  if (!album) {
+    return
+  }
+  updateAlbumCover(album?._id, activeImage.value.key).then(() => {
+    showNotify({ type: 'success', message: '封面更新成功' });
+    // 通知上层封面刷新
+    albumPhotoStore?.refreshAlbum?.()
+  })
 }
 </script>
 

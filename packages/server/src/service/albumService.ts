@@ -23,7 +23,8 @@ async function parseAlbum(album: Document<unknown, any, Album>) {
     description,
     count,
     style: style === AlbumStyle.Large ? 'large' : 'small',
-    cover
+    cover,
+    coverKey,
   }
 }
 export default {

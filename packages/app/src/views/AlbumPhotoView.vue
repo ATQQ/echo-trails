@@ -1,20 +1,30 @@
 <script setup lang="ts">
 import PhotoList from '@/components/PhotoList.vue';
+import { provideAlbumPhotoStore } from '@/composables/albumphoto';
 import { getAlbumInfo } from '@/service';
 import { onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 const route = useRoute();
 const album = ref<Album>()
-onMounted(() => {
+const refreshAlbum = () => {
   if (!route.params.albumId) return
   getAlbumInfo(route.params.albumId + '').then(res => {
     album.value = res
   })
+}
+
+provideAlbumPhotoStore({
+  refreshAlbum
 })
+
+onMounted(() => {
+  refreshAlbum()
+})
+
 </script>
 
 <template>
-  <PhotoList v-if="album" :albumId="album._id">
+  <PhotoList v-if="album" :album="album">
     <template #header>
       <div v-if="album.count" class="large-card">
         <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
