@@ -195,7 +195,13 @@ const albumList = ref<Album[]>([])
 const showAlbumSelect = ref(false)
 const loadAlbum = () => {
   return getAlbums().then((res) => {
-    const newValue = [...res.large, ...res.small]
+    const newValue: Album[] = []
+    if (res.large) {
+      newValue.push(...res.large)
+    }
+    if (res.small) {
+      newValue.push(...res.small)
+    }
     albumList.value = newValue
   })
 }
