@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { createAlbum, getAlbums } from '@/service';
+import { createAlbum, getAlbums, updateAlbum } from '@/service';
 import { showToast } from 'vant';
 import { ref, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router';
+import { OnLongPress } from '@vueuse/components'
 
 const albumList = reactive<{
   large: Album[],
@@ -33,20 +34,44 @@ const addData = reactive({
   name: '',
   description: '',
   isLarge: false,
+  editId: ''
 })
+
+const reset = () => {
+  showAddModal.value = false
+  addData.name = ''
+  addData.description = ''
+  addData.isLarge = false
+  addData.editId = ''
+}
+
+const handleEdit = (album: Album) => {
+  addData.editId = album._id
+  addData.name = album.name
+  addData.description = album.description
+  addData.isLarge = album.style === 'large'
+  showAddModal.value = true
+}
+
 const onSubmit = () => {
+  const { editId, ...ops } = addData
+  if (editId) {
+    updateAlbum(editId, ops).then(() => {
+      showToast('修改成功')
+      reset()
+      loadAlbum()
+    })
+    return
+  }
   createAlbum(addData.name, addData.description, addData.isLarge).then(() => {
     showToast('创建成功')
-    showAddModal.value = false
-    addData.name = ''
-    addData.description = ''
-    addData.isLarge = false
+    reset()
     loadAlbum()
   })
 }
 
-const router = useRouter()
 
+const router = useRouter()
 const goToDetail = (albumId: string) => {
   router.push({ name: 'album-photo', params: { albumId } })
 }
@@ -61,30 +86,34 @@ const goToDetail = (albumId: string) => {
       <!-- 大卡片 -->
       <van-grid :column-num="1" :border="false">
         <van-grid-item v-for="album in albumList.large" :key="album._id">
-          <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
-            <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
-            </van-image>
-            <!-- 标题和描述 -->
-            <div class="title-desc" :class="{
-              noCover: !album.cover
-            }">
-              <h2>{{ album.name }}</h2>
-              <p>{{ album.description }}</p>
+          <OnLongPress class="long-press-wrapper" @trigger="handleEdit(album)">
+            <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
+              <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
+              </van-image>
+              <!-- 标题和描述 -->
+              <div class="title-desc" :class="{
+                noCover: !album.cover
+              }">
+                <h2>{{ album.name }}</h2>
+                <p>{{ album.description }}</p>
+              </div>
             </div>
-          </div>
+          </OnLongPress>
         </van-grid-item>
       </van-grid>
       <!-- 小卡片分类 -->
       <van-grid :gutter="10" :column-num="2" :border="false">
         <van-grid-item v-for="album in albumList.small" :key="album._id">
-          <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
-            <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
-            </van-image>
-            <div class="title-desc">
-              <h2>{{ album.name }}</h2>
-              <p>{{ album.count }}</p>
+          <OnLongPress class="long-press-wrapper" @trigger="handleEdit(album)">
+            <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
+              <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
+              </van-image>
+              <div class="title-desc">
+                <h2>{{ album.name }}</h2>
+                <p>{{ album.count }}</p>
+              </div>
             </div>
-          </div>
+          </OnLongPress>
         </van-grid-item>
       </van-grid>
     </div>
@@ -95,7 +124,7 @@ const goToDetail = (albumId: string) => {
     <van-icon name="plus" size="18" />
   </div>
   <van-popup @close="showAddModal = false" v-model:show="showAddModal" round position="bottom"
-    :style="{ height: '50%' }">
+    :style="{ height: '50%' }" @closed="reset">
     <van-form @submit="onSubmit">
       <van-cell-group inset>
         <van-field required v-model="addData.name" name="相册名" label="相册名" placeholder="请输入相册名"
@@ -204,5 +233,9 @@ h1 {
   background-color: var(--van-primary-color);
   color: #fff;
   border-radius: 50%;
+}
+
+.long-press-wrapper {
+  width: 100%;
 }
 </style>

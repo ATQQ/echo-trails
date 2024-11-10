@@ -102,7 +102,7 @@ import { formatSize } from '@/lib/file';
 import { getAlbums, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
-import { showNotify, showToast } from 'vant';
+import { showNotify } from 'vant';
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -181,7 +181,7 @@ const handleSaveDescription = () => {
     editMode.value = false
     showDescription.value = true
     activeImage.value.description = description.value
-    showToast('更新成功!')
+    showNotify({ type: 'success', message: '更新成功' });
   })
 }
 

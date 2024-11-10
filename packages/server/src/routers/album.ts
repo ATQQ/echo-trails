@@ -36,7 +36,7 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
     return ctx.json({
       code: 0,
-      data: Object.groupBy(albums, (v)=> v.style),
+      data: Object.groupBy(albums, (v) => v.style),
     })
   })
 
@@ -60,6 +60,28 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
     const updatedAlbum = await exec(async () => {
       const album = await Album.findOneAndUpdate({ _id: id, username, deleted: false }, { $set: { coverKey: key } }, { new: true })
+      return album && albumService.parseAlbum(album)
+    })
+
+    return ctx.json({
+      code: 0,
+      data: updatedAlbum,
+    })
+  })
+
+  router.put('/update', async (ctx) => {
+    const { id, isLarge, ...ops } = await ctx.req.json()
+    const username = ctx.get('username')
+
+    const updatedAlbum = await exec(async () => {
+      const album = await Album.findOneAndUpdate({
+        _id: id, username, deleted: false
+      }, {
+        $set: {
+          style: isLarge ? AlbumStyle.Large : AlbumStyle.Small,
+          ...ops
+        }
+      }, { new: true })
       return album && albumService.parseAlbum(album)
     })
 

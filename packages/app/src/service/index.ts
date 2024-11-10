@@ -99,6 +99,19 @@ export function createAlbum(name: string, description: string, isLarge: boolean)
   })
 }
 
+export function updateAlbum(id:string, options:{
+  name: string,
+  description: string,
+  isLarge: boolean
+}){
+  return api.put<ServerResponse<Album>>('album/update', {
+    json: {
+      id,
+     ...options
+    }
+  })
+}
+
 export function getAlbumInfo(id: string) {
   return api.get<ServerResponse<Album>>('album/info', {
     searchParams: {
