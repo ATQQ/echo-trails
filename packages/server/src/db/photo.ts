@@ -13,7 +13,7 @@ const photoSchema = new mongoose.Schema({
   bucket: { type: String, required: false },
   deleted: { type: Boolean, required: false, default: false },
   description: { type: String, required: false, default: '' },
-  albumId: { type: [String], required: false, default: null },
+  albumId: { type: [String], required: false, default: () => [] },
   isLiked: { type: Boolean, required: false, default: false },
   exif: {
     type: mongoose.Schema.Types.Mixed,
