@@ -15,7 +15,7 @@ declare module 'hono' {
 const app = new Hono().basePath('/api')
 
 const customLogger = (message: string, ...rest: string[]) => {
-  console.log(new Date().toLocaleString(),message, ...rest)
+  console.log(new Date().toLocaleString(), message, ...rest)
 }
 app.use(logger(customLogger))
 // app.use(compress())
@@ -49,4 +49,7 @@ mountedRouters(app)
 
 export type App = typeof app
 
-export default app
+export default {
+  port: +(process.env.PORT || 6692),
+  fetch: app.fetch,
+}
