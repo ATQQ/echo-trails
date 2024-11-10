@@ -3,6 +3,7 @@ import { bearerAuth } from 'hono/bearer-auth'
 import mountedRouters from './routers'
 // import { compress } from 'hono/compress'
 import { users } from './users'
+import { logger } from 'hono/logger'
 
 declare module 'hono' {
   // can be used with (c: Context)
@@ -13,6 +14,10 @@ declare module 'hono' {
 
 const app = new Hono().basePath('/api')
 
+const customLogger = (message: string, ...rest: string[]) => {
+  console.log(new Date().toLocaleString(),message, ...rest)
+}
+app.use(logger(customLogger))
 // app.use(compress())
 
 // 简单BA鉴权
