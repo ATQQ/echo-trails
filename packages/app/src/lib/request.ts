@@ -25,7 +25,7 @@ export const api = ky.create({
     ],
     afterResponse: [
       async (_request, _options, response) => {
-        if(response.status === 401){
+        if([401,400].includes(response.status)){
           localStorage.removeItem('token')
           window.location.reload()
         }
