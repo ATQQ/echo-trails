@@ -130,6 +130,10 @@ h1 {
     left: 0;
     right: 0;
     color: #fff;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(0, 0, 0, 0.3));
+    // -webkit-backdrop-filter: blur(10px);
+    // backdrop-filter: blur(10px);
+    // box-shadow: 0 0 40px rgba(255, 255, 255, 0.3);
 
     h2,
     p {
@@ -137,6 +141,7 @@ h1 {
     }
 
     h2 {
+      margin-top: 60px;
       margin-bottom: 6px;
     }
 
