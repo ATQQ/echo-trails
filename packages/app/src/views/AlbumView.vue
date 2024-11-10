@@ -2,6 +2,7 @@
 import { createAlbum, getAlbums } from '@/service';
 import { showToast } from 'vant';
 import { ref, onMounted, reactive } from 'vue'
+import { useRouter } from 'vue-router';
 
 const albumList = reactive<{
   large: Album[],
@@ -12,9 +13,11 @@ const albumList = reactive<{
 })
 
 const showEmpty = ref(false)
-
+const loading = ref(false)
 const loadAlbum = () => {
+  loading.value = true
   getAlbums().then((res) => {
+    loading.value = false
     Object.assign(albumList, res)
     showEmpty.value = !albumList.large?.length && !albumList.small?.length
   })
@@ -41,42 +44,52 @@ const onSubmit = () => {
     loadAlbum()
   })
 }
+
+const router = useRouter()
+
+const goToDetail = (albumId: string) => {
+  router.push({ name: 'album-photo', params: { albumId } })
+}
+
 </script>
 
 <template>
-  <div class="album">
-    <h1>相册</h1>
-    <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
-    <!-- 大卡片 -->
-    <van-grid :column-num="1" :border="false">
-      <van-grid-item v-for="album in albumList.large" :key="album._id">
-        <div class="large-card">
-          <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
-          </van-image>
-          <!-- 标题和描述 -->
-          <div class="title-desc" :class="{
-            noCover: !album.cover
-          }">
-            <h2>{{ album.name }}</h2>
-            <p>{{ album.description }}</p>
+  <van-pull-refresh v-model="loading" @refresh="loadAlbum">
+    <div class="album">
+      <h1>相册</h1>
+      <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
+      <!-- 大卡片 -->
+      <van-grid :column-num="1" :border="false">
+        <van-grid-item v-for="album in albumList.large" :key="album._id">
+          <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
+            <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
+            </van-image>
+            <!-- 标题和描述 -->
+            <div class="title-desc" :class="{
+              noCover: !album.cover
+            }">
+              <h2>{{ album.name }}</h2>
+              <p>{{ album.description }}</p>
+            </div>
           </div>
-        </div>
-      </van-grid-item>
-    </van-grid>
-    <!-- 小卡片分类 -->
-    <van-grid :gutter="10" :column-num="2" :border="false">
-      <van-grid-item v-for="album in albumList.small" :key="album._id">
-        <div class="small-card">
-          <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
-          </van-image>
-          <div class="title-desc">
-            <h2>{{ album.name }}</h2>
-            <p>{{ album.count }}</p>
+        </van-grid-item>
+      </van-grid>
+      <!-- 小卡片分类 -->
+      <van-grid :gutter="10" :column-num="2" :border="false">
+        <van-grid-item v-for="album in albumList.small" :key="album._id">
+          <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
+            <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
+            </van-image>
+            <div class="title-desc">
+              <h2>{{ album.name }}</h2>
+              <p>{{ album.count }}</p>
+            </div>
           </div>
-        </div>
-      </van-grid-item>
-    </van-grid>
-  </div>
+        </van-grid-item>
+      </van-grid>
+    </div>
+  </van-pull-refresh>
+
   <!-- 添加相册 -->
   <div @click="showAddModal = true" v-show="!showAddModal" class="add-container">
     <van-icon name="plus" size="18" />

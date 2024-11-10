@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { useRoute } from 'vue-router';
 import FooterNav from './components/FooterNav.vue';
+import { computed } from 'vue';
+const route = useRoute();
+const showNav = computed(() => route.meta.nav === true)
+
 </script>
 
 <template>
@@ -11,7 +16,7 @@ import FooterNav from './components/FooterNav.vue';
     </router-view>
   </div>
   <!-- 底部菜单 -->
-  <footer-nav></footer-nav>
+  <footer-nav v-show="showNav"></footer-nav>
 </template>
 
 <style scoped>

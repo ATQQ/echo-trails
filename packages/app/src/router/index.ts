@@ -10,6 +10,7 @@ const router = createRouter({
       component: HomeView,
       meta: {
         keepAlive: true,
+        nav: true,
         componentName: 'HomeView'
       }
     },
@@ -19,6 +20,7 @@ const router = createRouter({
       component: () => import('../views/AlbumView.vue'),
       meta: {
         keepAlive: true,
+        nav: true,
         componentName: 'AlbumView'
       }
     },
@@ -28,7 +30,18 @@ const router = createRouter({
       component: () => import('../views/LikeView.vue'),
       meta: {
         keepAlive: true,
+        nav: true,
         componentName: 'LikeView'
+      }
+    },
+    {
+      path: '/album/:albumId',
+      name: 'album-photo',
+      component: () => import('../views/AlbumPhotoView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'AlbumPhotoView',
+        nav: false
       }
     },
   ],

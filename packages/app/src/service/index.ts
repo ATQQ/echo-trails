@@ -25,6 +25,7 @@ export function addFileInfo(body: {
   lastModified: number,
   size: number,
   type: string,
+  albumId?: string[]
 }) {
   return api.post<ServerResponse<Photo>>('file/add/info', {
     json: body
@@ -38,13 +39,15 @@ export function uploadFile(file: File, url: string) {
 }
 
 export function getPhotos(page: number, pageSize: number, options: {
-  likedMode: boolean,
+  likedMode?: boolean,
+  albumId?: string,
 }) {
   return api.get<ServerResponse<Photo[]>>('file/photo/list', {
     searchParams: {
       page,
       pageSize,
-      likedMode: options.likedMode
+      ...(options.likedMode ? { likedMode: true } : {}),
+      ...(options.albumId ? { albumId: options.albumId } : {}),
     }
   }).json()
     .then((v) => {
@@ -94,4 +97,12 @@ export function createAlbum(name: string, description: string, isLarge: boolean)
       isLarge
     }
   })
+}
+
+export function getAlbumInfo(id: string) {
+  return api.get<ServerResponse<Album>>('album/info', {
+    searchParams: {
+      id
+    }
+  }).json().then((v) => v.data)
 }

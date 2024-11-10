@@ -28,7 +28,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   })
 
   router.post('add/info', async (ctx) => {
-    const { key, exif, size, name, lastModified, type } = await ctx.req.json()
+    const { key, exif, size, name, lastModified, type, albumId } = await ctx.req.json()
     const fileType = exif['FileType']?.value || 'unknown'
     const width = exif['Image Width']?.value || 0
     const height = exif['Image Height']?.value || 0
@@ -53,7 +53,8 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       bucket: process.env.S3_BUCKET,
       exif,
       deleted: false,
-      type
+      type,
+      ...((albumId && Array.isArray(albumId)) ? { albumId } : {})
     })
     await exec(async () => {
       await photo.save()
@@ -76,14 +77,15 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       })
     }
 
-    const { pageSize = 20, page = 1, likedMode } = ctx.req.query()
+    const { pageSize = 20, page = 1, likedMode, albumId } = ctx.req.query()
     const isLiked = likedMode === 'true'
     const skip = (+page - 1) * +pageSize;
     const photos = await exec(() => {
       return Photo.find({
         username,
         deleted: false,
-        ...(isLiked ? { isLiked } : {})
+        ...(isLiked ? { isLiked } : {}),
+        ...(albumId ? { albumId } : {})
       }).skip(skip)
         .limit(+pageSize)
         .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId'])

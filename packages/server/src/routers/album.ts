@@ -40,5 +40,19 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     })
   })
 
+  router.get('/info', async (ctx) => {
+    const { id } = ctx.req.query()
+    const username = ctx.get('username')
+
+    const album = await exec(async () => {
+      const album = await Album.findOne({ _id: id, username, deleted: false })
+      return album && albumService.parseAlbum(album)
+    })
+    return ctx.json({
+      code: 0,
+      data: album,
+    })
+  })
+
   return 'album'
 }

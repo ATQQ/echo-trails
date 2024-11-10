@@ -1,3 +1,4 @@
+
 interface Photo {
   _id: string;
   url: string;
@@ -34,3 +35,4 @@ interface Album {
   cover: string;
   style: 'large' | 'small';
 }
+

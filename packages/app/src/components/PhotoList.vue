@@ -19,8 +19,9 @@ onDeactivated(() => {
   isActive.value = false
 })
 
-const { likedMode = false } = defineProps<{
+const { likedMode = false, albumId } = defineProps<{
   likedMode?: boolean
+  albumId?: string
 }>()
 
 const { arrivedState } = useScroll(window, {
@@ -50,13 +51,15 @@ const addPhoto2List = (photo: Photo) => {
   }
   return false
 }
+const showEmpty = ref(false)
 const loadNext = () => {
   if (!isActive.value) return
   if (pageInfo.lock) return
   pageInfo.lock = true
   // 获取数据
   getPhotos(pageInfo.pageIndex, pageInfo.pageSize, {
-    likedMode
+    likedMode,
+    albumId
   }).then(res => {
     let addCount = 0
     // 数据去重
@@ -69,7 +72,7 @@ const loadNext = () => {
       // 数据不够时，不新增页码
       pageInfo.pageIndex += 1
     }
-
+    showEmpty.value = photoList.length === 0
   }).finally(() => {
     pageInfo.lock = false
   })
@@ -124,6 +127,7 @@ const startUpload = async (values: any) => {
       exif,
       size: file.size,
       type: file.type,
+      ...(albumId ? { albumId: [albumId] } : {})
     }
     // 加入待上传列表，同时预览
     const temp = {
@@ -186,6 +190,7 @@ const previewImage = (idx: number) => {
 <template>
   <main>
     <slot name="header"></slot>
+    <van-empty v-if="!photoList.length && showEmpty" description="空空如也，快去添加吧" />
     <!-- 待上传列表 -->
     <van-grid square>
       <van-grid-item v-for="item in showUploadList" :key="item.key">
