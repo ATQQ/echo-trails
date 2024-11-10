@@ -29,6 +29,7 @@
     "lint": "eslint . --fix",
     "format": "prettier --write packages",
     "build:client":"cd packages/app && npm run build",
-    "deploy:client":"bun run scripts/deploy-client.ts"
+    "deploy:client":"bun run scripts/deploy-client.ts",
+    "deploy:server":"bun run scripts/deploy-server.ts"
   }
 }
