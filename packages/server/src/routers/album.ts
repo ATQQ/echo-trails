@@ -9,7 +9,7 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const { name, description, isLarge } = await ctx.req.json()
     const username = ctx.get('username')
 
-    const newAlbum = exec(async () => {
+    const newAlbum = await exec(async () => {
       const album = new Album({
         name,
         username,

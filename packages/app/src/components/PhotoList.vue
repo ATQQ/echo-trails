@@ -6,6 +6,7 @@ import { generateFileKey } from '../lib/file';
 import { UploadStatus } from '../constants/index'
 import { useScroll } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage.vue';
+import { useAlbumPhotoStore } from '@/composables/albumphoto';
 const isActive = ref(true)
 onActivated(() => {
   // 调用时机为首次挂载
@@ -42,6 +43,8 @@ const pageInfo = reactive({
 const photoList = reactive<Photo[]>([])
 
 const existPhotoMap = new Map<string, Photo>()
+
+const albumPhotoStore = useAlbumPhotoStore()
 
 const addPhoto2List = (photo: Photo) => {
   if (!existPhotoMap.has(photo.key)) {
@@ -149,13 +152,21 @@ const startUpload = async (values: any) => {
       wrapperItem.status = UploadStatus.UPLOADING
       uploadFile(file, value)
         .then(async () => {
-          wrapperItem.status = UploadStatus.SUCCESS
-          //  数据落库
+          // 数据落库
           const result = await addFileInfo(info)
-          //  正式列表数据更新
+
+          // 空相册首次上传
+          if (!photoList.length) {
+            albumPhotoStore?.refreshAlbum?.()
+          }
+
+          // 优先展示临时资源链接，避免闪烁
+          result.cover = wrapperItem.url
+          // 正式列表数据更新
           if (addPhoto2List(result)) {
             photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
           }
+          wrapperItem.status = UploadStatus.SUCCESS
         })
         .catch(() => {
           wrapperItem.status = UploadStatus.ERROR

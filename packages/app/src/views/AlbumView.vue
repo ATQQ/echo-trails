@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { createAlbum, getAlbums, updateAlbum } from '@/service';
 import { showToast } from 'vant';
-import { ref, onMounted, reactive } from 'vue'
+import { ref, reactive, onActivated } from 'vue'
 import { useRouter } from 'vue-router';
 import { OnLongPress } from '@vueuse/components'
 
@@ -15,16 +15,16 @@ const albumList = reactive<{
 
 const showEmpty = ref(false)
 const loading = ref(false)
-const loadAlbum = () => {
-  loading.value = true
-  getAlbums().then((res) => {
+const loadAlbum = (_loading = false) => {
+  loading.value = _loading
+  return getAlbums().then((res) => {
     loading.value = false
     Object.assign(albumList, res)
     showEmpty.value = !albumList.large?.length && !albumList.small?.length
   })
 }
 
-onMounted(() => {
+onActivated(() => {
   loadAlbum()
 })
 
@@ -56,14 +56,14 @@ const handleEdit = (album: Album) => {
 const onSubmit = () => {
   const { editId, ...ops } = addData
   if (editId) {
-    updateAlbum(editId, ops).then(() => {
+    updateAlbum(editId, ops).then(async () => {
       showToast('修改成功')
       reset()
       loadAlbum()
     })
     return
   }
-  createAlbum(addData.name, addData.description, addData.isLarge).then(() => {
+  createAlbum(addData.name, addData.description, addData.isLarge).then(async () => {
     showToast('创建成功')
     reset()
     loadAlbum()
@@ -79,7 +79,7 @@ const goToDetail = (albumId: string) => {
 </script>
 
 <template>
-  <van-pull-refresh v-model="loading" @refresh="loadAlbum">
+  <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)">
     <div class="album">
       <h1>相册</h1>
       <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
