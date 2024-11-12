@@ -15,7 +15,7 @@ async function parseAlbum(album: Document<unknown, any, Album>) {
   }) || []
   const count = photos.length
   const coverFn = style === AlbumStyle.Large ? createAlbumLink : createCoverLink
-  const cover = coverKey ? await coverFn(coverKey) : (count > 0 ? await coverFn(photos[0].key) : '')
+  const cover = (coverKey && count) ? await coverFn(coverKey) : (count > 0 ? await coverFn(photos[0].key) : '')
 
   return {
     _id,

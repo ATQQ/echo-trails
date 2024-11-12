@@ -86,7 +86,12 @@ const goToDetail = (albumId: string) => {
       <!-- 大卡片 -->
       <van-grid :column-num="1" :border="false">
         <van-grid-item v-for="album in albumList.large" :key="album._id">
-          <OnLongPress class="long-press-wrapper" @trigger="handleEdit(album)">
+          <OnLongPress class="long-press-wrapper" @trigger="handleEdit(album)" :options="{
+            modifiers: {
+              prevent: true,
+              stop: true,
+            }
+          }">
             <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
               <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
               </van-image>
@@ -104,7 +109,12 @@ const goToDetail = (albumId: string) => {
       <!-- 小卡片分类 -->
       <van-grid :gutter="10" :column-num="2" :border="false">
         <van-grid-item v-for="album in albumList.small" :key="album._id">
-          <OnLongPress class="long-press-wrapper" @trigger="handleEdit(album)">
+          <OnLongPress class="long-press-wrapper" @trigger="handleEdit(album)" :options="{
+            modifiers: {
+              prevent: true,
+              stop: true,
+            }
+          }">
             <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
               <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
               </van-image>
