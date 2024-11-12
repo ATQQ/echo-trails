@@ -7,6 +7,23 @@ import { exec } from "../db";
 import photoService from "../service/photoService";
 import { s3Client } from "../lib/bitiful";
 
+function replaceNullKeys(obj: any) {
+  if (typeof obj !== 'object' || obj === null) {
+    return obj;
+  }
+
+  const newObj: any = Array.isArray(obj) ? [] : {};
+
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      const newKey = key.replace(/\u0000/g, '');
+      newObj[newKey] = replaceNullKeys(obj[key]);
+    }
+  }
+
+  return newObj;
+}
+
 export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.get('upload/token', async (ctx) => {
     const key = ctx.req.query('key')
@@ -28,7 +45,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   })
 
   router.post('add/info', async (ctx) => {
-    const { key, exif, size, name, lastModified, type, albumId } = await ctx.req.json()
+    const { key, exif = {}, size, name, lastModified, type, albumId, likedMode } = await ctx.req.json()
     const fileType = exif['FileType']?.value || 'unknown'
     const width = exif['Image Width']?.value || 0
     const height = exif['Image Height']?.value || 0
@@ -39,8 +56,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         message: 'username is required'
       })
     }
-
-    const photo = new Photo({
+    const payload = {
       username,
       key,
       uploadDate: new Date(),
@@ -51,11 +67,14 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       height,
       fileType,
       bucket: process.env.S3_BUCKET,
-      exif,
+      exif: replaceNullKeys(exif),
       deleted: false,
       type,
+      isLiked: !!likedMode,
       ...((albumId && Array.isArray(albumId)) ? { albumId } : {})
-    })
+    }
+
+    const photo = new Photo(payload)
     await exec(async () => {
       await photo.save()
     })
