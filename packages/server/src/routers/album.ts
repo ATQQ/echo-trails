@@ -34,9 +34,11 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       return await Promise.all(albums.map(albumService.parseAlbum))
     }) || []
 
+    const emptyAlbums = albums.filter((album) => album.count === 0)
+    const nonEmptyAlbums = albums.filter((album) => album.count > 0)
     return ctx.json({
       code: 0,
-      data: Object.groupBy(albums, (v) => v.style),
+      data: Object.groupBy(nonEmptyAlbums.concat(emptyAlbums), (v) => v.style),
     })
   })
 
