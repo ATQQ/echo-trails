@@ -229,7 +229,6 @@ h1 {
       margin-top: 0;
       font-size: 10px;
       color: #666;
-      font-weight: lighter;
     }
   }
 }

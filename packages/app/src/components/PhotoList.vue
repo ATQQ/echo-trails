@@ -259,10 +259,9 @@ const pullRefresh = () => {
 <style scoped lang="scss">
 h2 {
   padding-left: 10px;
-}
-
-h2 {
   font-weight: normal;
+  font-size: 18px;
+  margin: 10px 0;
 }
 
 main :deep(.van-grid-item__content) {
