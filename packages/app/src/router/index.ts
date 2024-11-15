@@ -44,6 +44,16 @@ const router = createRouter({
         nav: false
       }
     },
+    // {
+    //   photo: '/photo/:photoId',
+    //   name: 'photo',
+    //   component: () => import('../views/PhotoView.vue'),
+    //   meta: {
+    //     keepAlive: false,
+    //     componentName: 'PhotoView',
+    //     nav: false
+    //   }
+    // }
   ],
 })
 

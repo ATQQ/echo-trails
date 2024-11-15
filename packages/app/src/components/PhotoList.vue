@@ -7,6 +7,7 @@ import { UploadStatus } from '../constants/index'
 import { useScroll } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage.vue';
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
+import { onBeforeRouteLeave } from 'vue-router';
 const isActive = ref(true)
 onActivated(() => {
   // 调用时机为首次挂载
@@ -212,6 +213,15 @@ const pullRefresh = () => {
       loading.value = false
     })
 }
+
+onBeforeRouteLeave((to, from, next) => {
+  if (showPreview.value) {
+    showPreview.value = false
+    next(false)
+    return false
+  }
+  next()
+})
 </script>
 
 <template>
