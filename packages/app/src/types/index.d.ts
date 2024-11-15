@@ -20,7 +20,7 @@ interface Photo {
   description?: string;
 }
 
-type ServerResponse<T> = {
+type ServerResponse<T = any> = {
   code?: number;
   message?: string;
   data: T;

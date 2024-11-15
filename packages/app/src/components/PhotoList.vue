@@ -8,6 +8,7 @@ import { useScroll } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage.vue';
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { onBeforeRouteLeave } from 'vue-router';
+import { providePhotoListStore } from '@/composables/photoList';
 const isActive = ref(true)
 onActivated(() => {
   // 调用时机为首次挂载
@@ -221,6 +222,24 @@ onBeforeRouteLeave((to, from, next) => {
     return false
   }
   next()
+})
+
+// provide
+const deletePhoto = (id: string) => {
+  const deleteIndex = photoList.findIndex(v => v._id === id)
+  if (deleteIndex !== -1) {
+    existPhotoMap.delete(photoList[deleteIndex].key)
+    photoList.splice(deleteIndex, 1)
+
+    // 展示空文案
+    if (photoList.length === 0) {
+      showEmpty.value = true
+    }
+  }
+}
+providePhotoListStore({
+  photoList,
+  deletePhoto
 })
 </script>
 

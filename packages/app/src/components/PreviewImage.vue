@@ -11,10 +11,15 @@
             <header class="cover-header" @click="show = false">
               <h3>{{ coverDate }}</h3>
               <h4>{{ coverTime }}</h4>
-              <van-icon @click.stop="handleEditDescription" :name="editMode ? 'chat' : 'chat-o'" class="message-icon"
-                size="24" />
-              <van-icon @click.stop="showInfoDetail = !showInfoDetail" :name="showInfoDetail ? 'more' : 'more-o'"
-                class="more-icon" size="24" />
+              <div class="header-actions">
+                <van-icon v-show="showSetCover" class="set-cover-icon" @click.stop="handleSetCover" name="bookmark-o"
+                  size="24" />
+                <van-icon @click.stop="handleEditDescription" :name="editMode ? 'chat' : 'chat-o'" class="message-icon"
+                  size="24" />
+                <van-icon @click.stop="showInfoDetail = !showInfoDetail" :name="showInfoDetail ? 'more' : 'more-o'"
+                  class="more-icon" size="24" />
+              </div>
+
             </header>
             <transition name="van-slide-right">
               <div v-show="showInfoDetail" class="cover-info">
@@ -50,9 +55,9 @@
                 :name="activeImage.isLiked ? 'like' : 'like-o'" size="22" />
               <span class="title">我喜欢</span>
             </div>
-            <div v-show="showSetCover" class="footer-item" @click.stop="handleSetCover">
-              <van-icon name="bookmark-o" size="22" />
-              <span class="title">设为封面</span>
+            <div class="footer-item" @click.stop="handleDeleteImage">
+              <van-icon name="delete-o" size="22" />
+              <span class="title">删除</span>
             </div>
             <div class="footer-item">
               <van-icon @click.stop="handleAddAlbum" name="star-o" size="22" />
@@ -92,11 +97,12 @@
 
 <script lang="ts" setup>
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
+import { usePhotoListStore } from '@/composables/photoList';
 import { formatSize } from '@/lib/file';
-import { getAlbums, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
+import { deletePhoto, getAlbums, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
-import { showNotify } from 'vant';
+import { showConfirmDialog, showNotify } from 'vant';
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -138,7 +144,7 @@ const handleChange = (index: number) => {
   editMode.value = false
 }
 
-const activeImage = computed(() => images[currentIdx.value])
+const activeImage = computed(() => images[currentIdx.value] || {})
 const coverDate = computed(() => dayjs(activeImage.value.lastModified).format('YYYY年MM月DD日'))
 const coverTime = computed(() => dayjs(activeImage.value.lastModified).format('HH:mm'))
 const filesize = computed(() => {
@@ -241,6 +247,33 @@ const handleSetCover = () => {
     albumPhotoStore?.refreshAlbum?.()
   })
 }
+
+// 删除图片
+const photoListStore = usePhotoListStore()
+const handleDeleteImage = async () => {
+  const confirmed = await showConfirmDialog({
+    title: '删除确认',
+    message:
+      '确定要删除这张照片吗？',
+  })
+    .then(() => {
+      return true;
+    })
+    .catch(() => {
+      return false;
+    });
+  if (!confirmed) {
+    return;
+  }
+
+  deletePhoto(activeImage.value._id).then(() => {
+    showNotify({ type: 'success', message: '删除成功' });
+    photoListStore?.deletePhoto?.(activeImage.value._id)
+    // 通知上层刷新相册信息
+    albumPhotoStore?.refreshAlbum?.()
+    show.value = false
+  })
+}
 </script>
 
 <style lang="scss">
@@ -297,16 +330,18 @@ const handleSetCover = () => {
     font-weight: normal;
   }
 
-  .more-icon {
+  .header-actions {
     position: absolute;
     right: 20px;
     top: 36%;
-  }
+    width: 120px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
 
-  .message-icon {
-    position: absolute;
-    right: 60px;
-    top: 36%;
+    >i {
+      margin-left: 24px;
+    }
   }
 }
 

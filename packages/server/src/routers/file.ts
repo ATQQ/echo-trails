@@ -206,5 +206,35 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     })
   })
 
+  router.delete('photo/delete', async (ctx) => {
+    const { id } = await ctx.req.json()
+    const username = ctx.get('username')
+
+    await exec(async () => {
+      const photo = await Photo.findById(id, ['key'], {
+        username
+      })
+      if (!photo) {
+        return ctx.json({
+          code: 1,
+          message: 'photo not found'
+        })
+      }
+      photo.deletedAt = new Date()
+      photo.deleted = true
+      await photo.save()
+      // const deleteCmd = new PutObjectCommand({
+      //   Bucket: process.env.S3_BUCKET,
+      //   Key: photo.key,
+      // });
+      // await s3Client.send(deleteCmd)
+    })
+
+    return ctx.json({
+      code: 0,
+      message: 'delete success'
+    })
+  })
+
   return 'file'
 }

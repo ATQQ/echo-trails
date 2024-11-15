@@ -129,3 +129,11 @@ export function updateAlbumCover(id: string, key: string){
     }
   })
 }
+
+export function deletePhoto(id: string) {
+  return api.delete<ServerResponse>('file/photo/delete', {
+    json: {
+      id
+    }
+  })
+}
