@@ -11,10 +11,10 @@
             <header class="cover-header" @click="show = false">
               <h3>{{ coverDate }}</h3>
               <h4>{{ coverTime }}</h4>
+              <van-icon @click.stop="handleEditDescription" :name="editMode ? 'chat' : 'chat-o'" class="message-icon"
+                size="24" />
               <van-icon @click.stop="showInfoDetail = !showInfoDetail" :name="showInfoDetail ? 'more' : 'more-o'"
                 class="more-icon" size="24" />
-              <van-icon @click.stop="showDescription = !showDescription" :name="showDescription ? 'chat' : 'chat-o'"
-                class="message-icon" size="24" />
             </header>
             <transition name="van-slide-right">
               <div v-show="showInfoDetail" class="cover-info">
@@ -23,29 +23,23 @@
                 <van-cell title="格式" :value="fileType" />
               </div>
             </transition>
-            <transition name="van-fade">
-              <div v-show="showDescription && !editMode && activeImage.description" class="description-info">
-                {{ activeImage.description }}
-              </div>
-            </transition>
-            <transition name="van-fade">
-              <van-field show-word-limit v-show="editMode" v-model="description" rows="6" autosize label=""
+
+            <div v-show="!editMode && activeImage.description" class="description-info">
+              {{ activeImage.description }}
+            </div>
+            <div v-show="editMode" class="edit-description">
+              <van-field :border="false" show-word-limit :autofocus="true" v-model="description" rows="6" autosize
                 type="textarea" maxlength="1000" placeholder="照片背后的故事" />
-            </transition>
-          </div>
-        </transition>
-        <!-- 编辑description -->
-        <transition name="van-fade">
-          <div v-show="showMoreOperate">
-            <div v-show="!editMode" class="edit-btn icon-btn" @click="handleEditDescription">
-              <van-icon name="edit" size="18" />
+              <van-row class="edit-btns">
+                <van-col offset="10" span="3">
+                  <van-button size="mini" type="primary" @click="editMode = false">取消</van-button>
+                </van-col>
+                <van-col offset="0" span="6">
+                  <van-button size="mini" type="success" @click="handleSaveDescription">确定</van-button>
+                </van-col>
+              </van-row>
             </div>
-            <div v-show="editMode" class="cancel-btn icon-btn" @click="editMode = false">
-              <van-icon name="cross" size="18" />
-            </div>
-            <div v-show="editMode" class="save-btn icon-btn" @click="handleSaveDescription">
-              <van-icon name="success" size="18" />
-            </div>
+
           </div>
         </transition>
         <!-- 底部操作栏 -->
@@ -173,6 +167,10 @@ const handleOnClose = () => {
 
 const description = ref('')
 const handleEditDescription = () => {
+  if (editMode.value) {
+    editMode.value = false
+    return
+  }
   editMode.value = true
   description.value = activeImage.value.description || ''
 }
@@ -291,12 +289,12 @@ const handleSetCover = () => {
   h3 {
     margin-bottom: 0;
     margin-top: 10px;
-    font-weight: normal
+    font-weight: 500;
   }
 
   h4 {
     margin: 6px 0 0 0;
-    font-weight: lighter;
+    font-weight: normal;
   }
 
   .more-icon {
@@ -410,5 +408,18 @@ const handleSetCover = () => {
       bottom: 10px;
     }
   }
+}
+
+.edit-description {
+  padding-bottom: 10px;
+  background-color: #fff;
+}
+
+.edit-btns {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  padding-bottom: 10px;
 }
 </style>
