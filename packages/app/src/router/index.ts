@@ -5,16 +5,6 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/login',
-      name: 'photo',
-      component: () => import('../views/LoginView.vue'),
-      meta: {
-        keepAlive: false,
-        componentName: 'LoginView',
-        nav: false
-      }
-    },
-    {
       path: '/',
       name: 'home',
       component: HomeView,
@@ -51,6 +41,16 @@ const router = createRouter({
       meta: {
         keepAlive: false,
         componentName: 'AlbumPhotoView',
+        nav: false
+      }
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('../views/LoginView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'LoginView',
         nav: false
       }
     },
