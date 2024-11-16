@@ -8,17 +8,10 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     FooterNav: typeof import('./src/components/FooterNav.vue')['default']
-    HelloWorld: typeof import('./src/components/HelloWorld.vue')['default']
-    IconCommunity: typeof import('./src/components/icons/IconCommunity.vue')['default']
-    IconDocumentation: typeof import('./src/components/icons/IconDocumentation.vue')['default']
-    IconEcosystem: typeof import('./src/components/icons/IconEcosystem.vue')['default']
-    IconSupport: typeof import('./src/components/icons/IconSupport.vue')['default']
-    IconTooling: typeof import('./src/components/icons/IconTooling.vue')['default']
     PhotoList: typeof import('./src/components/PhotoList.vue')['default']
     PreviewImage: typeof import('./src/components/PreviewImage.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    TheWelcome: typeof import('./src/components/TheWelcome.vue')['default']
     VanActionSheet: typeof import('vant/es')['ActionSheet']
     VanButton: typeof import('vant/es')['Button']
     VanCell: typeof import('vant/es')['Cell']
@@ -41,6 +34,5 @@ declare module 'vue' {
     VanRow: typeof import('vant/es')['Row']
     VanSwitch: typeof import('vant/es')['Switch']
     VanUploader: typeof import('vant/es')['Uploader']
-    WelcomeItem: typeof import('./src/components/WelcomeItem.vue')['default']
   }
 }
