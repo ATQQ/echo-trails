@@ -5,6 +5,16 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      path: '/login',
+      name: 'photo',
+      component: () => import('../views/LoginView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'LoginView',
+        nav: false
+      }
+    },
+    {
       path: '/',
       name: 'home',
       component: HomeView,
@@ -44,16 +54,6 @@ const router = createRouter({
         nav: false
       }
     },
-    // {
-    //   photo: '/photo/:photoId',
-    //   name: 'photo',
-    //   component: () => import('../views/PhotoView.vue'),
-    //   meta: {
-    //     keepAlive: false,
-    //     componentName: 'PhotoView',
-    //     nav: false
-    //   }
-    // }
   ],
 })
 

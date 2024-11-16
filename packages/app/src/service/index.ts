@@ -1,6 +1,10 @@
 import { api } from "@/lib/request";
 import ky from "ky";
 
+export function login(){
+  return api.post<ServerResponse>('check')
+}
+
 export function getUploadUrl(key: string) {
   return api
     .get<{

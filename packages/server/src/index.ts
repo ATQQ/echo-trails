@@ -38,7 +38,7 @@ app.use(
 )
 
 // 用于检查登录情况
-app.get('/check', (ctx) => {
+app.post('/check', (ctx) => {
   return ctx.json({
     code: 0
   })

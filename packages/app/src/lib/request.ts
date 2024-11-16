@@ -1,16 +1,6 @@
 import ky from 'ky'
 import { showToast } from 'vant'
 
-while (1) {
-  let token = localStorage.getItem('token')
-  if (!token) {
-    token = prompt('请输入秘钥')
-  }
-  if (token) {
-    localStorage.setItem('token', token)
-    break
-  }
-}
 export const api = ky.create({
   prefixUrl: `${location.origin}/api`,
   retry: 0,
@@ -25,9 +15,13 @@ export const api = ky.create({
     ],
     afterResponse: [
       async (_request, _options, response) => {
-        if([401,400].includes(response.status)){
+        if ([401, 400].includes(response.status)) {
           localStorage.removeItem('token')
-          window.location.reload()
+          const { pathname } = new URL(_request.url)
+          if( pathname === '/api/check'){
+            throw new Error('Unauthorized')
+          }
+          window.location.href = '/login'
         }
         const data: any = await response.json()
         if (data?.code) {
