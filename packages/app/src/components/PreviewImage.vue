@@ -121,13 +121,15 @@ const currentIdx = ref(start)
 
 const previewWrapper = ref<HTMLDivElement>()
 const showMoreOperate = ref(true)
-const touchStart = ref(0)
+const touchStart = ref<Touch>()
 // 查看预览图片细节
 const checkImageDetail = (e: TouchEvent) => {
-  // 只处理短时间点击
-  if (e.timeStamp - touchStart.value > 100) {
+  // 手势滑动过滤
+  const { clientX, clientY } = e.changedTouches[0]
+  if (touchStart.value?.clientX !== clientX || touchStart.value?.clientY !== clientY) {
     return
   }
+  // 非常快速的双击过滤
   // https://vant.pro/vant/#/zh-CN/advanced-usage%23zhuo-mian-duan-gua-pei
   const target = e.target as HTMLImageElement
   if (target.classList.contains('van-image__img')) {
@@ -135,7 +137,7 @@ const checkImageDetail = (e: TouchEvent) => {
   }
 }
 useEventListener(previewWrapper, 'touchstart', (e: TouchEvent) => {
-  touchStart.value = e.timeStamp
+  touchStart.value = e.touches[0]
 })
 useEventListener(previewWrapper, 'touchend', checkImageDetail)
 
