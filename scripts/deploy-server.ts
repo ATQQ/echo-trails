@@ -20,5 +20,5 @@ await $`cd packages/server && rm -rf ${compressPkgName}`
 console.log('解压到服务器');
 const serverDir = `${baseServerDir}/${fullOrigin}/${destDir}`
 await $`ssh -p22 ${user}@${fullOrigin} "tar -xf ${compressPkgName} -C ${serverDir}"`
-await $`ssh -p22 ${user}@${fullOrigin} "cd ${serverDir} && bun install && pm2 delete echo-trails && pm2 start npm --name echo-trails -- run start
+await $`ssh -p22 ${user}@${fullOrigin} "cd ${serverDir} && source /root/.bashrc && bun install && pm2 delete echo-trails && pm2 start npm --name echo-trails -- run start
  "`
