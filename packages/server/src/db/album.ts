@@ -12,7 +12,9 @@ const albumSchema = new mongoose.Schema({
   coverKey: { type: String, required: false },
   createdAt: { type: Date, default: () => new Date() },
   style: { type: Number, default: AlbumStyle.Small },
-  deleted: { type: Boolean, default: false }
+  deleted: { type: Boolean, default: false },
+  createdBy: { type: String, required: false, default: '' },
+  updatedBy: { type: String, required: false, default: '' },
 });
 
 export type Album = mongoose.InferSchemaType<typeof albumSchema>;

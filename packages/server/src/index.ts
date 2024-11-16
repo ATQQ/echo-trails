@@ -1,14 +1,13 @@
 import { Hono } from 'hono'
 import { bearerAuth } from 'hono/bearer-auth'
 import mountedRouters from './routers'
-// import { compress } from 'hono/compress'
 import { users } from './users'
 import { logger } from 'hono/logger'
 
 declare module 'hono' {
-  // can be used with (c: Context)
   interface ContextVariableMap {
     username: string;
+    operator: string;
   }
 }
 
@@ -18,21 +17,21 @@ const customLogger = (message: string, ...rest: string[]) => {
   console.log(new Date().toLocaleString(), message, ...rest)
 }
 app.use(logger(customLogger))
-// app.use(compress())
-
 // 简单BA鉴权
 app.use(
   '*',
   bearerAuth({
     verifyToken: async (token, c) => {
-      Object.entries(users).some(([name, _token]) => {
-        const matched = _token === token
+      const pass =  Object.entries(users).some(([username, userMaps]) => {
+        const matched = userMaps.find(v => v[1] === token)
         if (matched) {
-          c.set('username', name)
+          const [operator] = matched
+          c.set('username', username) // 区分账户
+          c.set('operator', operator) // 区分操作人
         }
         return matched
       })
-      return [process.env.AUTH_TOKEN].includes(token)
+      return pass
     },
   }),
 )

@@ -8,12 +8,15 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.post('/create', async (ctx) => {
     const { name, description, isLarge } = await ctx.req.json()
     const username = ctx.get('username')
+    const operator = ctx.get('operator')
 
     const newAlbum = await exec(async () => {
       const album = new Album({
         name,
         username,
         description,
+        createdBy: operator,
+        updatedBy: operator,
         style: isLarge ? AlbumStyle.Large : AlbumStyle.Small,
       })
       await album.save()
@@ -59,9 +62,10 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.put('/update/cover', async (ctx) => {
     const { id, key } = await ctx.req.json()
     const username = ctx.get('username')
+    const operator = ctx.get('operator')
 
     const updatedAlbum = await exec(async () => {
-      const album = await Album.findOneAndUpdate({ _id: id, username, deleted: false }, { $set: { coverKey: key } }, { new: true })
+      const album = await Album.findOneAndUpdate({ _id: id, username, deleted: false }, { $set: { coverKey: key, updatedBy: operator } }, { new: true })
       return album && albumService.parseAlbum(album)
     })
 
@@ -74,12 +78,14 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.put('/update', async (ctx) => {
     const { id, isLarge, ...ops } = await ctx.req.json()
     const username = ctx.get('username')
+    const operator = ctx.get('operator')
 
     const updatedAlbum = await exec(async () => {
       const album = await Album.findOneAndUpdate({
         _id: id, username, deleted: false
       }, {
         $set: {
+          updatedBy: operator,
           style: isLarge ? AlbumStyle.Large : AlbumStyle.Small,
           ...ops
         }

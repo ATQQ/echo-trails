@@ -21,6 +21,8 @@ const photoSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     required: true,
   },
+  createdBy: { type: String, required: false, default: '' },
+  updatedBy: { type: String, required: false, default: '' },
 });
 
 export type Photo = mongoose.InferSchemaType<typeof photoSchema>;

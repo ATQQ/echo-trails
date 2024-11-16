@@ -1,5 +1,4 @@
-export const users: Record<string, any> = {
-  [process.env.AUTH_NAME]: process.env.AUTH_TOKEN,
-}
+// 支持配置文件配置
+import _users from './../../users.toml'
 
-
+export const users: Record<string, string[][]> = _users as any

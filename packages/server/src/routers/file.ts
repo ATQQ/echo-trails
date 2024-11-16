@@ -50,6 +50,8 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const width = exif['Image Width']?.value || 0
     const height = exif['Image Height']?.value || 0
     const username = ctx.get('username')
+    const operator = ctx.get('operator')
+
     if (!username) {
       return ctx.json({
         code: 1,
@@ -70,6 +72,8 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       exif: replaceNullKeys(exif),
       deleted: false,
       type,
+      createdBy: operator,
+      updatedBy: operator,
       isLiked: !!likedMode,
       ...((albumId && Array.isArray(albumId)) ? { albumId } : {})
     }
@@ -132,6 +136,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.put('photo/update/description', async (ctx) => {
     const { id, description } = await ctx.req.json()
     const username = ctx.get('username')
+    const operator = ctx.get('operator')
 
     await exec(async () => {
       const photo = await Photo.findById(id, ['description'], {
@@ -145,6 +150,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       }
 
       photo.description = description
+      photo.updatedBy = operator
       await photo.save()
     })
     return ctx.json({
@@ -156,6 +162,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.put('photo/update/like', async (ctx) => {
     const { id } = await ctx.req.json()
     const username = ctx.get('username')
+    const operator = ctx.get('operator')
 
     await exec(async () => {
       const photo = await Photo.findById(id, ['isLiked'], {
@@ -168,6 +175,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         })
       }
       photo.isLiked = !photo.isLiked
+      photo.updatedBy = operator
       await photo.save()
     })
 
@@ -180,6 +188,8 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.put('photo/update/album', async (ctx) => {
     const { id, albumIds } = await ctx.req.json()
     const username = ctx.get('username')
+    const operator = ctx.get('operator')
+
     if (!Array.isArray(albumIds)) {
       return ctx.json({
         code: 1,
@@ -197,6 +207,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         })
       }
       photo.albumId = albumIds
+      photo.updatedBy = operator
       await photo.save()
     })
 
@@ -209,7 +220,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.delete('photo/delete', async (ctx) => {
     const { id } = await ctx.req.json()
     const username = ctx.get('username')
-
+    const operator = ctx.get('operator')
     await exec(async () => {
       const photo = await Photo.findById(id, ['key'], {
         username
@@ -222,6 +233,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       }
       photo.deletedAt = new Date()
       photo.deleted = true
+      photo.updatedBy = operator
       await photo.save()
       // const deleteCmd = new PutObjectCommand({
       //   Bucket: process.env.S3_BUCKET,
