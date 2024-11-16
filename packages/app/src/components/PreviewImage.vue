@@ -271,7 +271,9 @@ const handleDeleteImage = async () => {
     photoListStore?.deletePhoto?.(activeImage.value._id)
     // 通知上层刷新相册信息
     albumPhotoStore?.refreshAlbum?.()
-    show.value = false
+    if (photoListStore?.isEmpty?.value) {
+      show.value = false
+    }
   })
 }
 </script>
@@ -429,7 +431,6 @@ const handleDeleteImage = async () => {
       margin-top: 0;
       font-size: 10px;
       color: #666;
-      font-weight: lighter;
     }
   }
 

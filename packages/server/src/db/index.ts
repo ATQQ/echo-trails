@@ -23,7 +23,7 @@ export async function exec<T extends (...args: any[]) => any>(fn: T) {
     timer = setTimeout(async () => {
       await mongoose.disconnect();
       isConnected = false
-    }, 1000 * 10);
+    }, 1000 * 120);
   }
 
 }

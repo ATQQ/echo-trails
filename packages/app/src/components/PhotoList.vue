@@ -237,9 +237,11 @@ const deletePhoto = (id: string) => {
     }
   }
 }
+const isEmpty = computed(() => !photoList.length)
 providePhotoListStore({
   photoList,
-  deletePhoto
+  deletePhoto,
+  isEmpty
 })
 </script>
 
