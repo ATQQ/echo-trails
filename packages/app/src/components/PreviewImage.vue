@@ -33,7 +33,7 @@
               {{ activeImage.description }}
             </div>
             <div v-show="editMode" class="edit-description">
-              <van-field :border="false" show-word-limit :autofocus="true" v-model="description" rows="6" autosize
+              <van-field ref="descriptionInput" :border="false" show-word-limit v-model="description" rows="6" autosize
                 type="textarea" maxlength="1000" placeholder="照片背后的故事" />
               <van-row class="edit-btns">
                 <van-col offset="10" span="3">
@@ -181,6 +181,7 @@ const handleOnClose = () => {
 }
 
 const description = ref('')
+const descriptionInput = ref<HTMLInputElement>()
 const handleEditDescription = () => {
   if (editMode.value) {
     editMode.value = false
@@ -188,6 +189,9 @@ const handleEditDescription = () => {
   }
   editMode.value = true
   description.value = activeImage.value.description || ''
+  setTimeout(() => {
+    descriptionInput.value?.focus()
+  }, 100)
 }
 const handleSaveDescription = () => {
   updateDescription(activeImage.value._id, description.value).then(() => {
