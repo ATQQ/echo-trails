@@ -276,15 +276,14 @@ providePhotoListStore({
       </template>
       <!-- block -->
       <div class="block"></div>
-      <!-- 上传 -->
-      <div class="upload-container">
-        <van-uploader :after-read="afterRead" multiple>
-          <van-button icon="plus" type="primary" round></van-button>
-        </van-uploader>
-      </div>
     </main>
   </van-pull-refresh>
-
+  <!-- 上传 -->
+  <div class="upload-container">
+    <van-uploader :after-read="afterRead" multiple>
+      <van-icon name="plus" size="16" />
+    </van-uploader>
+  </div>
   <PreviewImage :album="album" v-model:show="showPreview" :images="photoList" :start="startPosition" />
 </template>
 <style scoped lang="scss">
@@ -314,5 +313,9 @@ main {
   bottom: 60px;
   --van-button-icon-size: 1em;
   z-index: 1;
+  padding: 8px;
+  background-color: var(--van-primary-color);
+  color: #fff;
+  border-radius: 50%;
 }
 </style>

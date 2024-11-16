@@ -131,7 +131,7 @@ const goToDetail = (albumId: string) => {
 
   <!-- 添加相册 -->
   <div @click="showAddModal = true" v-show="!showAddModal" class="add-container">
-    <van-icon name="plus" size="18" />
+    <van-icon name="plus" size="16" />
   </div>
   <van-popup @close="showAddModal = false" v-model:show="showAddModal" round position="bottom"
     :style="{ height: '50%' }" @closed="reset">
@@ -238,7 +238,7 @@ h1 {
   right: 10px;
   bottom: 60px;
   z-index: 1;
-  padding: 4px;
+  padding: 8px;
   background-color: var(--van-primary-color);
   color: #fff;
   border-radius: 50%;
