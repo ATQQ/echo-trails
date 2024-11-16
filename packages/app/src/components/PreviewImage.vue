@@ -122,6 +122,7 @@ const currentIdx = ref(start)
 const previewWrapper = ref<HTMLDivElement>()
 const showMoreOperate = ref(true)
 const touchStart = ref<Touch>()
+const touchTimes = ref(0)
 // 查看预览图片细节
 const checkImageDetail = (e: TouchEvent) => {
   // 手势滑动过滤
@@ -129,11 +130,17 @@ const checkImageDetail = (e: TouchEvent) => {
   if (touchStart.value?.clientX !== clientX || touchStart.value?.clientY !== clientY) {
     return
   }
-  // 非常快速的双击过滤
-  // https://vant.pro/vant/#/zh-CN/advanced-usage%23zhuo-mian-duan-gua-pei
   const target = e.target as HTMLImageElement
   if (target.classList.contains('van-image__img')) {
-    showMoreOperate.value = !showMoreOperate.value
+    // 非常快速的双击过滤
+    // https://github.com/youzan/vant/blob/eca18a1dad5908eb8a6e989bb45094f7d2e5414f/packages/vant/src/image-preview/ImagePreviewItem.tsx#L278
+    touchTimes.value += 1
+    setTimeout(() => {
+      if (touchTimes.value === 1) {
+        showMoreOperate.value = !showMoreOperate.value
+      }
+      touchTimes.value = 0
+    }, 260)
   }
 }
 useEventListener(previewWrapper, 'touchstart', (e: TouchEvent) => {
