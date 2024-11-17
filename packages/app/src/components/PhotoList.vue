@@ -246,45 +246,51 @@ providePhotoListStore({
 </script>
 
 <template>
-  <van-pull-refresh v-model="loading" @refresh="pullRefresh">
-    <main>
-      <slot name="header"></slot>
-      <van-empty v-if="!photoList.length && showEmpty && !showUploadList.length" description="空空如也，快去添加吧" />
-      <!-- 待上传列表 -->
-      <van-grid square>
-        <van-grid-item v-for="item in showUploadList" :key="item.key">
-          <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="item.url">
-            <template v-slot:loading>
-              <van-loading type="spinner" size="20" />
-            </template>
-          </van-image>
-        </van-grid-item>
-      </van-grid>
-      <!-- 正常列表 -->
-      <template v-for="{ title, photos } in showPhotoList" :key="title">
-        <h2>{{ title }}</h2>
+  <div class="photo-list">
+    <van-pull-refresh v-model="loading" @refresh="pullRefresh">
+      <main>
+        <slot name="header"></slot>
+        <van-empty v-if="!photoList.length && showEmpty && !showUploadList.length" description="空空如也，快去添加吧" />
+        <!-- 待上传列表 -->
         <van-grid square>
-          <van-grid-item v-for="item in photos" :key="item.key">
-            <van-image @click="previewImage(item.idx)" fit="cover" position="center" width="100%" height="100%"
-              lazy-load :src="item.cover">
+          <van-grid-item v-for="item in showUploadList" :key="item.key">
+            <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="item.url">
               <template v-slot:loading>
                 <van-loading type="spinner" size="20" />
               </template>
             </van-image>
           </van-grid-item>
         </van-grid>
-      </template>
-      <!-- block -->
-      <div class="block"></div>
-    </main>
-  </van-pull-refresh>
-  <!-- 上传 -->
-  <div class="upload-container">
-    <van-uploader :after-read="afterRead" multiple>
+        <!-- 正常列表 -->
+        <template v-for="{ title, photos } in showPhotoList" :key="title">
+          <h2>{{ title }}</h2>
+          <van-grid square>
+            <van-grid-item v-for="item in photos" :key="item.key">
+              <van-image @click="previewImage(item.idx)" fit="cover" position="center" width="100%" height="100%"
+                lazy-load :src="item.cover">
+                <template v-slot:loading>
+                  <van-loading type="spinner" size="20" />
+                </template>
+              </van-image>
+            </van-grid-item>
+          </van-grid>
+        </template>
+        <!-- block -->
+        <div class="block"></div>
+      </main>
+    </van-pull-refresh>
+    <!-- 上传 -->
+    <van-uploader class="upload-container" :after-read="afterRead" multiple>
       <van-icon name="plus" size="16" />
     </van-uploader>
+    <!-- 图片预览 -->
+    <PreviewImage :album="album" v-model:show="showPreview" :images="photoList" :start="startPosition" />
+    <!-- 回到顶部 -->
+    <van-back-top :bottom="110" :right="20" :style="{
+      '--van-back-top-icon-size': '16px',
+      '--van-back-top-size': '36px',
+    }" />
   </div>
-  <PreviewImage :album="album" v-model:show="showPreview" :images="photoList" :start="startPosition" />
 </template>
 <style scoped lang="scss">
 h2 {
@@ -309,13 +315,33 @@ main {
 
 .upload-container {
   position: fixed;
-  right: 10px;
+  right: 20px;
   bottom: 60px;
   --van-button-icon-size: 1em;
   z-index: 1;
-  padding: 8px;
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
   background-color: var(--van-primary-color);
   color: #fff;
   border-radius: 50%;
+
+  :deep(.van-uploader__input-wrapper) {
+    width: 100%;
+    height: 100%;
+    position: relative;
+
+    .van-icon {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+  }
+
+  :deep(.van-uploader__wrapper) {
+    width: 100%;
+    height: 100%;
+  }
 }
 </style>

@@ -4,6 +4,7 @@ import { showToast } from 'vant';
 import { ref, reactive, onActivated } from 'vue'
 import { useRouter } from 'vue-router';
 import { OnLongPress } from '@vueuse/components'
+import PageTitle from '@/components/PageTitle.vue';
 
 const albumList = reactive<{
   large: Album[],
@@ -80,8 +81,8 @@ const goToDetail = (albumId: string) => {
 
 <template>
   <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)">
+    <PageTitle title="相册" :info="false" />
     <div class="album">
-      <h1>相册</h1>
       <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
       <!-- 大卡片 -->
       <van-grid :column-num="1" :border="false">
@@ -163,12 +164,6 @@ const goToDetail = (albumId: string) => {
   padding-bottom: 60px;
 }
 
-h1 {
-  font-weight: lighter;
-  margin-bottom: 0;
-  padding-left: 10px;
-}
-
 .large-card {
   position: relative;
   border-radius: 10px;
@@ -235,13 +230,18 @@ h1 {
 
 .add-container {
   position: fixed;
-  right: 10px;
+  right: 20px;
   bottom: 60px;
   z-index: 1;
-  padding: 8px;
   background-color: var(--van-primary-color);
   color: #fff;
   border-radius: 50%;
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .long-press-wrapper {
