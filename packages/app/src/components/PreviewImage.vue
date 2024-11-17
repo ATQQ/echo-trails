@@ -21,13 +21,11 @@
               </div>
 
             </header>
-            <transition name="van-slide-right">
-              <div v-show="showInfoDetail" class="cover-info">
-                <van-cell title="图片信息" :value="filesize" :label="activeImage.name" />
-                <van-cell title="尺寸" :value="fileWH" />
-                <van-cell title="格式" :value="fileType" />
-              </div>
-            </transition>
+            <div v-show="showInfoDetail" class="cover-info">
+              <van-cell title="图片信息" :value="filesize" :label="activeImage.name" />
+              <van-cell title="尺寸" :value="fileWH" />
+              <van-cell title="格式" :value="fileType" />
+            </div>
 
             <div v-show="!editMode && activeImage.description" class="description-info">
               {{ activeImage.description }}
@@ -75,7 +73,7 @@
         <van-checkbox-group v-model="selectedAlbums">
           <van-grid :gutter="10" :column-num="2" :border="false">
             <van-grid-item v-for="(album, idx) in albumList" :key="album._id">
-              <div class="small-card" @click.stop.prevent="toggleSelectAlbum(idx)">
+              <div class="small-card" @touchstart.stop.prevent="toggleSelectAlbum(idx)">
                 <div class="cover">
                   <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover" />
                   <van-checkbox :ref="el => checkboxRefs[idx] = el" :name="album._id" class="selected" />
