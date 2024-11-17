@@ -4,6 +4,7 @@ import { showToast } from 'vant';
 import { ref, reactive, onActivated } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle.vue';
+import EditAlbumCard from '@/components/EditAlbumCard.vue';
 
 const albumList = reactive<{
   large: Album[],
@@ -42,7 +43,6 @@ const reset = () => {
   addData.description = ''
   addData.isLarge = false
 }
-
 
 const onSubmit = () => {
   createAlbum(addData.name, addData.description, addData.isLarge).then(async () => {
@@ -103,26 +103,7 @@ const goToDetail = (albumId: string) => {
   </div>
   <van-popup @close="showAddModal = false" v-model:show="showAddModal" round position="bottom"
     :style="{ height: '50%' }" @closed="reset">
-    <van-form @submit="onSubmit">
-      <van-cell-group inset>
-        <van-field required v-model="addData.name" name="相册名" label="相册名" placeholder="请输入相册名"
-          :rules="[{ required: true, message: '请填写相册名' }]">
-          <template #left-icon></template>
-        </van-field>
-        <van-field v-model="addData.description" autosize show-word-limit rows="5" maxlength="100" type="textarea"
-          name="描述" label="描述" placeholder="描述" />
-        <van-field name="switch" label="大卡片">
-          <template #input>
-            <van-switch v-model="addData.isLarge" />
-          </template>
-        </van-field>
-      </van-cell-group>
-      <div style="margin: 16px;">
-        <van-button round block type="primary" native-type="submit">
-          提交
-        </van-button>
-      </div>
-    </van-form>
+    <EditAlbumCard @submit="onSubmit" v-model:data="addData" btn-type="primary" />
   </van-popup>
 </template>
 

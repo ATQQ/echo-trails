@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EditAlbumCard from '@/components/EditAlbumCard.vue';
 import InfoCard from '@/components/InfoCard.vue';
 import PhotoList from '@/components/PhotoList.vue';
 import { provideAlbumPhotoStore } from '@/composables/albumphoto';
@@ -102,10 +103,12 @@ const onSubmit = () => {
           <h2>{{ album.name }}</h2>
           <p>{{ album.description }}</p>
         </div>
-        <!-- 操作按钮 -->
-        <div class="actions">
-          <span @click="handleShowInfoPanel" class="action-item"><i>...</i></span>
-        </div>
+      </div>
+      <!-- 操作按钮 -->
+      <div class="actions" :class="{
+        empty: !album.count
+      }">
+        <span @click="handleShowInfoPanel" class="action-item"><i>...</i></span>
       </div>
       <van-popup v-model:show="showInfoPanel" position="right"
         :style="{ width: '100%', height: '100%', background: '#eff2f5', padding: '20px 0' }">
@@ -113,31 +116,11 @@ const onSubmit = () => {
         <InfoCard :data="listData" />
         <!-- 编辑卡片 -->
         <InfoCard v-if="!editMode" class="card-margin" :data="albumInfoData" />
-        <van-form class="card-margin" v-if="editMode" @submit="onSubmit">
-          <van-cell-group inset>
-            <van-field required v-model="addData.name" name="相册名" label="相册名" placeholder="请输入相册名"
-              :rules="[{ required: true, message: '请填写相册名' }]">
-              <template #left-icon></template>
-            </van-field>
-            <van-field v-model="addData.description" autosize show-word-limit rows="5" maxlength="100" type="textarea"
-              name="描述" label="描述" placeholder="描述" />
-            <van-field name="switch" label="大卡片">
-              <template #input>
-                <van-switch v-model="addData.isLarge" />
-              </template>
-            </van-field>
-          </van-cell-group>
-          <div style="margin: 16px;">
-            <van-button size="small" round block type="success" native-type="submit">
-              提交
-            </van-button>
-          </div>
-        </van-form>
+        <EditAlbumCard v-if="editMode" v-model:data="addData" @submit="onSubmit" />
         <div class="operation card-margin">
           <van-button v-if="!editMode" @click="handleEdit" type="primary" block round size="small">编辑</van-button>
           <van-button v-else @click="editMode = false" type="danger" block round size="small">取消</van-button>
         </div>
-
       </van-popup>
     </template>
   </PhotoList>
@@ -190,6 +173,11 @@ const onSubmit = () => {
   background: linear-gradient(to top, rgba(255, 255, 255, 0), rgba(0, 0, 0, 0.3));
   display: flex;
   justify-content: flex-end;
+
+  &.empty {
+    color: #000;
+    background: none;
+  }
 
   .action-item {
     width: 24px;

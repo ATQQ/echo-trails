@@ -279,7 +279,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         title: '总大小', value: formatSize(
           sumSize
         ),
-        label: `平均大小：${formatSize(sumSize / sumCount)}`
+        label: sumCount ? `平均大小：${formatSize(sumSize / sumCount)}` : ''
       }
     ]
     return ctx.json({

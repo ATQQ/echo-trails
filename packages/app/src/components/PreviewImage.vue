@@ -174,7 +174,6 @@ const showDescription = ref(true)
 
 const editMode = ref(false)
 const handleOnClose = () => {
-  // TODO：重置
   editMode.value = false
 }
 
