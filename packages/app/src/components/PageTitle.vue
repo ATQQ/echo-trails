@@ -6,17 +6,24 @@
       <van-icon name="close" v-if="exit" size="26" @click="handleExit" />
     </div>
   </header>
-  <van-popup v-model:show="showInfoPanel" position="right" :style="{ width: '100%', height: '100%' }" />
+  <van-popup v-model:show="showInfoPanel" position="right"
+    :style="{ width: '100%', height: '100%', background: '#eff2f5', padding: '20px 0' }">
+    <!-- 基本信息卡片展示 -->
+    <InfoCard :data="listData" />
+  </van-popup>
 </template>
 
 <script lang="ts" setup>
 import { showConfirmDialog } from 'vant';
 import { ref } from 'vue';
 import { onBeforeRouteLeave, useRouter } from 'vue-router';
-const { title = '', exit = false, info = true } = defineProps<{
+import InfoCard from './InfoCard.vue';
+import { getPhotoListInfo } from '@/service';
+const { title = '', exit = false, info = true, likedMode = false } = defineProps<{
   title: string
   exit?: boolean
   info?: boolean
+  likedMode?: boolean
 }>()
 
 const router = useRouter();
@@ -39,7 +46,12 @@ const handleExit = () => {
 
 // 信息展示
 const showInfoPanel = ref(false)
-const handleShowInfoPanel = () => {
+const listData = ref<InfoItem[]>([])
+const handleShowInfoPanel = async () => {
+  listData.value = await getPhotoListInfo({
+    likedMode
+  })
+  // 调接口拉数据
   showInfoPanel.value = true
 }
 onBeforeRouteLeave((to, from, next) => {

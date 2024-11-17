@@ -1,7 +1,7 @@
 import { api } from "@/lib/request";
 import ky from "ky";
 
-export function login(){
+export function login() {
   return api.post<ServerResponse>('check')
 }
 
@@ -103,15 +103,15 @@ export function createAlbum(name: string, description: string, isLarge: boolean)
   })
 }
 
-export function updateAlbum(id:string, options:{
+export function updateAlbum(id: string, options: {
   name: string,
   description: string,
   isLarge: boolean
-}){
+}) {
   return api.put<ServerResponse<Album>>('album/update', {
     json: {
       id,
-     ...options
+      ...options
     }
   })
 }
@@ -125,7 +125,7 @@ export function getAlbumInfo(id: string) {
 }
 
 
-export function updateAlbumCover(id: string, key: string){
+export function updateAlbumCover(id: string, key: string) {
   return api.put<ServerResponse<Album>>('album/update/cover', {
     json: {
       id,
@@ -140,4 +140,19 @@ export function deletePhoto(id: string) {
       id
     }
   })
+}
+
+export function getPhotoListInfo(options: {
+  likedMode?: boolean,
+  albumId?: string,
+}) {
+  return api.get<ServerResponse<InfoItem[]>>('file/photo/listInfo', {
+    searchParams: {
+      ...(options.likedMode ? { likedMode: true } : {}),
+      ...(options.albumId ? { albumId: options.albumId } : {}),
+    }
+  }).json()
+    .then((v) => {
+      return v.data
+    })
 }

@@ -37,3 +37,9 @@ interface Album {
   style: 'large' | 'small';
 }
 
+
+interface InfoItem {
+  title: string;
+  value: string;
+  label?: string;
+}

@@ -6,7 +6,7 @@ import PhotoList from '@/components/PhotoList.vue';
 <template>
   <PhotoList likedMode>
     <template #header>
-      <PageTitle title="我喜欢" exit/>
+      <PageTitle title="我喜欢" exit likedMode/>
     </template>
   </PhotoList>
 </template>

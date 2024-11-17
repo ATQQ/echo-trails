@@ -6,6 +6,7 @@ import { Photo } from "../db/photo";
 import { exec } from "../db";
 import photoService from "../service/photoService";
 import { s3Client } from "../lib/bitiful";
+import { formatSize } from "../lib/file";
 
 function replaceNullKeys(obj: any) {
   if (typeof obj !== 'object' || obj === null) {
@@ -245,6 +246,43 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     return ctx.json({
       code: 0,
       message: 'delete success'
+    })
+  })
+
+
+  router.get('photo/listInfo', async (ctx) => {
+    const username = ctx.get('username')
+    const { likedMode } = ctx.req.query()
+    const isLiked = likedMode === 'true'
+    const photos = await exec(() => {
+      return Photo.find({
+        username,
+        deleted: false,
+        ...(isLiked ? { isLiked } : {}),
+      })
+        .select(['size'])
+        .exec()
+    })
+    if (!photos) {
+      return ctx.json({
+        code: 1,
+        message: 'query error'
+      })
+    }
+
+    const sumCount = photos.length
+    const sumSize = photos.reduce((acc, cur) => acc + cur.size, 0)
+    const data = [
+      { title: '数量', value: sumCount },
+      {
+        title: '总大小', value: formatSize(
+          sumSize
+        ),
+        label: `平均大小：${formatSize(sumSize / sumCount)}`
+      }
+    ]
+    return ctx.json({
+      data
     })
   })
 
