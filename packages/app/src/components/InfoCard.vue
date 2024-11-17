@@ -1,6 +1,7 @@
 <template>
   <van-cell-group inset>
     <van-cell v-for="item in data" :key="item.title" :title="item.title" :value="item.value" :label="item.label" />
+    <slot />
   </van-cell-group>
 </template>
 

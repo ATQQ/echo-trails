@@ -1,9 +1,8 @@
 <script lang="ts" setup>
-import { createAlbum, getAlbums, updateAlbum } from '@/service';
+import { createAlbum, getAlbums } from '@/service';
 import { showToast } from 'vant';
 import { ref, reactive, onActivated } from 'vue'
 import { useRouter } from 'vue-router';
-import { OnLongPress } from '@vueuse/components'
 import PageTitle from '@/components/PageTitle.vue';
 
 const albumList = reactive<{
@@ -35,7 +34,6 @@ const addData = reactive({
   name: '',
   description: '',
   isLarge: false,
-  editId: ''
 })
 
 const reset = () => {
@@ -43,34 +41,16 @@ const reset = () => {
   addData.name = ''
   addData.description = ''
   addData.isLarge = false
-  addData.editId = ''
 }
 
-const handleEdit = (album: Album) => {
-  addData.editId = album._id
-  addData.name = album.name
-  addData.description = album.description
-  addData.isLarge = album.style === 'large'
-  showAddModal.value = true
-}
 
 const onSubmit = () => {
-  const { editId, ...ops } = addData
-  if (editId) {
-    updateAlbum(editId, ops).then(async () => {
-      showToast('修改成功')
-      reset()
-      loadAlbum()
-    })
-    return
-  }
   createAlbum(addData.name, addData.description, addData.isLarge).then(async () => {
     showToast('创建成功')
     reset()
     loadAlbum()
   })
 }
-
 
 const router = useRouter()
 const goToDetail = (albumId: string) => {
@@ -87,44 +67,31 @@ const goToDetail = (albumId: string) => {
       <!-- 大卡片 -->
       <van-grid :column-num="1" :border="false">
         <van-grid-item v-for="album in albumList.large" :key="album._id">
-          <OnLongPress class="long-press-wrapper" @trigger="handleEdit(album)" :options="{
-            modifiers: {
-              prevent: true,
-              stop: true,
-            }
-          }">
-            <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
-              <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
-              </van-image>
-              <!-- 标题和描述 -->
-              <div class="title-desc" :class="{
-                noCover: !album.cover
-              }">
-                <h2>{{ album.name }}</h2>
-                <p>{{ album.description }}</p>
-              </div>
+
+          <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
+            <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
+            </van-image>
+            <!-- 标题和描述 -->
+            <div class="title-desc" :class="{
+              noCover: !album.cover
+            }">
+              <h2>{{ album.name }}</h2>
+              <p>{{ album.description }}</p>
             </div>
-          </OnLongPress>
+          </div>
         </van-grid-item>
       </van-grid>
       <!-- 小卡片分类 -->
       <van-grid :gutter="10" :column-num="2" :border="false">
         <van-grid-item v-for="album in albumList.small" :key="album._id">
-          <OnLongPress class="long-press-wrapper" @trigger="handleEdit(album)" :options="{
-            modifiers: {
-              prevent: true,
-              stop: true,
-            }
-          }">
-            <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
-              <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
-              </van-image>
-              <div class="title-desc">
-                <h2>{{ album.name }}</h2>
-                <p>{{ album.count }}</p>
-              </div>
+          <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
+            <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
+            </van-image>
+            <div class="title-desc">
+              <h2>{{ album.name }}</h2>
+              <p>{{ album.count }}</p>
             </div>
-          </OnLongPress>
+          </div>
         </van-grid-item>
       </van-grid>
     </div>

@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import InfoCard from '@/components/InfoCard.vue';
 import PhotoList from '@/components/PhotoList.vue';
 import { provideAlbumPhotoStore } from '@/composables/albumphoto';
-import { getAlbumInfo } from '@/service';
-import { onMounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { getAlbumInfo, getPhotoListInfo, updateAlbum } from '@/service';
+import { showToast } from 'vant';
+import { computed, onMounted, reactive, ref } from 'vue';
+import { onBeforeRouteLeave, useRoute } from 'vue-router';
 const route = useRoute();
 const album = ref<Album>()
 const refreshAlbum = () => {
@@ -21,6 +23,70 @@ onMounted(() => {
   refreshAlbum()
 })
 
+// 信息展示
+const showInfoPanel = ref(false)
+const listData = ref<InfoItem[]>([])
+const handleShowInfoPanel = async () => {
+  listData.value = await getPhotoListInfo({
+    albumId: album.value?._id
+  })
+  // 调接口拉数据
+  showInfoPanel.value = true
+}
+const albumInfoData = computed(() => {
+  if (!album.value) {
+    return []
+  }
+  return [
+    {
+      title: '名称',
+      value: album.value.name
+    },
+    {
+      title: '描述',
+      value: album.value.description
+    },
+    {
+      title: '样式',
+      value: album.value.style === 'large' ? '大卡片' : '小卡片'
+    }
+  ]
+})
+
+onBeforeRouteLeave((to, from, next) => {
+  if (showInfoPanel.value) {
+    showInfoPanel.value = false
+    next(false)
+    return false
+  }
+  next()
+})
+
+const editMode = ref(false)
+const addData = reactive({
+  name: '',
+  description: '',
+  isLarge: false,
+})
+
+const handleEdit = () => {
+  if (!album.value) return
+  editMode.value = true
+  addData.name = album.value.name
+  addData.description = album.value.description
+  addData.isLarge = album.value.style === 'large'
+}
+
+const onSubmit = () => {
+  if (album.value?._id) {
+    updateAlbum(album.value?._id, addData).then(async () => {
+      showToast('修改成功')
+      await refreshAlbum()
+      editMode.value = false
+    })
+    return
+  }
+}
 </script>
 
 <template>
@@ -36,7 +102,43 @@ onMounted(() => {
           <h2>{{ album.name }}</h2>
           <p>{{ album.description }}</p>
         </div>
+        <!-- 操作按钮 -->
+        <div class="actions">
+          <span @click="handleShowInfoPanel" class="action-item"><i>...</i></span>
+        </div>
       </div>
+      <van-popup v-model:show="showInfoPanel" position="right"
+        :style="{ width: '100%', height: '100%', background: '#eff2f5', padding: '20px 0' }">
+        <!-- 基本信息卡片展示 -->
+        <InfoCard :data="listData" />
+        <!-- 编辑卡片 -->
+        <InfoCard v-if="!editMode" class="card-margin" :data="albumInfoData" />
+        <van-form class="card-margin" v-if="editMode" @submit="onSubmit">
+          <van-cell-group inset>
+            <van-field required v-model="addData.name" name="相册名" label="相册名" placeholder="请输入相册名"
+              :rules="[{ required: true, message: '请填写相册名' }]">
+              <template #left-icon></template>
+            </van-field>
+            <van-field v-model="addData.description" autosize show-word-limit rows="5" maxlength="100" type="textarea"
+              name="描述" label="描述" placeholder="描述" />
+            <van-field name="switch" label="大卡片">
+              <template #input>
+                <van-switch v-model="addData.isLarge" />
+              </template>
+            </van-field>
+          </van-cell-group>
+          <div style="margin: 16px;">
+            <van-button size="small" round block type="success" native-type="submit">
+              提交
+            </van-button>
+          </div>
+        </van-form>
+        <div class="operation card-margin">
+          <van-button v-if="!editMode" @click="handleEdit" type="primary" block round size="small">编辑</van-button>
+          <van-button v-else @click="editMode = false" type="danger" block round size="small">取消</van-button>
+        </div>
+
+      </van-popup>
     </template>
   </PhotoList>
 </template>
@@ -77,5 +179,40 @@ onMounted(() => {
   .noCover {
     color: #000;
   }
+}
+
+.actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  color: #fff;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0), rgba(0, 0, 0, 0.3));
+  display: flex;
+  justify-content: flex-end;
+
+  .action-item {
+    width: 24px;
+    height: 24px;
+    margin-right: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    i {
+      font-weight: bold;
+      font-size: 20px;
+      line-height: 20px;
+      font-style: normal
+    }
+  }
+}
+
+.card-margin {
+  margin-top: 20px;
+}
+
+.operation {
+  padding: var(--van-cell-group-inset-padding);
 }
 </style>

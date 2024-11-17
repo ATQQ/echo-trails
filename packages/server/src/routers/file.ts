@@ -252,13 +252,14 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
   router.get('photo/listInfo', async (ctx) => {
     const username = ctx.get('username')
-    const { likedMode } = ctx.req.query()
+    const { likedMode, albumId } = ctx.req.query()
     const isLiked = likedMode === 'true'
     const photos = await exec(() => {
       return Photo.find({
         username,
         deleted: false,
         ...(isLiked ? { isLiked } : {}),
+        ...(albumId ? { albumId } : {})
       })
         .select(['size'])
         .exec()
