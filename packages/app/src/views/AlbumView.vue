@@ -20,7 +20,8 @@ const loadAlbum = (_loading = false) => {
   loading.value = _loading
   return getAlbums().then((res) => {
     loading.value = false
-    Object.assign(albumList, res)
+    albumList.large = res.large || []
+    albumList.small = res.small || []
     showEmpty.value = !albumList.large?.length && !albumList.small?.length
   })
 }
