@@ -116,7 +116,7 @@ const onSubmit = () => {
         <InfoCard :data="listData" />
         <!-- 编辑卡片 -->
         <InfoCard v-if="!editMode" class="card-margin" :data="albumInfoData" />
-        <EditAlbumCard v-if="editMode" v-model:data="addData" @submit="onSubmit" />
+        <EditAlbumCard v-if="editMode" :data="addData" @submit="onSubmit" />
         <div class="operation card-margin">
           <van-button v-if="!editMode" @click="handleEdit" type="primary" block round size="small">编辑</van-button>
           <van-button v-else @click="editMode = false" type="danger" block round size="small">取消</van-button>

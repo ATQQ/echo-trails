@@ -104,7 +104,7 @@ const goToDetail = (albumId: string) => {
   </div>
   <van-popup @close="showAddModal = false" v-model:show="showAddModal" round position="bottom"
     :style="{ height: '50%' }" @closed="reset">
-    <EditAlbumCard @submit="onSubmit" v-model:data="addData" btn-type="primary" />
+    <EditAlbumCard @submit="onSubmit" :data="addData" btn-type="primary" />
   </van-popup>
 </template>
 
