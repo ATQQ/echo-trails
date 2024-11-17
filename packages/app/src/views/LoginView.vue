@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// AI 生成页面：https://bolt.new/
+// 生成页面链接：https://bolt.new/~/sb1-wv4id8
 import { login } from '@/service';
 import { showNotify } from 'vant';
 import { onMounted, ref } from 'vue'
