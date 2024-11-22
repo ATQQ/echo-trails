@@ -2,7 +2,7 @@
   <div class="preview-image" ref="previewWrapper" :class="{
     'show-detail': showMoreOperate
   }">
-    <van-image-preview @change="handleChange" v-model:show="show" :images="urls" :start-position="start"
+    <van-image-preview :close-on-popstate="false" @change="handleChange" v-model:show="show" :images="urls" :start-position="start"
       swipeDuration="100" :showIndex="false" :onClose="handleOnClose" :closeOnClickImage="false" transition="zoom">
       <template #cover>
         <!-- 顶部操作栏 -->
@@ -67,7 +67,7 @@
     </van-image-preview>
 
     <!-- 选择相册 -->
-    <van-action-sheet v-model:show="showAlbumSelect" title="添加到相册">
+    <van-action-sheet :closeable="false" :close-on-popstate="false" v-model:show="showAlbumSelect" title="添加到相册">
       <van-empty v-if="!albumList.length" description="空空如也，快去创建吧" />
       <div v-else class="album-list">
         <van-checkbox-group v-model="selectedAlbums">
@@ -102,8 +102,7 @@ import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import { showConfirmDialog, showNotify } from 'vant';
 import { computed, ref } from 'vue';
-import { useRoute } from 'vue-router';
-
+import { useRoute, onBeforeRouteLeave } from 'vue-router';
 const { images = [], start = 0, album } = defineProps<{
   images: Photo[]
   start?: number
@@ -286,6 +285,20 @@ const handleDeleteImage = async () => {
     }
   })
 }
+
+onBeforeRouteLeave((to, from, next) => {
+  if(showAlbumSelect.value){
+    showAlbumSelect.value = false
+    next(false)
+    return false
+  }
+  if (show.value) {
+    show.value = false
+    next(false)
+    return false
+  }
+  next()
+})
 </script>
 
 <style lang="scss">

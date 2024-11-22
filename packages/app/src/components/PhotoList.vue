@@ -7,7 +7,6 @@ import { UploadStatus } from '../constants/index'
 import { useScroll } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage.vue';
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
-import { onBeforeRouteLeave } from 'vue-router';
 import { providePhotoListStore } from '@/composables/photoList';
 const isActive = ref(true)
 onActivated(() => {
@@ -215,14 +214,6 @@ const pullRefresh = () => {
     })
 }
 
-onBeforeRouteLeave((to, from, next) => {
-  if (showPreview.value) {
-    showPreview.value = false
-    next(false)
-    return false
-  }
-  next()
-})
 
 // provide
 const deletePhoto = (id: string) => {
