@@ -5,6 +5,7 @@ import { ref, reactive, onActivated } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle.vue';
 import EditAlbumCard from '@/components/EditAlbumCard.vue';
+import { preventBack } from '@/lib/router'
 
 const albumList = reactive<{
   large: Album[],
@@ -58,6 +59,7 @@ const goToDetail = (albumId: string) => {
   router.push({ name: 'album-photo', params: { albumId } })
 }
 
+preventBack(showAddModal)
 </script>
 
 <template>

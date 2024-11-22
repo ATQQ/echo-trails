@@ -6,7 +6,9 @@ import { provideAlbumPhotoStore } from '@/composables/albumphoto';
 import { getAlbumInfo, getPhotoListInfo, updateAlbum } from '@/service';
 import { showToast } from 'vant';
 import { computed, onMounted, reactive, ref } from 'vue';
-import { onBeforeRouteLeave, useRoute } from 'vue-router';
+import { useRoute } from 'vue-router';
+import { preventBack } from '@/lib/router'
+
 const route = useRoute();
 const album = ref<Album>()
 const refreshAlbum = () => {
@@ -54,14 +56,7 @@ const albumInfoData = computed(() => {
   ]
 })
 
-onBeforeRouteLeave((to, from, next) => {
-  if (showInfoPanel.value) {
-    showInfoPanel.value = false
-    next(false)
-    return false
-  }
-  next()
-})
+preventBack(showInfoPanel)
 
 const editMode = ref(false)
 const addData = reactive({

@@ -16,7 +16,8 @@
 <script lang="ts" setup>
 import { showConfirmDialog } from 'vant';
 import { ref } from 'vue';
-import { onBeforeRouteLeave, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
+import { preventBack } from '@/lib/router'
 import InfoCard from './InfoCard.vue';
 import { getPhotoListInfo } from '@/service';
 const { title = '', exit = false, info = true, likedMode = false } = defineProps<{
@@ -54,14 +55,8 @@ const handleShowInfoPanel = async () => {
   // 调接口拉数据
   showInfoPanel.value = true
 }
-onBeforeRouteLeave((to, from, next) => {
-  if (showInfoPanel.value) {
-    showInfoPanel.value = false
-    next(false)
-    return false
-  }
-  next()
-})
+preventBack(showInfoPanel)
+
 </script>
 
 <style lang="scss" scoped>
