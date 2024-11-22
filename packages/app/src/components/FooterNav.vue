@@ -1,30 +1,36 @@
 <template>
   <footer class="footer-nav">
     <van-grid clickable :column-num="3">
-      <van-grid-item v-for="menu in menus" :key="menu.icon" :icon="menu.icon" :text="menu.text" :to="menu.to"
-        :icon-color="menu.color" />
+      <van-grid-item v-for="menu in menus" :key="menu.icon" :icon="route.path === menu.to ? menu.activeIcon : menu.icon"
+        :text="menu.text" :to="menu.to" :icon-color="route.path === menu.to ? menu.color : ''" />
     </van-grid>
   </footer>
 </template>
 
 <script lang="ts" setup>
+import { useRoute } from 'vue-router';
 
-// TODO: active style
+const route = useRoute();
 const menus = [
   {
     icon: 'home-o',
     text: '全部',
-    to: '/'
+    to: '/',
+    activeIcon: 'wap-home',
+    color: '#2196f3',
   },
   {
     icon: 'photo-o',
     text: '相册',
-    to: '/album'
+    to: '/album',
+    activeIcon: 'photo',
+    color: '#2196f3'
   },
   {
-    icon: 'like',
+    icon: 'like-o',
     text: '我喜欢',
     to: '/like',
+    activeIcon: 'like',
     color: '#f53f3f'
   },
 ]

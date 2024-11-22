@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle.vue';
 import EditAlbumCard from '@/components/EditAlbumCard.vue';
 import { preventBack } from '@/lib/router'
+import AddButton from '@/components/AddButton.vue';
 
 const albumList = reactive<{
   large: Album[],
@@ -101,9 +102,7 @@ preventBack(showAddModal)
   </van-pull-refresh>
 
   <!-- 添加相册 -->
-  <div @click="showAddModal = true" v-show="!showAddModal" class="add-container">
-    <van-icon name="plus" size="16" />
-  </div>
+  <AddButton @click="showAddModal = true" v-show="!showAddModal" />
   <van-popup @close="showAddModal = false" v-model:show="showAddModal" round position="bottom"
     :style="{ height: '50%' }" @closed="reset">
     <EditAlbumCard @submit="onSubmit" :data="addData" btn-type="primary" />
@@ -177,25 +176,5 @@ preventBack(showAddModal)
       color: #666;
     }
   }
-}
-
-.add-container {
-  position: fixed;
-  right: 20px;
-  bottom: 60px;
-  z-index: 1;
-  background-color: var(--van-primary-color);
-  color: #fff;
-  border-radius: 50%;
-  box-sizing: border-box;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.long-press-wrapper {
-  width: 100%;
 }
 </style>
