@@ -9,7 +9,7 @@
         <transition name="van-slide-down">
           <div v-show="showMoreOperate" class="cover-wrapper">
             <header class="cover-header" @click="show = false">
-              <h3>{{ coverDate }}</h3>
+              <h3>{{ coverDate }}<span class="week-day"> - {{ weekDay }}</span></h3>
               <h4>{{ coverTime }}</h4>
               <div class="header-actions">
                 <van-icon v-show="showSetCover" class="set-cover-icon" @click.stop="handleSetCover" name="bookmark-o"
@@ -154,6 +154,10 @@ const handleChange = (index: number) => {
 const activeImage = computed(() => images[currentIdx.value] || {})
 const coverDate = computed(() => dayjs(activeImage.value.lastModified).format('YYYY年MM月DD日'))
 const coverTime = computed(() => dayjs(activeImage.value.lastModified).format('HH:mm'))
+const weekDay = computed(() => {
+  const weekDayMap = ['日', '一', '二', '三', '四', '五', '六']
+  return `星期${weekDayMap[new Date(activeImage.value.lastModified).getDay()]}`
+})
 const filesize = computed(() => {
   const size = formatSize(activeImage.value.size)
   return size
@@ -349,6 +353,10 @@ onBeforeRouteLeave((to, from, next) => {
     margin-bottom: 0;
     margin-top: 10px;
     font-weight: 500;
+    .week-day{
+      color: #999;
+      font-size: 12px;
+    }
   }
 
   h4 {

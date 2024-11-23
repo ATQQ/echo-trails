@@ -100,7 +100,7 @@ watch(bottom, () => {
 // 正式列表展示使用 computed 进行groupBy分组
 const showPhotoList = computed(() => {
   // 按照 category 进行分组
-  return photoList.reduce<{ title: string, photos: (Photo & { idx: number })[] }[]>((pre, cur, idx) => {
+  return photoList.reduce<{ title: string, weekDay: string, photos: (Photo & { idx: number })[] }[]>((pre, cur, idx) => {
     const { category } = cur
     const existCategory = pre.find(v => v.title === category)
     const expandValue = {
@@ -110,8 +110,12 @@ const showPhotoList = computed(() => {
     if (existCategory) {
       existCategory.photos.push(expandValue)
     } else {
+      // 解析周几
+      const weekDayMap = ['日', '一', '二', '三', '四', '五', '六']
+      const weekDay = `星期${weekDayMap[new Date(cur.lastModified).getDay()]}`
       pre.push({
         title: category,
+        weekDay,
         photos: [expandValue]
       })
     }
@@ -310,8 +314,8 @@ providePhotoListStore({
           </van-grid-item>
         </van-grid>
         <!-- 正常列表 -->
-        <template v-for="{ title, photos } in showPhotoList" :key="title">
-          <h2>{{ title }}</h2>
+        <template v-for="{ title, photos, weekDay } in showPhotoList" :key="title">
+          <h2>{{ title }}<span class="week-day"> - {{ weekDay }}</span></h2>
           <van-grid square>
             <van-grid-item v-for="item in photos" :key="item.key">
               <ImageCell @click="previewImage(item.idx)" :src="item.cover" />
@@ -341,6 +345,10 @@ h2 {
   font-weight: normal;
   font-size: 18px;
   margin: 10px 0;
+  .week-day{
+    color: #999;
+    font-size: 12px;
+  }
 }
 
 main :deep(.van-grid-item__content) {
