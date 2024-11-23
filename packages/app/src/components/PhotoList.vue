@@ -8,6 +8,9 @@ import { useScroll } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage.vue';
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { providePhotoListStore } from '@/composables/photoList';
+import ImageCell from './ImageCell.vue';
+import pLimit from 'p-limit';
+
 const isActive = ref(true)
 onActivated(() => {
   // 调用时机为首次挂载
@@ -123,56 +126,101 @@ function getImageExif(file: File) {
     return {}
   }
 }
+const uploadInfoMap = new Map<FileInfoItem, UploadInfo>()
+const generateUploadInfo = (value: FileInfoItem) => {
+  if (uploadInfoMap.has(value)) {
+    return uploadInfoMap.get(value)!
+  }
+  const { exif, lastModified, file } = value
+  const key = generateFileKey(value)
+  const name = file.name.replace(/\s+/g, '_') // 去除空格
+  const result = {
+    key,
+    name,
+    lastModified,
+    exif,
+    size: file.size,
+    type: file.type,
+    likedMode,
+    ...(album ? { albumId: [album._id] } : {})
+  }
+  uploadInfoMap.set(value, result)
+  return result
+}
 
-const startUpload = async (values: any) => {
-  for (const value of values) {
-    const { exif, lastModified, file } = value
-    let name = file.name
-    name = name.replace(/\s+/g, '_') // 去除空格
-    const key = generateFileKey(value)
-    const info = {
-      key,
-      name,
-      lastModified,
-      exif,
-      size: file.size,
-      type: file.type,
-      likedMode,
-      ...(album ? { albumId: [album._id] } : {})
-    }
-    // 加入待上传列表，同时预览
-    const temp = {
-      key,
-      url: value.objectUrl,
-      status: UploadStatus.PENDING,
-    }
+const addWaitUploadList = (fileInfo: FileInfoItem) => {
+  const info = generateUploadInfo(fileInfo)
+  const key = info.key
+
+  const temp = {
+    key,
+    url: fileInfo.objectUrl,
+    status: UploadStatus.PENDING,
+  }
+  const existItem = waitUploadList.find(v => v.key === key)
+  if (!existItem) {
     waitUploadList.push(temp)
-    getUploadUrl(key).then(value => {
-      const wrapperItem = waitUploadList.find(v => v.key === key)!
-      // 触发上传
-      wrapperItem.status = UploadStatus.UPLOADING
-      uploadFile(file, value)
-        .then(async () => {
-          // 数据落库
-          const result = await addFileInfo(info)
+  }
+}
 
-          // 空相册首次上传
-          if (!photoList.length) {
-            albumPhotoStore?.refreshAlbum?.()
-          }
+const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo) => {
+  const key = uploadInfo.key
+  const { file } = fileInfo
 
-          // 优先展示临时资源链接，避免闪烁
-          result.cover = wrapperItem.url
-          // 正式列表数据更新
-          if (addPhoto2List(result)) {
-            photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
-          }
-          wrapperItem.status = UploadStatus.SUCCESS
-        })
-        .catch(() => {
-          wrapperItem.status = UploadStatus.ERROR
-        })
+  // 获取上传链接
+  const uploadUrl = await getUploadUrl(key)
+
+  // 获取到上传列表里对应项
+  const wrapperItem = waitUploadList.find(v => v.key === key)!
+  wrapperItem.status = UploadStatus.UPLOADING
+
+  // 触发上传
+  await uploadFile(file, uploadUrl)
+    .then(async () => {
+      // 数据落库
+      const result = await addFileInfo(uploadInfo)
+
+      // 空相册首次上传
+      if (!photoList.length) {
+        albumPhotoStore?.refreshAlbum?.()
+      }
+
+      // 优先展示临时资源链接，避免闪烁
+      result.cover = wrapperItem.url
+      // 正式列表数据更新
+      if (addPhoto2List(result)) {
+        photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
+      }
+      wrapperItem.status = UploadStatus.SUCCESS
     })
+    .catch(() => {
+      wrapperItem.status = UploadStatus.ERROR
+    })
+}
+
+const uploadValueMap = new Map<string, FileInfoItem>()
+const limit = pLimit(2);
+const startUpload = async (values: FileInfoItem[]) => {
+  for (const value of values) {
+    // 加入待上传列表，同时支持列表里展示
+    addWaitUploadList(value)
+
+    // 生成上传信息
+    const info = generateUploadInfo(value)
+
+    // 记录开始上传的文件原始信息，重传使用
+    uploadValueMap.set(info.key, value)
+
+    // TODO: 并发控制
+    limit(() => uloadOneFile(value, info))
+  }
+}
+
+const reUpload = (item: { key: string, url: string, status: UploadStatus }) => {
+  item.status = UploadStatus.PENDING
+  const fileInfo = uploadValueMap.get(item.key)
+  if (fileInfo) {
+    uloadOneFile(fileInfo, generateUploadInfo(fileInfo))
   }
 }
 
@@ -190,7 +238,7 @@ const afterRead = async (files: any) => {
         lastModified: file.lastModified,
         date: file.lastModifiedDate,
         exif,
-      }
+      } as FileInfoItem
     }),
   )
   startUpload(fileInfoList)
@@ -245,11 +293,16 @@ providePhotoListStore({
         <!-- 待上传列表 -->
         <van-grid square>
           <van-grid-item v-for="item in showUploadList" :key="item.key">
-            <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="item.url">
-              <template v-slot:loading>
-                <van-loading type="spinner" size="20" />
-              </template>
-            </van-image>
+            <ImageCell :src="item.url">
+              <!-- 等待中 -->
+              <div v-if="item.status === UploadStatus.PENDING" class="upload-mask">等待上传</div>
+              <!-- 上传中 -->
+              <div v-if="item.status === UploadStatus.UPLOADING" class="upload-mask">上传中</div>
+              <!-- 失败 -->
+              <div @click="reUpload(item)" v-else-if="item.status === UploadStatus.ERROR" class="error-mask">上传失败
+                <van-icon name="replay" />
+              </div>
+            </ImageCell>
           </van-grid-item>
         </van-grid>
         <!-- 正常列表 -->
@@ -257,16 +310,11 @@ providePhotoListStore({
           <h2>{{ title }}</h2>
           <van-grid square>
             <van-grid-item v-for="item in photos" :key="item.key">
-              <van-image @click="previewImage(item.idx)" fit="cover" position="center" width="100%" height="100%"
-                lazy-load :src="item.cover">
-                <template v-slot:loading>
-                  <van-loading type="spinner" size="20" />
-                </template>
-              </van-image>
+              <ImageCell @click="previewImage(item.idx)" :src="item.cover" />
             </van-grid-item>
           </van-grid>
         </template>
-        <!-- block -->
+        <!-- 空白块，用于触发列表滚动加载 -->
         <div class="block"></div>
       </main>
     </van-pull-refresh>
@@ -334,5 +382,33 @@ main {
     width: 100%;
     height: 100%;
   }
+}
+
+.upload-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  font-size: 12px;
+}
+
+.error-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #f53f3f;
+  font-size: 12px;
 }
 </style>

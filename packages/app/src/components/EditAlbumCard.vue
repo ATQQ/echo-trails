@@ -42,5 +42,3 @@ const emit = defineEmits<{
   (e: 'submit'): void
 }>()
 </script>
-
-<style lang="scss" scoped></style>

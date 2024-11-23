@@ -10,6 +10,7 @@ declare module 'vue' {
     AddButton: typeof import('./src/components/AddButton.vue')['default']
     EditAlbumCard: typeof import('./src/components/EditAlbumCard.vue')['default']
     FooterNav: typeof import('./src/components/FooterNav.vue')['default']
+    ImageCell: typeof import('./src/components/ImageCell.vue')['default']
     InfoCard: typeof import('./src/components/InfoCard.vue')['default']
     PageTitle: typeof import('./src/components/PageTitle.vue')['default']
     PhotoList: typeof import('./src/components/PhotoList.vue')['default']
