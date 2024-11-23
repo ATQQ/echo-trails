@@ -192,6 +192,10 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo) => {
         photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
       }
       wrapperItem.status = UploadStatus.SUCCESS
+
+      // 移除map中的数据
+      uploadInfoMap.delete(fileInfo)
+      uploadValueMap.delete(key)
     })
     .catch(() => {
       wrapperItem.status = UploadStatus.ERROR
