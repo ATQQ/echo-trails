@@ -8,6 +8,7 @@ import { showToast } from 'vant';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { preventBack } from '@/lib/router'
+import ImageCell from '@/components/ImageCell.vue';
 
 const route = useRoute();
 const album = ref<Album>()
@@ -89,8 +90,7 @@ const onSubmit = () => {
   <PhotoList v-if="album" :album="album">
     <template #header>
       <div v-if="album.count" class="large-card">
-        <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
-        </van-image>
+        <ImageCell :src="album.cover" />
         <!-- 标题和描述 -->
         <div class="title-desc" :class="{
           noCover: !album.cover

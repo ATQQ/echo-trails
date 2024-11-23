@@ -7,6 +7,7 @@ import PageTitle from '@/components/PageTitle.vue';
 import EditAlbumCard from '@/components/EditAlbumCard.vue';
 import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton.vue';
+import ImageCell from '@/components/ImageCell.vue';
 
 const albumList = reactive<{
   large: Album[],
@@ -71,10 +72,8 @@ preventBack(showAddModal)
       <!-- 大卡片 -->
       <van-grid :column-num="1" :border="false">
         <van-grid-item v-for="album in albumList.large" :key="album._id">
-
           <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
-            <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
-            </van-image>
+            <ImageCell :src="album.cover" />
             <!-- 标题和描述 -->
             <div class="title-desc" :class="{
               noCover: !album.cover
@@ -89,8 +88,7 @@ preventBack(showAddModal)
       <van-grid :gutter="10" :column-num="2" :border="false">
         <van-grid-item v-for="album in albumList.small" :key="album._id">
           <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
-            <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover">
-            </van-image>
+            <ImageCell :src="album.cover" />
             <div class="title-desc">
               <h2>{{ album.name }}</h2>
               <p>{{ album.count }}</p>

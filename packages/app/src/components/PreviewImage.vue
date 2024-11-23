@@ -75,7 +75,7 @@
             <van-grid-item v-for="(album, idx) in albumList" :key="album._id">
               <div class="small-card" @touchstart.stop.prevent="toggleSelectAlbum(idx)">
                 <div class="cover">
-                  <van-image fit="cover" position="center" width="100%" height="100%" lazy-load :src="album.cover" />
+                  <ImageCell :src="album.cover" />
                   <van-checkbox :ref="el => checkboxRefs[idx] = el" :name="album._id" class="selected" />
                 </div>
                 <div class="title-desc">
@@ -103,6 +103,7 @@ import dayjs from 'dayjs';
 import { showConfirmDialog, showNotify } from 'vant';
 import { computed, ref } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
+import ImageCell from './ImageCell.vue';
 const { images = [], start = 0, album } = defineProps<{
   images: Photo[]
   start?: number
