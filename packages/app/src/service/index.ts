@@ -22,15 +22,7 @@ export function getUploadUrl(key: string) {
     })
 }
 
-export function addFileInfo(body: {
-  key: string,
-  exif: any,
-  name: string,
-  lastModified: number,
-  size: number,
-  type: string,
-  albumId?: string[]
-}) {
+export function addFileInfo(body: UploadInfo) {
   return api.post<ServerResponse<Photo>>('file/add/info', {
     json: body
   }).json().then(((v: any) => v.data))
