@@ -6,6 +6,7 @@
       <van-loading type="spinner" size="20" />
     </template>
   </van-image>
+  <van-image v-else fit="cover" position="center" width="100%" height="100%"></van-image>
 </template>
 
 <script lang="ts" setup>
