@@ -1,8 +1,10 @@
 import ky from 'ky'
 import { showToast } from 'vant'
+import { fetch } from '@tauri-apps/plugin-http';
 
 export const api = ky.create({
-  prefixUrl: `${location.origin}/api`,
+  // TODO：分环境替换
+  prefixUrl: `${import.meta.env.VITE_BASE_ORIGIN || location.origin}/api`,
   retry: 0,
   hooks: {
     beforeRequest: [
@@ -35,4 +37,5 @@ export const api = ky.create({
       },
     ],
   },
+  fetch: !!window.__TAURI__ ? fetch : window.fetch
 })
