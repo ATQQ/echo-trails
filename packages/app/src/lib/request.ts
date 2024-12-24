@@ -1,6 +1,7 @@
 import ky from 'ky'
 import { showToast } from 'vant'
 import { fetch } from '@tauri-apps/plugin-http';
+import { isTauri } from '@/constants';
 
 export const api = ky.create({
   // TODO：分环境替换
@@ -37,5 +38,5 @@ export const api = ky.create({
       },
     ],
   },
-  fetch: !!window.__TAURI__ ? fetch : window.fetch
+  fetch: isTauri ? fetch : window.fetch
 })

@@ -24,3 +24,8 @@ const showNav = computed(() => route.meta.nav === true)
   background-color: #fff;
 }
 </style>
+<style>
+html, body {
+  overscroll-behavior: none; /* 禁用弹性滚动 */
+}
+</style>

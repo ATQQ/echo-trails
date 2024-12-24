@@ -3,13 +3,15 @@ import ExifReader from 'exifreader'
 import { reactive, computed, watch, toRefs, ref, onDeactivated, onActivated } from 'vue'
 import { addFileInfo, getPhotos, getUploadUrl, uploadFile } from '../service';
 import { generateFileKey } from '../lib/file';
-import { UploadStatus } from '../constants/index'
+import { isTauri, UploadStatus } from '../constants/index'
 import { useScroll } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage.vue';
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { providePhotoListStore } from '@/composables/photoList';
 import ImageCell from './ImageCell.vue';
 import pLimit from 'p-limit';
+import { open } from '@tauri-apps/plugin-dialog';
+import { readFile, BaseDirectory } from '@tauri-apps/plugin-fs';
 
 const isActive = ref(true)
 onActivated(() => {
@@ -290,6 +292,40 @@ providePhotoListStore({
   deletePhoto,
   isEmpty
 })
+
+const handleOpenFile = async () => {
+  console.log('handleOpenFile');
+  const selected = await open({
+    multiple: true,
+    filters: [{
+      name: 'Image',
+      extensions: ['png', 'jpeg', 'webp', 'gif']
+    }]
+  });
+
+  if(!selected) return
+
+  const files = await Promise.all(selected.map(async v => {
+    const _file = await readFile(v, { baseDir: BaseDirectory.Resource })
+    // Uint8Array 转 blob
+    const file = new Blob([_file.buffer], { type: 'image/jpeg' })
+    const name = v.split('/').pop()
+    console.log(file);
+    console.log(v);
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve({
+          file,
+          objectUrl: reader.result as string
+        })
+      }
+      reader.readAsDataURL(file);
+    })
+  }))
+
+  console.log(files);
+}
 </script>
 
 <template>
@@ -326,8 +362,11 @@ providePhotoListStore({
         <div class="block"></div>
       </main>
     </van-pull-refresh>
+    <van-button v-if="isTauri" @click="handleOpenFile" class="upload-container">
+      <van-icon name="plus" size="16" />
+    </van-button>
     <!-- 上传 -->
-    <van-uploader class="upload-container" :after-read="afterRead" multiple>
+    <van-uploader v-else class="upload-container" :after-read="afterRead" multiple>
       <van-icon name="plus" size="16" />
     </van-uploader>
     <!-- 图片预览 -->
@@ -345,7 +384,8 @@ h2 {
   font-weight: normal;
   font-size: 18px;
   margin: 10px 0;
-  .week-day{
+
+  .week-day {
     color: #999;
     font-size: 12px;
   }

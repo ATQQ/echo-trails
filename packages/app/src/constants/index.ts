@@ -5,5 +5,4 @@ export enum UploadStatus {
   ERROR,
 }
 
-// TODO: 优化
 export const isTauri = !!window.__TAURI__
