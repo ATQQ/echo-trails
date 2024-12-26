@@ -11,7 +11,7 @@ import { providePhotoListStore } from '@/composables/photoList';
 import ImageCell from './ImageCell.vue';
 import pLimit from 'p-limit';
 import { open } from '@tauri-apps/plugin-dialog';
-import { readFile, BaseDirectory } from '@tauri-apps/plugin-fs';
+import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
 
 const isActive = ref(true)
 onActivated(() => {
@@ -125,7 +125,7 @@ const showPhotoList = computed(() => {
   }, [])
 })
 
-function getImageExif(file: File) {
+function getImageExif(file: any) {
   try {
     return ExifReader.load(file)
   } catch {
@@ -239,7 +239,7 @@ const afterRead = async (files: any) => {
   const fileInfoList = await Promise.all(
     [files].flat().map(async value => {
       const { file, objectUrl } = value
-      const exif = await getImageExif(file)
+      const exif = value?.exif || await getImageExif(file)
 
       return {
         file,
@@ -294,7 +294,6 @@ providePhotoListStore({
 })
 
 const handleOpenFile = async () => {
-  console.log('handleOpenFile');
   const selected = await open({
     multiple: true,
     filters: [{
@@ -303,28 +302,31 @@ const handleOpenFile = async () => {
     }]
   });
 
-  if(!selected) return
+  if (!selected) return
 
   const files = await Promise.all(selected.map(async v => {
     const _file = await readFile(v, { baseDir: BaseDirectory.Resource })
+    const fileInfo = await lstat(v, { baseDir: BaseDirectory.Resource })
+
     // Uint8Array 转 blob
     const file = new Blob([_file.buffer], { type: 'image/jpeg' })
-    const name = v.split('/').pop()
-    console.log(file);
-    console.log(v);
+    const exif = await getImageExif(_file.buffer)
+    const name = decodeURIComponent(v).split('/').pop()
+    Object.assign(file, {
+      name,
+      lastModified: +(fileInfo.mtime || new Date()),
+      lastModifiedDate: fileInfo.mtime || new Date(),
+    })
     return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        resolve({
-          file,
-          objectUrl: reader.result as string
-        })
-      }
-      reader.readAsDataURL(file);
+      resolve({
+        file,
+        objectUrl: URL.createObjectURL(file),
+        exif
+      })
     })
   }))
 
-  console.log(files);
+  afterRead(files)
 }
 </script>
 
