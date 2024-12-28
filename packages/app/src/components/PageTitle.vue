@@ -1,5 +1,5 @@
 <template>
-  <header class="page-header">
+  <header class="page-header safe-padding-top">
     <h1>{{ title }}</h1>
     <div class="actions">
       <van-icon name="more-o" v-if="info" size="26" @click="handleShowInfoPanel" />
@@ -8,6 +8,7 @@
   </header>
   <van-popup v-model:show="showInfoPanel" position="right"
     :style="{ width: '100%', height: '100%', background: '#eff2f5', padding: '20px 0' }">
+    <div class="safe-padding-top" style="width: 100%"></div>
     <!-- 基本信息卡片展示 -->
     <InfoCard :data="listData" />
   </van-popup>

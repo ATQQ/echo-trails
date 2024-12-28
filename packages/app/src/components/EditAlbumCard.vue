@@ -1,7 +1,7 @@
 <template>
   <van-form class="card-margin" @submit="() => emit('submit')">
     <van-cell-group inset>
-      <van-field required v-model="addData.name" name="相册名" label="相册名" placeholder="请输入相册名"
+      <van-field required v-model="addData.name" name="名称" label="名称" placeholder="请输入相册名"
         :rules="[{ required: true, message: '请填写相册名' }]">
         <template #left-icon></template>
       </van-field>

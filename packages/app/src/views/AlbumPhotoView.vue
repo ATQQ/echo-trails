@@ -100,15 +100,16 @@ const onSubmit = () => {
         </div>
       </div>
       <!-- 操作按钮 -->
-      <div class="actions" :class="{
+      <div class="actions safe-padding-top" :class="{
         empty: !album.count
       }">
         <span @click="handleShowInfoPanel" class="action-item"><i>...</i></span>
       </div>
       <van-popup v-model:show="showInfoPanel" position="right"
         :style="{ width: '100%', height: '100%', background: '#eff2f5', padding: '20px 0' }">
+        <div class="safe-padding-top" style="width: 100%"></div>
         <!-- 基本信息卡片展示 -->
-        <InfoCard :data="listData" />
+        <InfoCard :data="listData"/>
         <!-- 编辑卡片 -->
         <InfoCard v-if="!editMode" class="card-margin" :data="albumInfoData" />
         <EditAlbumCard v-if="editMode" :data="addData" @submit="onSubmit" />

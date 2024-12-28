@@ -6,8 +6,8 @@ const route = useRoute();
 const router = useRouter();
 const showNav = computed(() => route.meta.nav === true)
 
-onMounted(()=>{
-  if(location.pathname === '/'){
+onMounted(() => {
+  if (location.pathname === '/') {
     router.replace({
       name: 'album'
     })
@@ -16,7 +16,7 @@ onMounted(()=>{
 </script>
 
 <template>
-  <div class="wrapper">
+  <div class="app-wrapper">
     <router-view v-slot="{ Component, route }">
       <KeepAlive :include="['HomeView', 'AlbumView', 'LikeView']">
         <component :is="Component" :key="route.fullPath"></component>
@@ -27,13 +27,14 @@ onMounted(()=>{
   <footer-nav v-show="showNav"></footer-nav>
 </template>
 
-<style scoped>
-.wrapper {
+<style>
+.app-wrapper {
   background-color: #fff;
 }
-</style>
-<style>
-html, body {
-  overscroll-behavior: none; /* 禁用弹性滚动 */
+
+html,
+body {
+  overscroll-behavior: none;
+  /* 禁用弹性滚动 */
 }
 </style>

@@ -7,7 +7,7 @@
       <template #cover>
         <!-- 顶部操作栏 -->
         <transition name="van-slide-down">
-          <div v-show="showMoreOperate" class="cover-wrapper">
+          <div v-show="showMoreOperate" class="cover-wrapper safe-padding-top">
             <header class="cover-header" @click="show = false">
               <h3>{{ coverDate }}<span class="week-day"> - {{ weekDay }}</span></h3>
               <h4>{{ coverTime }}</h4>
@@ -88,7 +88,7 @@
         </van-checkbox-group>
       </div>
     </van-action-sheet>
-    <van-floating-bubble @click="handleSaveAlbumSelect" v-if="showAlbumSelect" :gap="16" class="save-album-select"
+    <van-floating-bubble @click="handleSaveAlbumSelect" v-if="showAlbumSelect" :gap="30" class="save-album-select"
       axis="xy" icon="success" magnetic="x" />
   </div>
 </template>
