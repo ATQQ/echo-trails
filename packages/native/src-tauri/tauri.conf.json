@@ -6,8 +6,8 @@
   "build": {
     "beforeDevCommand": "cd ../app && VITE_BASE_ORIGIN=http://192.168.31.173:1420 TAURI=true bun run dev",
     "devUrl": "http://192.168.31.173:1420",
-    "beforeBuildCommand": "cd ../app && TAURI=true bun run build",
-    "frontendDist": "../app/dist"
+    "beforeBuildCommand": "cd ../app && VITE_BASE_ORIGIN=https://photo.sugarat.top TAURI=true bun run build",
+    "frontendDist": "../../app/dist"
   },
   "app": {
     "windows": [
