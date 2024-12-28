@@ -1,6 +1,6 @@
 import ky from 'ky'
 import { showToast } from 'vant'
-import { fetch } from '@tauri-apps/plugin-http';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { isTauri } from '@/constants';
 
 export const api = ky.create({
@@ -38,5 +38,5 @@ export const api = ky.create({
       },
     ],
   },
-  fetch: isTauri ? fetch : window.fetch
+  fetch: isTauri ? tauriFetch : undefined
 })

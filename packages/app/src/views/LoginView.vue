@@ -73,7 +73,8 @@ p {
 }
 
 .login-container {
-  min-height: 100vh;
+  height: 100vh;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,6 +90,7 @@ p {
   padding: 30px 20px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   animation: float 6s ease-in-out infinite;
+  margin-bottom: 40px;
 }
 
 @keyframes float {
