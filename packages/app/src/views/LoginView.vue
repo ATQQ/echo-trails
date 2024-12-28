@@ -46,7 +46,9 @@ const togglePasswordVisibility = () => {
 
       <div class="form-group">
         <div class="password-input">
-          <input :type="isPasswordVisible ? 'text' : 'password'" v-model="password" placeholder="请输入密码"
+          <input v-if="isPasswordVisible" type="text" v-model="password" placeholder="请输入密码"
+            @keyup.enter="checkLogin" />
+          <input v-else type="password" v-model="password" placeholder="请输入密码"
             @keyup.enter="checkLogin" />
           <button class="toggle-visibility" @click="togglePasswordVisibility">
             <img :src="isPasswordVisible
@@ -64,6 +66,12 @@ const togglePasswordVisibility = () => {
 </template>
 
 <style lang="scss" scoped>
+div,
+h1,
+p {
+  user-select: none;
+}
+
 .login-container {
   min-height: 100vh;
   display: flex;
