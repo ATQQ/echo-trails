@@ -1,3 +1,3 @@
-package com.tauri_app.app
+package com.echo_trails.app
 
 class MainActivity : TauriActivity()

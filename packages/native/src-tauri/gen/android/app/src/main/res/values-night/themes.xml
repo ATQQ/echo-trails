@@ -1,6 +1,17 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.tauri_app" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
-    </style>
+  <!-- Base application theme. -->
+  <style name="Theme.echo_trails" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <!-- Customize your theme here. -->
+    <!-- 设置状态栏文字和图标为深色 -->
+    <item name="android:windowLightStatusBar">true</item>
+
+    <!-- 设置状态栏背景为浅色（可选） -->
+    <item name="android:statusBarColor">@color/white</item>
+    <!-- 设置状态栏透明 -->
+    <item name="android:windowTranslucentStatus">true</item>
+    <item name="android:windowTranslucentNavigation">true</item>
+
+    <!-- 确保内容延伸到状态栏区域 -->
+    <item name="android:fitsSystemWindows">false</item>
+  </style>
 </resources>

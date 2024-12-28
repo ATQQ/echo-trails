@@ -16,17 +16,17 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 34
-    namespace = "com.tauri_app.app"
+    namespace = "com.echo_trails.app"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         manifestPlaceholders["usesPermission"] = "android.permission.INJECT_EVENTS"
-        applicationId = "com.tauri_app.app"
+        applicationId = "com.echo_trails.app"
         minSdk = 24
         targetSdk = 34
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
-    
+
     signingConfigs {
         create("release") {
             val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -41,7 +41,7 @@ android {
             storePassword = keystoreProperties["storePassword"] as String
         }
     }
-
+    
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
