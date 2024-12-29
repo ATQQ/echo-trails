@@ -1,16 +1,42 @@
-# Tauri + Vue + TypeScript
+<div align="center">
+  <a href="https://github.com/ATQQ/echo-trails">
+    <img src="./../../logo.png" alt="Logo" width="120" height="120">
+  </a>
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+  <h3>记忆的回响 | echo-trails</h3>
+  <p>
+    <a href="https://photo.sugarat.top">Website</a>
+    ·
+    <a href="https://github.com/ATQQ/echo-trails/releases/latest">Releases</a>
+    <br />
+    <br />
+    <!-- TODO：其它logo -->
+  </p>
+</div>
 
-## Recommended IDE Setup
+<!-- TODO：网页截图 -->
 
-- [VS Code](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+一个私人的相册APP。
 
-## Type Support For `.vue` Imports in TS
+“echo” 可以象征着记忆的回响，过去的经历像回声一样在这些 “trails” 上徘徊，每当走过，就能听到记忆的声音。
 
-Since TypeScript cannot handle type information for `.vue` imports, they are shimmed to be a generic Vue component type by default. In most cases this is fine if you don't really care about component prop types outside of templates. However, if you wish to get actual prop types in `.vue` imports (for example to get props validation when using manual `h(...)` calls), you can enable Volar's Take Over mode by following these steps:
+## 👋🏻 Getting Started
+```sh
+bun install
+```
+修改 tauri.conf.json 中 `devUrl` 和 `VITE_BASE_ORIGIN` 为当前设备的局域网地址
+```json
+{
+  "build": {
+    "beforeDevCommand": "cd ../app && VITE_BASE_ORIGIN=http://192.168.31.173:1420 TAURI=true bun run dev",
+    "devUrl": "http://192.168.31.173:1420"
+  },
+}
+```
 
-1. Run `Extensions: Show Built-in Extensions` from VS Code's command palette, look for `TypeScript and JavaScript Language Features`, then right click and select `Disable (Workspace)`. By default, Take Over mode will enable itself if the default TypeScript extension is disabled.
-2. Reload the VS Code window by running `Developer: Reload Window` from the command palette.
 
-You can learn more about Take Over mode [here](https://github.com/johnsoncodehk/volar/discussions/471).
+```sh
+# android
+bun run dev:android
+```
+

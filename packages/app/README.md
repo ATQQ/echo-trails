@@ -1,45 +1,28 @@
-# app
+<div align="center">
+  <a href="https://github.com/ATQQ/echo-trails">
+    <img src="./../../logo.png" alt="Logo" width="120" height="120">
+  </a>
 
-This template should help get you started developing with Vue 3 in Vite.
+  <h3>记忆的回响 | echo-trails</h3>
+  <p>
+    <a href="https://photo.sugarat.top">Website</a>
+    ·
+    <a href="https://github.com/ATQQ/echo-trails/releases/latest">Releases</a>
+    <br />
+    <br />
+    <!-- TODO：其它logo -->
+  </p>
+</div>
 
-## Recommended IDE Setup
+<!-- TODO：网页截图 -->
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+一个私人的相册APP。
 
-## Type Support for `.vue` Imports in TS
+“echo” 可以象征着记忆的回响，过去的经历像回声一样在这些 “trails” 上徘徊，每当走过，就能听到记忆的声音。
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
+## 👋🏻 Getting Started
 ```sh
 bun install
-```
 
-### Compile and Hot-Reload for Development
-
-```sh
-bun dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-bun build
-```
-
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
-bun test:unit
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-bun lint
+bun run dev
 ```

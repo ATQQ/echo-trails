@@ -25,8 +25,34 @@
 ## 🌟 Features
 
 ## 🎯 Roadmap
-
+* [ ] Online Demo
+* [ ] Quick Copy Start
+* [ ] Native Settings
+* [ ] Android App
+* [ ] Other platforms (Desktop,iOS)
 ## 🤝 Contributing
+
+### Repos
+* [frontend web](./packages/app/): [Vue 3](https://vuejs.org/) + [Vite](https://vite.dev/) + [Vant](https://vant.pro/vant/#/zh-CN/icon)
+* [backend server](./packages/server/): [Bun](https://bun.sh/) + [Hono](https://hono.dev/)
+* [native](./packages/native/): [Tauri](https://tauri.app/)
+
+### Development
+```sh
+bun install
+
+# run web
+cd packages/app
+bun run dev
+
+# run android app
+cd packages/native
+bun run dev:android
+
+# run server
+cd packages/server
+bun run dev
+```
 
 ## 🙏 Acknowledgements
 * [SLEA.AI](https://slea.ai/zh-CN): generate the icon
