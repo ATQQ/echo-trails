@@ -28,5 +28,10 @@
 
 ## 🤝 Contributing
 
+## 🙏 Acknowledgements
+* [SLEA.AI](https://slea.ai/zh-CN): generate the icon
+* [icon-workshop](https://github.com/zhanghuanchong/icon-workshop): multi-size icons generator
+* [Bolt](https://bolt.new/): generate the login page
+
 ## 📝 License
 [MIT](./LICENSE)
