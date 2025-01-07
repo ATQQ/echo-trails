@@ -1,6 +1,6 @@
 <template>
-  <footer class="footer-nav">
-    <van-grid clickable :column-num="3">
+  <footer class="footer-nav safe-padding-bottom">
+    <van-grid clickable :column-num="3" :border="false">
       <van-grid-item v-for="menu in menus" :key="menu.icon" :icon="route.path === menu.to ? menu.activeIcon : menu.icon"
         :text="menu.text" :to="menu.to" :icon-color="route.path === menu.to ? menu.color : ''" />
     </van-grid>
@@ -37,7 +37,12 @@ const menus = [
 </script>
 
 <style lang="scss" scoped>
+.safe-padding-bottom{
+  background-color: var(--safe-area-bg-color);
+}
+
 .footer-nav {
+  padding-top: 8px;
   position: fixed;
   bottom: 0;
   left: 0;

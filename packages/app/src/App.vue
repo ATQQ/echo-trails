@@ -37,4 +37,8 @@ body {
   overscroll-behavior: none;
   /* 禁用弹性滚动 */
 }
+
+:root {
+  --safe-area-bg-color: #fff;
+}
 </style>

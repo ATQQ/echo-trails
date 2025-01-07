@@ -27,6 +27,9 @@ if (import.meta.env.DEV && isTauri) {
   }
 }
 
+// TODO: 夜间模式适配
+// TODO: 桥获取真实高度
+// TODO：VW适配
 if (isTauri) {
   // iOS
   const ua = navigator.userAgent.toLowerCase();
@@ -38,11 +41,18 @@ if (isTauri) {
           padding-top: constant(safe-area-inset-top); /* 兼容 iOS < 11.2 */
           padding-top: env(safe-area-inset-top); /* 兼容 iOS >= 11.2 */
         }
+        .safe-padding-bottom {
+          padding-bottom: constant(safe-area-inset-bottom); /* 兼容 iOS < 11.2 */
+          padding-bottom: env(safe-area-inset-bottom); /* 兼容 iOS >= 11.2 */
+        }
       `
   } else {
     style.textContent = `
         .safe-padding-top {
           padding-top: 30px;
+        }
+        .safe-padding-bottom {
+          padding-bottom: 16px;
         }
       `
   }

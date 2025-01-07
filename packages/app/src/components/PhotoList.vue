@@ -337,7 +337,7 @@ const handleOpenFile = async () => {
         <slot name="header"></slot>
         <van-empty v-if="!photoList.length && showEmpty && !showUploadList.length" description="空空如也，快去添加吧" />
         <!-- 待上传列表 -->
-        <van-grid :border="false">
+        <van-grid :border="false" square>
           <van-grid-item v-for="item in showUploadList" :key="item.key">
             <ImageCell :src="item.url">
               <!-- 等待中 -->
@@ -354,7 +354,7 @@ const handleOpenFile = async () => {
         <!-- 正常列表 -->
         <template v-for="{ title, photos, weekDay } in showPhotoList" :key="title">
           <h2>{{ title }}<span class="week-day"> - {{ weekDay }}</span></h2>
-          <van-grid :border="false">
+          <van-grid :border="false" square>
             <van-grid-item v-for="item in photos" :key="item.key">
               <ImageCell @click="previewImage(item.idx)" :src="item.cover" />
             </van-grid-item>

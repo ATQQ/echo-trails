@@ -47,7 +47,7 @@
         </transition>
         <!-- 底部操作栏 -->
         <transition name="van-slide-up">
-          <footer v-show="showMoreOperate" class="cover-footer">
+          <footer v-show="showMoreOperate" class="cover-footer safe-padding-bottom">
             <div class="footer-item" @click.stop="handleUpdateLike">
               <van-icon :color="activeImage.isLiked ? '#f53f3f' : '#000'"
                 :name="activeImage.isLiked ? 'like' : 'like-o'" size="22" />
@@ -71,7 +71,7 @@
       <van-empty v-if="!albumList.length" description="空空如也，快去创建吧" />
       <div v-else class="album-list">
         <van-checkbox-group v-model="selectedAlbums">
-          <van-grid :gutter="10" :column-num="2" :border="false">
+          <van-grid :gutter="10" :column-num="2" :border="false" square>
             <van-grid-item v-for="(album, idx) in albumList" :key="album._id">
               <div class="small-card" @touchstart.stop.prevent="toggleSelectAlbum(idx)">
                 <div class="cover">
@@ -331,6 +331,9 @@ onBeforeRouteLeave((to, from, next) => {
 </style>
 
 <style lang="scss" scoped>
+.safe-padding-top, .safe-padding-bottom {
+  background-color: var(--safe-area-bg-color);
+}
 .preview-image :deep(.van-image-preview__overlay) {
   transition: all 0.3s ease;
 }
@@ -413,7 +416,9 @@ onBeforeRouteLeave((to, from, next) => {
 }
 
 .cover-footer {
-  padding: 4px;
+  padding-top: 8px;
+  padding-left: 4px;
+  padding-right: 4px;
   transition: all 0.5s ease;
   background-color: var(--van-image-preview-overlay-background);
   position: fixed;
