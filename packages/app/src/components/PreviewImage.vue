@@ -2,8 +2,9 @@
   <div class="preview-image" ref="previewWrapper" :class="{
     'show-detail': showMoreOperate
   }">
-    <van-image-preview :close-on-popstate="false" @change="handleChange" v-model:show="show" :images="urls" :start-position="start"
-      swipeDuration="100" :showIndex="false" :onClose="handleOnClose" :closeOnClickImage="false" transition="zoom">
+    <van-image-preview :close-on-popstate="false" @change="handleChange" v-model:show="show" :images="urls"
+      :start-position="start" swipeDuration="100" :showIndex="false" :onClose="handleOnClose" :closeOnClickImage="false"
+      transition="zoom">
       <template #cover>
         <!-- 顶部操作栏 -->
         <transition name="van-slide-down">
@@ -71,16 +72,17 @@
       <van-empty v-if="!albumList.length" description="空空如也，快去创建吧" />
       <div v-else class="album-list">
         <van-checkbox-group v-model="selectedAlbums">
-          <van-grid :gutter="10" :column-num="2" :border="false" square>
-            <van-grid-item v-for="(album, idx) in albumList" :key="album._id">
+          <van-grid :gutter="10" :column-num="2" :border="false">
+            <van-grid-item v-for="(_album, idx) in albumList" :key="_album._id">
               <div class="small-card" @touchstart.stop.prevent="toggleSelectAlbum(idx)">
                 <div class="cover">
-                  <ImageCell :src="album.cover" />
-                  <van-checkbox :ref="el => checkboxRefs[idx] = el" :name="album._id" class="selected" />
+                  <ImageCell :src="_album.cover" />
+                  <van-tag v-if="_album?._id === album?._id" plain type="primary" class="current-album">当前相册</van-tag>
+                  <van-checkbox :ref="el => checkboxRefs[idx] = el" :name="_album._id" class="selected" />
                 </div>
                 <div class="title-desc">
-                  <h2>{{ album.name }}</h2>
-                  <p>{{ album.count }}</p>
+                  <h2>{{ _album.name }}</h2>
+                  <p>{{ _album.count }}</p>
                 </div>
               </div>
             </van-grid-item>
@@ -238,11 +240,27 @@ const handleAddAlbum = async () => {
   loadAlbum()
 }
 
+const photoListStore = usePhotoListStore()
+
+const removePhotoFromList = (id: string) => {
+  photoListStore?.deletePhoto?.(id)
+  // 通知上层刷新相册信息
+  albumPhotoStore?.refreshAlbum?.()
+  if (photoListStore?.isEmpty?.value) {
+    show.value = false
+  }
+}
+
 const handleSaveAlbumSelect = async () => {
   const albumIds = selectedAlbums.value
   await updatePhotoAlbum(activeImage.value._id, albumIds)
   activeImage.value.albumId = albumIds
   showAlbumSelect.value = false
+  // 判断是否从当前相册移除
+  if (album?._id && !albumIds.includes(album?._id)) {
+    removePhotoFromList(activeImage.value._id)
+  }
+
   showNotify({ type: 'success', message: '更改成功' });
 }
 
@@ -263,7 +281,6 @@ const handleSetCover = () => {
 }
 
 // 删除图片
-const photoListStore = usePhotoListStore()
 const handleDeleteImage = async () => {
   const confirmed = await showConfirmDialog({
     title: '删除确认',
@@ -282,17 +299,12 @@ const handleDeleteImage = async () => {
 
   deletePhoto(activeImage.value._id).then(() => {
     showNotify({ type: 'success', message: '删除成功' });
-    photoListStore?.deletePhoto?.(activeImage.value._id)
-    // 通知上层刷新相册信息
-    albumPhotoStore?.refreshAlbum?.()
-    if (photoListStore?.isEmpty?.value) {
-      show.value = false
-    }
+    removePhotoFromList(activeImage.value._id)
   })
 }
 
 onBeforeRouteLeave((to, from, next) => {
-  if(showAlbumSelect.value){
+  if (showAlbumSelect.value) {
     showAlbumSelect.value = false
     next(false)
     return false
@@ -331,9 +343,11 @@ onBeforeRouteLeave((to, from, next) => {
 </style>
 
 <style lang="scss" scoped>
-.safe-padding-top, .safe-padding-bottom {
+.safe-padding-top,
+.safe-padding-bottom {
   background-color: var(--safe-area-bg-color);
 }
+
 .preview-image :deep(.van-image-preview__overlay) {
   transition: all 0.3s ease;
 }
@@ -356,7 +370,8 @@ onBeforeRouteLeave((to, from, next) => {
     margin-bottom: 0;
     margin-top: 10px;
     font-weight: 500;
-    .week-day{
+
+    .week-day {
       color: #999;
       font-size: 12px;
     }
@@ -479,6 +494,12 @@ onBeforeRouteLeave((to, from, next) => {
 
       right: 10px;
       bottom: 10px;
+    }
+
+    .current-album {
+      position: absolute;
+      right: 10px;
+      bottom: -20px;
     }
   }
 }
