@@ -70,7 +70,7 @@ preventBack(showAddModal)
     <div class="album">
       <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
       <!-- 大卡片 -->
-      <van-grid :column-num="1" :border="false">
+      <van-grid :column-num="1" :border="false" :gutter="16">
         <van-grid-item v-for="album in albumList.large" :key="album._id">
           <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
             <ImageCell :src="album.cover" />
@@ -85,7 +85,7 @@ preventBack(showAddModal)
         </van-grid-item>
       </van-grid>
       <!-- 小卡片分类 -->
-      <van-grid class="small-grid" :gutter="10" :column-num="2" :border="false">
+      <van-grid :gutter="10" :column-num="2" :border="false">
         <van-grid-item v-for="album in albumList.small" :key="album._id">
           <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
             <ImageCell :src="album.cover" />
@@ -110,11 +110,6 @@ preventBack(showAddModal)
 <style scoped lang="scss">
 .album {
   padding-bottom: 60px;
-}
-
-.small-grid :deep(.van-grid-item__content){
-  padding-left: 0;
-  padding-right: 0;
 }
 
 .large-card {
