@@ -209,7 +209,7 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo) => {
 }
 
 const uploadValueMap = new Map<string, FileInfoItem>()
-const limit = pLimit(2);
+const limit = pLimit(10);
 const startUpload = async (values: FileInfoItem[]) => {
   for (const value of values) {
     // 加入待上传列表，同时支持列表里展示
