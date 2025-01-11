@@ -30,7 +30,7 @@
         justify-content: center;
         align-items: center;
         z-index: 9999;
-        transition: opacity 0.3s ease-out;
+        transition: opacity 0.5s ease-out;
       }
 
       .fade-out {
@@ -40,7 +40,7 @@
 
       #app {
         opacity: 0;
-        transition: opacity 0.3s ease-in;
+        transition: opacity 0.5s ease-in;
       }
 
       #app.visible {
@@ -106,7 +106,7 @@
         // Remove loading screen after animation
         setTimeout(() => {
           loadingScreen.style.display = 'none'
-        }, 300)
+        }, 500)
       }
     </script>
     <div id="app"></div>

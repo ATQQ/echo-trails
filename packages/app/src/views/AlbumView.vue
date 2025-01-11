@@ -8,15 +8,24 @@ import EditAlbumCard from '@/components/EditAlbumCard.vue';
 import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton.vue';
 import ImageCell from '@/components/ImageCell.vue';
+import { useLocalStorage } from '@vueuse/core';
 
-const albumList = reactive<{
+// const albumList = reactive<{
+//   large: Album[],
+//   small: Album[]
+// }>({
+//   large: [],
+//   small: []
+// })
+
+// 添加本地存储
+const { value: albumList } = useLocalStorage<{
   large: Album[],
   small: Album[]
-}>({
+}>('albumList', {
   large: [],
   small: []
 })
-
 const showEmpty = ref(false)
 const loading = ref(false)
 const loadAlbum = (_loading = false) => {
