@@ -38,6 +38,11 @@ async function presetTauriMode() {
               padding-bottom: constant(safe-area-inset-bottom); /* 兼容 iOS < 11.2 */
               padding-bottom: env(safe-area-inset-bottom); /* 兼容 iOS >= 11.2 */
             }
+            .van-popup{
+              padding-top: calc(8px + constant(safe-area-inset-top));
+              padding-top: calc(8px + env(safe-area-inset-top));
+              padding-bottom: 8px;
+            }
           `
   } else {
     style.textContent = `
@@ -46,6 +51,9 @@ async function presetTauriMode() {
             }
             .safe-padding-bottom {
               padding-bottom: 16px;
+            }
+            .van-popup{
+              padding-top: 38px;
             }
           `
   }
