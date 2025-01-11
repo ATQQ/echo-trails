@@ -2,4 +2,5 @@
 declare interface Window {
   __TAURI__: any
   VConsole?: any
+  hideLoadingScreen?: () => void
 }

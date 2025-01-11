@@ -62,6 +62,7 @@ bun run dev
 - [SLEA.AI](https://slea.ai/zh-CN): generate the icon
 - [icon-workshop](https://github.com/zhanghuanchong/icon-workshop): multi-size icons generator
 - [Bolt](https://bolt.new/): generate the login page
+- [Loading Animation](https://css-loaders.com/filling/): The Filling CSS Loaders Collection
 
 ## 📝 License
 

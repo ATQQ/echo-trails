@@ -51,7 +51,7 @@ async function presetTauriMode() {
   }
   document.head.appendChild(style)
 
-  // TODO：移动到模板中
+  // TODO：其它开关
   if (import.meta.env.DEV) {
     // 动态插入vsconsole
     const vconsole = document.createElement('script');

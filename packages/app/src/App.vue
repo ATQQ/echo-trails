@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
 import FooterNav from './components/FooterNav.vue';
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 const route = useRoute();
 const showNav = computed(() => route.meta.nav === true)
+onMounted(()=>{
+  window?.hideLoadingScreen?.()
+})
 </script>
 
 <template>
