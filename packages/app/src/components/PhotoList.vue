@@ -364,7 +364,7 @@ const handleOpenFile = async () => {
         <div class="block"></div>
       </main>
     </van-pull-refresh>
-    <van-button v-if="isTauri" @click="handleOpenFile" class="upload-container">
+    <van-button v-if="isTauri" @click="handleOpenFile" class="upload-container tauri-mode">
       <van-icon name="plus" size="16" />
     </van-button>
     <!-- 上传 -->
@@ -374,7 +374,7 @@ const handleOpenFile = async () => {
     <!-- 图片预览 -->
     <PreviewImage :album="album" v-model:show="showPreview" :images="photoList" :start="startPosition" />
     <!-- 回到顶部 -->
-    <van-back-top :bottom="110" :right="20" :style="{
+    <van-back-top :bottom="isTauri ? 140 : 110" :right="20" :style="{
       '--van-back-top-icon-size': '16px',
       '--van-back-top-size': '36px',
     }" />
@@ -418,6 +418,11 @@ main {
   background-color: var(--van-primary-color);
   color: #fff;
   border-radius: 50%;
+  border: none;
+
+  &.tauri-mode {
+    bottom: 90px;
+  }
 
   :deep(.van-uploader__input-wrapper) {
     width: 100%;

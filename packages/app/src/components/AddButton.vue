@@ -18,7 +18,7 @@ const handleClick = () => {
 .add-btn {
     position: fixed;
     right: 20px;
-    bottom: 60px;
+    bottom: 90px;
     z-index: 1;
     background-color: var(--van-primary-color);
     color: #fff;
