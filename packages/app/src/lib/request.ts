@@ -2,6 +2,7 @@ import ky from 'ky'
 import { showToast } from 'vant'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { isTauri } from '@/constants';
+import { goLogin } from './login';
 
 export const api = ky.create({
   // TODO：分环境替换
@@ -24,7 +25,7 @@ export const api = ky.create({
           if( pathname === '/api/check'){
             throw new Error('Unauthorized')
           }
-          window.location.href = '/login'
+          goLogin()
         }
         const data: any = await response.json()
         if (data?.code) {

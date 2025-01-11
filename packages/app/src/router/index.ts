@@ -7,22 +7,22 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: HomeView,
-      meta: {
-        keepAlive: true,
-        nav: true,
-        componentName: 'HomeView'
-      }
-    },
-    {
-      path: '/album',
       name: 'album',
       component: AlbumView,
       meta: {
         keepAlive: true,
         nav: true,
         componentName: 'AlbumView'
+      }
+    },
+    {
+      path: '/home',
+      name: 'home',
+      component: HomeView,
+      meta: {
+        keepAlive: true,
+        nav: true,
+        componentName: 'HomeView'
       }
     },
     {

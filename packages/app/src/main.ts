@@ -7,8 +7,9 @@ import { createPinia } from 'pinia'
 import { Lazyload, ImagePreview } from 'vant';
 import App from './App.vue'
 import router from './router'
-import { login } from './lib/login';
+import { goLogin, login } from './lib/login';
 import { isTauri } from './constants';
+import { PromiseWithResolver } from './lib/util';
 
 const app = createApp(App)
 
@@ -17,48 +18,69 @@ app.use(router)
 app.use(Lazyload)
 app.use(ImagePreview)
 
-if (import.meta.env.DEV && isTauri) {
-  // 动态插入vsconsole
-  const vconsole = document.createElement('script');
-  vconsole.src = 'https://unpkg.com/vconsole@latest/dist/vconsole.min.js';
-  document.body.appendChild(vconsole);
-  vconsole.onload = () => {
-    new window.VConsole();
+async function presetTauriMode() {
+  const { promise, resolve } = PromiseWithResolver()
+  if (!isTauri) {
+    resolve({})
+    return promise
   }
-}
-
-// TODO: 夜间模式适配
-// TODO: 桥获取真实高度
-// TODO：VW适配
-if (isTauri) {
   // iOS
   const ua = navigator.userAgent.toLowerCase();
   const isIos = ua.indexOf('iphone') !== -1 || ua.indexOf('ipad') !== -1
   const style = document.createElement('style')
   if (isIos) {
     style.textContent = `
-        .safe-padding-top {
-          padding-top: constant(safe-area-inset-top); /* 兼容 iOS < 11.2 */
-          padding-top: env(safe-area-inset-top); /* 兼容 iOS >= 11.2 */
-        }
-        .safe-padding-bottom {
-          padding-bottom: constant(safe-area-inset-bottom); /* 兼容 iOS < 11.2 */
-          padding-bottom: env(safe-area-inset-bottom); /* 兼容 iOS >= 11.2 */
-        }
-      `
+            .safe-padding-top {
+              padding-top: constant(safe-area-inset-top); /* 兼容 iOS < 11.2 */
+              padding-top: env(safe-area-inset-top); /* 兼容 iOS >= 11.2 */
+            }
+            .safe-padding-bottom {
+              padding-bottom: constant(safe-area-inset-bottom); /* 兼容 iOS < 11.2 */
+              padding-bottom: env(safe-area-inset-bottom); /* 兼容 iOS >= 11.2 */
+            }
+          `
   } else {
     style.textContent = `
-        .safe-padding-top {
-          padding-top: 30px;
-        }
-        .safe-padding-bottom {
-          padding-bottom: 16px;
-        }
-      `
+            .safe-padding-top {
+              padding-top: 30px;
+            }
+            .safe-padding-bottom {
+              padding-bottom: 16px;
+            }
+          `
   }
   document.head.appendChild(style)
+
+  // TODO：移动到模板中
+  if (import.meta.env.DEV) {
+    // 动态插入vsconsole
+    const vconsole = document.createElement('script');
+    vconsole.src = 'https://unpkg.com/vconsole@latest/dist/vconsole.min.js';
+    document.body.appendChild(vconsole);
+    vconsole.onload = () => {
+      resolve({})
+      new window.VConsole();
+    }
+    vconsole.onerror = () => {
+      resolve({})
+      alert('vconsole加载失败')
+    }
+  } else {
+    resolve({})
+  }
+
+  // TODO: 夜间模式适配
+  // TODO: 桥获取真实高度
+  return promise
 }
 
-login().then(() => {
-  app.mount('#app')
+
+presetTauriMode().then(() => {
+  login().then(() => {
+    app.mount('#app')
+  }).catch(() => {
+    goLogin()
+  })
 })
+
+

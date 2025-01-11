@@ -15,14 +15,14 @@ const menus = [
   {
     icon: 'home-o',
     text: '全部',
-    to: '/',
+    to: '/home',
     activeIcon: 'wap-home',
     color: '#2196f3',
   },
   {
     icon: 'photo-o',
     text: '相册',
-    to: '/album',
+    to: '/',
     activeIcon: 'photo',
     color: '#2196f3'
   },

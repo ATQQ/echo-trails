@@ -1,18 +1,9 @@
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import FooterNav from './components/FooterNav.vue';
-import { computed, onMounted } from 'vue';
+import { computed } from 'vue';
 const route = useRoute();
-const router = useRouter();
 const showNav = computed(() => route.meta.nav === true)
-
-onMounted(() => {
-  if (location.pathname === '/') {
-    router.replace({
-      name: 'album'
-    })
-  }
-})
 </script>
 
 <template>
