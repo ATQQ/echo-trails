@@ -1,5 +1,6 @@
 import { inject, provide } from "vue"
 import type { InjectionKey } from "vue"
+import { useRoute } from "vue-router"
 
 export interface AlbumPhotoViewStore {
   refreshAlbum: () => void
@@ -12,6 +13,8 @@ export function provideAlbumPhotoStore(store: AlbumPhotoViewStore) {
 }
 
 export function useAlbumPhotoStore() {
-  const store = inject(albumPhotoKey)
-  return store
+  const route = useRoute()
+  if (route.name?.toString().includes('album')) {
+    return inject(albumPhotoKey)
+  }
 }
