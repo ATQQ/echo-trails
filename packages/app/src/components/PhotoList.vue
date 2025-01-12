@@ -280,8 +280,6 @@ const menus = [
     icon: 'cross',
     text: '取消',
     handleClick: () => {
-      console.log('cancel');
-
       editData.active = false
       editData.selectIds = []
     }

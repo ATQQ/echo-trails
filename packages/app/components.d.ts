@@ -18,6 +18,8 @@ declare module 'vue' {
     PreviewImage: typeof import('./src/components/PreviewImage.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SelectAlbum: typeof import('./src/components/SelectAlbum.vue')['default']
+    SelectAlbumModal: typeof import('./src/components/SelectAlbumModal.vue')['default']
     VanActionSheet: typeof import('vant/es')['ActionSheet']
     VanBackTop: typeof import('vant/es')['BackTop']
     VanButton: typeof import('vant/es')['Button']

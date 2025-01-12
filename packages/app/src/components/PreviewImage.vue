@@ -54,30 +54,8 @@
     </van-image-preview>
 
     <!-- 选择相册 -->
-    <van-action-sheet :closeable="false" :close-on-popstate="false" v-model:show="showAlbumSelect" title="选择相册">
-      <van-empty v-if="!albumList.length" description="空空如也，快去创建吧" />
-      <div v-else class="album-list">
-        <van-checkbox-group v-model="selectedAlbums">
-          <van-grid :gutter="10" :column-num="2" :border="false">
-            <van-grid-item v-for="(_album, idx) in albumList" :key="_album._id">
-              <div class="small-card" @touchstart.stop>
-                <div class="cover" @click="toggleSelectAlbum(idx)">
-                  <ImageCell :src="_album.cover" />
-                  <van-tag v-if="_album?._id === album?._id" plain type="primary" class="current-album">当前相册</van-tag>
-                  <van-checkbox :ref="el => checkboxRefs[idx] = el" :name="_album._id" class="selected" />
-                </div>
-                <div class="title-desc">
-                  <h2>{{ _album.name }}</h2>
-                  <p>{{ _album.count }}</p>
-                </div>
-              </div>
-            </van-grid-item>
-          </van-grid>
-        </van-checkbox-group>
-      </div>
-    </van-action-sheet>
-    <van-floating-bubble @click="handleSaveAlbumSelect" v-if="showAlbumSelect" :gap="30" class="save-album-select"
-      axis="xy" icon="success" magnetic="x" />
+    <SelectAlbumModal v-model:show="showAlbumSelect" @save="handleSaveAlbumSelect" :current-album-id="album?._id"
+      :selected="selectedAlbums" />
   </div>
 </template>
 
@@ -85,13 +63,13 @@
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { usePhotoListStore } from '@/composables/photoList';
 import { formatSize } from '@/lib/file';
-import { deletePhoto, getAlbums, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
+import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import { showConfirmDialog, showNotify } from 'vant';
 import { computed, ref } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
-import ImageCell from './ImageCell.vue';
+import SelectAlbumModal from './SelectAlbumModal.vue';
 import BottomActions from './BottomActions.vue';
 
 const { images = [], start = 0, album } = defineProps<{
@@ -199,25 +177,9 @@ const handleUpdateLike = () => {
   })
 }
 
-const albumList = ref<Album[]>([])
 const showAlbumSelect = ref(false)
-const loadAlbum = () => {
-  return getAlbums().then((res) => {
-    const newValue: Album[] = []
-    if (res.large) {
-      newValue.push(...res.large)
-    }
-    if (res.small) {
-      newValue.push(...res.small)
-    }
-    albumList.value = newValue
-  })
-}
 const selectedAlbums = ref<string[]>([])
-const checkboxRefs = ref<any[]>([])
-const toggleSelectAlbum = (idx: number) => {
-  checkboxRefs.value[idx].toggle()
-}
+
 const handleAddAlbum = async () => {
   showAlbumSelect.value = true
   if (activeImage.value.albumId?.length) {
@@ -225,7 +187,6 @@ const handleAddAlbum = async () => {
   } else {
     selectedAlbums.value = []
   }
-  loadAlbum()
 }
 
 const photoListStore = usePhotoListStore()
@@ -239,8 +200,7 @@ const removePhotoFromList = (id: string) => {
   }
 }
 
-const handleSaveAlbumSelect = async () => {
-  const albumIds = selectedAlbums.value
+const handleSaveAlbumSelect = async (albumIds: string[]) => {
   await updatePhotoAlbum(activeImage.value._id, albumIds)
   activeImage.value.albumId = albumIds
   showAlbumSelect.value = false
@@ -305,7 +265,7 @@ onBeforeRouteLeave((to, from, next) => {
   next()
 })
 
-const menus = computed(()=>{
+const menus = computed(() => {
   return [
     {
       icon: activeImage.value.isLiked ? 'like' : 'like-o',
@@ -463,53 +423,6 @@ const menus = computed(()=>{
     span.title {
       font-size: 10px;
       margin-top: 5px;
-    }
-  }
-}
-
-.album-list {
-  // padding: 10px;
-}
-
-.small-card {
-  overflow: hidden;
-
-  :deep(.van-image) {
-    border-radius: 10px;
-    height: 40vw !important;
-    width: 40vw !important;
-    overflow: hidden;
-  }
-
-  .title-desc {
-    h2 {
-      margin: 2px 0;
-      color: #000;
-      font-size: 14px;
-      font-weight: normal;
-    }
-
-    p {
-      margin-top: 0;
-      font-size: 10px;
-      color: #666;
-    }
-  }
-
-  .cover {
-    position: relative;
-
-    .selected {
-      position: absolute;
-
-      right: 10px;
-      bottom: 10px;
-    }
-
-    .current-album {
-      position: absolute;
-      right: 10px;
-      bottom: -20px;
     }
   }
 }
