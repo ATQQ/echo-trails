@@ -9,6 +9,7 @@ import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton.vue';
 import ImageCell from '@/components/ImageCell.vue';
 import { useLocalStorage } from '@vueuse/core';
+import { isTauri } from '@/constants';
 
 // const albumList = reactive<{
 //   large: Album[],
@@ -109,7 +110,9 @@ preventBack(showAddModal)
   </van-pull-refresh>
 
   <!-- 添加相册 -->
-  <AddButton @click="showAddModal = true" v-show="!showAddModal" />
+  <AddButton :style="{
+    bottom: isTauri ? '90px' : '60px'
+  }" @click="showAddModal = true" v-show="!showAddModal" />
   <van-popup @close="showAddModal = false" v-model:show="showAddModal" round position="bottom"
     :style="{ height: '50%' }" @closed="reset">
     <EditAlbumCard @submit="onSubmit" :data="addData" btn-type="primary" />
