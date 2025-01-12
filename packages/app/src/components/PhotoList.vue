@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
 import { reactive, computed, watch, toRefs, ref, onDeactivated, onActivated } from 'vue'
-import { addFileInfo, getPhotos, getUploadUrl, uploadFile } from '../service';
+import { addFileInfo, getPhotos, getUploadUrl, updatePhotosAlbums, uploadFile } from '../service';
 import { generateFileKey } from '../lib/file';
 import { isTauri, UploadStatus } from '../constants/index'
 import { useScroll } from '@vueuse/core'
@@ -13,6 +13,8 @@ import pLimit from 'p-limit';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
 import BottomActions from './BottomActions.vue';
+import SelectAlbumModal from './SelectAlbumModal.vue';
+import { showNotify } from 'vant';
 
 const isActive = ref(true)
 onActivated(() => {
@@ -261,13 +263,41 @@ const editData = reactive({
   active: false,
   selectIds: [] as string[]
 })
+
+const showAlbumSelect = ref(false)
+const selectedAlbums = ref<string[]>([])
+const handleAddAlbum = async () => {
+  showAlbumSelect.value = true
+  selectedAlbums.value = []
+}
+
+// TODO：相册中的照片删除逻辑？
+const handleSaveAlbumSelect = async (albumIds: string[]) => {
+  await updatePhotosAlbums(editData.selectIds, albumIds)
+  // 更新相册数据
+  const selectPhotos = photoList.filter(v => editData.selectIds.includes(v._id))
+  selectPhotos.forEach(v => {
+    albumIds.forEach(id => {
+      if (!v.albumId?.includes(id)) {
+        v.albumId?.push(id)
+      }
+    })
+  })
+
+  showAlbumSelect.value = false
+  showNotify({ type: 'success', message: '更改成功' });
+  cancelEditMode()
+}
+const cancelEditMode = () => {
+  editData.active = false
+  editData.selectIds = []
+}
+
 const menus = [
   {
     icon: 'star-o',
     text: '添加相册',
-    handleClick: () => {
-
-    }
+    handleClick: handleAddAlbum
   },
   {
     icon: 'delete-o',
@@ -279,10 +309,7 @@ const menus = [
   {
     icon: 'cross',
     text: '取消',
-    handleClick: () => {
-      editData.active = false
-      editData.selectIds = []
-    }
+    handleClick: cancelEditMode
   }
 ]
 const checkboxRefs = ref<any[]>([])
@@ -430,6 +457,9 @@ const handleOpenFile = async () => {
     <transition name="van-slide-up">
       <BottomActions style="z-index: 10" :menus="menus" v-show="editData.active" />
     </transition>
+    <!-- 选择相册 -->
+    <SelectAlbumModal v-model:show="showAlbumSelect" @save="handleSaveAlbumSelect" :current-album-id="album?._id"
+      :selected="selectedAlbums" />
   </div>
 </template>
 <style scoped lang="scss">

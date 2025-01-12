@@ -77,6 +77,15 @@ export function updatePhotoAlbum(id: string, albumIds: string[]) {
   })
 }
 
+export function updatePhotosAlbums(ids: string[], albumIds: string[]) {
+  return api.put<ServerResponse>('file/photos/update/albums', {
+    json: {
+      ids,
+      albumIds
+    }
+  })
+}
+
 
 export function getAlbums() {
   return api.get<ServerResponse<{

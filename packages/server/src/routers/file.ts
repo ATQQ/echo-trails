@@ -218,6 +218,42 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     })
   })
 
+  router.put('photos/update/albums', async (ctx) => {
+    const { ids, albumIds } = await ctx.req.json()
+    const username = ctx.get('username')
+    const operator = ctx.get('operator')
+
+    if (!Array.isArray(albumIds) || !Array.isArray(ids)) {
+      return ctx.json({
+        code: 1,
+        message: 'albumIds or ids should be an array'
+      })
+    }
+    await exec(async () => {
+      const photos = await Photo.find({ _id: { $in: ids } }, ['albumId'], {
+        username
+      })
+      if (!photos.length) {
+        return ctx.json({
+          code: 1,
+          message: 'photos not found'
+        })
+      }
+      for (const photo of photos) {
+        // 去重
+        const newAlbumIds = albumIds.filter(v => !photo?.albumId?.includes(v))
+        photo.albumId = newAlbumIds.concat(photo.albumId || [])
+        photo.updatedBy = operator
+      }
+      await Promise.all(photos.map(v => v.save()))
+    })
+
+    return ctx.json({
+      code: 0,
+      message: 'update success'
+    })
+  })
+
   router.delete('photo/delete', async (ctx) => {
     const { id } = await ctx.req.json()
     const username = ctx.get('username')
