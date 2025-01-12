@@ -12,6 +12,7 @@ import ImageCell from './ImageCell.vue';
 import pLimit from 'p-limit';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
+import BottomActions from './BottomActions.vue';
 
 const isActive = ref(true)
 onActivated(() => {
@@ -255,12 +256,57 @@ const afterRead = async (files: any) => {
 }
 
 const showPreview = ref(false)
+const editData = reactive({
+  currentIdx: 0,
+  active: false,
+  selectIds: [] as string[]
+})
+const menus = [
+  {
+    icon: 'star-o',
+    text: '添加相册',
+    handleClick: () => {
 
+    }
+  },
+  {
+    icon: 'delete-o',
+    text: '删除',
+    handleClick: () => {
+
+    }
+  },
+  {
+    icon: 'cross',
+    text: '取消',
+    handleClick: () => {
+      console.log('cancel');
+
+      editData.active = false
+      editData.selectIds = []
+    }
+  }
+]
+const checkboxRefs = ref<any[]>([])
 const startPosition = ref(0)
 
+const toggleSelectAlbum = (idx: number) => {
+  checkboxRefs.value[idx].toggle()
+}
+
 const previewImage = (idx: number) => {
+  if (editData.active) {
+    toggleSelectAlbum(idx)
+    return
+  }
   showPreview.value = true
   startPosition.value = idx
+}
+
+const handleLongPress = (idx: number) => {
+  editData.currentIdx = idx
+  editData.active = true
+  editData.selectIds = [photoList[idx]._id]
 }
 
 const loading = ref(false)
@@ -352,14 +398,18 @@ const handleOpenFile = async () => {
           </van-grid-item>
         </van-grid>
         <!-- 正常列表 -->
-        <template v-for="{ title, photos, weekDay } in showPhotoList" :key="title">
-          <h2>{{ title }}<span class="week-day"> - {{ weekDay }}</span></h2>
-          <van-grid :border="false" square>
-            <van-grid-item v-for="item in photos" :key="item.key" class="img-border">
-              <ImageCell @click="previewImage(item.idx)" :src="item.cover" />
-            </van-grid-item>
-          </van-grid>
-        </template>
+        <van-checkbox-group v-model="editData.selectIds">
+          <template v-for="{ title, photos, weekDay } in showPhotoList" :key="title">
+            <h2>{{ title }}<span class="week-day"> - {{ weekDay }}</span></h2>
+            <van-grid :border="false" square>
+              <van-grid-item v-for="item in photos" :key="item.key" class="img-border">
+                <ImageCell @click="previewImage(item.idx)" :src="item.cover" @longpress="handleLongPress(item.idx)" />
+                <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[item.idx] = el" :name="item._id"
+                  class="editSelected" />
+              </van-grid-item>
+            </van-grid>
+          </template>
+        </van-checkbox-group>
         <!-- 空白块，用于触发列表滚动加载 -->
         <div class="block"></div>
       </main>
@@ -378,6 +428,10 @@ const handleOpenFile = async () => {
       '--van-back-top-icon-size': '16px',
       '--van-back-top-size': '36px',
     }" />
+    <!-- 底部操作栏 -->
+    <transition name="van-slide-up">
+      <BottomActions style="z-index: 10" :menus="menus" v-show="editData.active" />
+    </transition>
   </div>
 </template>
 <style scoped lang="scss">
@@ -405,6 +459,13 @@ main {
   box-sizing: border-box;
   border-bottom: 1px solid #fff;
   border-right: 1px solid #fff;
+  position: relative;
+}
+
+.editSelected {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
 }
 
 // 4的倍数

@@ -48,34 +48,20 @@
         </transition>
         <!-- 底部操作栏 -->
         <transition name="van-slide-up">
-          <footer v-show="showMoreOperate" class="cover-footer safe-padding-bottom">
-            <div class="footer-item" @click.stop="handleUpdateLike">
-              <van-icon :color="activeImage.isLiked ? '#f53f3f' : '#000'"
-                :name="activeImage.isLiked ? 'like' : 'like-o'" size="22" />
-              <span class="title">我喜欢</span>
-            </div>
-            <div class="footer-item" @click.stop="handleDeleteImage">
-              <van-icon name="delete-o" size="22" />
-              <span class="title">删除</span>
-            </div>
-            <div class="footer-item">
-              <van-icon @click.stop="handleAddAlbum" name="star-o" size="22" />
-              <span class="title">添加相册</span>
-            </div>
-          </footer>
+          <BottomActions v-show="showMoreOperate" :menus="menus" />
         </transition>
       </template>
     </van-image-preview>
 
     <!-- 选择相册 -->
-    <van-action-sheet :closeable="false" :close-on-popstate="false" v-model:show="showAlbumSelect" title="添加到相册">
+    <van-action-sheet :closeable="false" :close-on-popstate="false" v-model:show="showAlbumSelect" title="选择相册">
       <van-empty v-if="!albumList.length" description="空空如也，快去创建吧" />
       <div v-else class="album-list">
         <van-checkbox-group v-model="selectedAlbums">
           <van-grid :gutter="10" :column-num="2" :border="false">
             <van-grid-item v-for="(_album, idx) in albumList" :key="_album._id">
-              <div class="small-card" @touchstart.stop.prevent="toggleSelectAlbum(idx)">
-                <div class="cover">
+              <div class="small-card" @touchstart.stop>
+                <div class="cover" @click="toggleSelectAlbum(idx)">
                   <ImageCell :src="_album.cover" />
                   <van-tag v-if="_album?._id === album?._id" plain type="primary" class="current-album">当前相册</van-tag>
                   <van-checkbox :ref="el => checkboxRefs[idx] = el" :name="_album._id" class="selected" />
@@ -106,6 +92,8 @@ import { showConfirmDialog, showNotify } from 'vant';
 import { computed, ref } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import ImageCell from './ImageCell.vue';
+import BottomActions from './BottomActions.vue';
+
 const { images = [], start = 0, album } = defineProps<{
   images: Photo[]
   start?: number
@@ -315,6 +303,28 @@ onBeforeRouteLeave((to, from, next) => {
     return false
   }
   next()
+})
+
+const menus = computed(()=>{
+  return [
+    {
+      icon: activeImage.value.isLiked ? 'like' : 'like-o',
+      text: '我喜欢',
+      handleClick: handleUpdateLike,
+      activeColor: activeImage.value.isLiked ? '#f53f3f' : '#000',
+      active: activeImage.value.isLiked
+    },
+    {
+      icon: 'delete-o',
+      text: '删除',
+      handleClick: handleDeleteImage
+    },
+    {
+      icon: 'star-o',
+      text: '添加相册',
+      handleClick: handleAddAlbum
+    }
+  ]
 })
 </script>
 
