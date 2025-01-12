@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
 import { reactive, computed, watch, toRefs, ref, onDeactivated, onActivated } from 'vue'
-import { addFileInfo, getPhotos, getUploadUrl, updatePhotosAlbums, uploadFile } from '../service';
+import { addFileInfo, deletePhotos, getPhotos, getUploadUrl, updatePhotosAlbums, uploadFile } from '../service';
 import { generateFileKey } from '../lib/file';
 import { isTauri, UploadStatus } from '../constants/index'
 import { useScroll } from '@vueuse/core'
@@ -14,7 +14,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
 import BottomActions from './BottomActions.vue';
 import SelectAlbumModal from './SelectAlbumModal.vue';
-import { showNotify } from 'vant';
+import { showConfirmDialog, showNotify } from 'vant';
 
 const isActive = ref(true)
 onActivated(() => {
@@ -267,6 +267,10 @@ const editData = reactive({
 const showAlbumSelect = ref(false)
 const selectedAlbums = ref<string[]>([])
 const handleAddAlbum = async () => {
+  if(!editData.selectIds.length) {
+    showNotify({ type: 'warning', message: '请选择要添加的照片' });
+    return
+  }
   showAlbumSelect.value = true
   selectedAlbums.value = []
 }
@@ -293,6 +297,36 @@ const cancelEditMode = () => {
   editData.selectIds = []
 }
 
+const handleDeletePhotos = async () => {
+  if (!editData.selectIds.length) {
+    showNotify({ type: 'warning', message: '请选择要删除的照片' });
+    return
+  }
+  const confirmed = await showConfirmDialog({
+    title: '删除确认',
+    message:
+      `确定要删除这${editData.selectIds.length}张照片吗？`,
+  })
+    .then(() => {
+      return true;
+    })
+    .catch(() => {
+      return false;
+    });
+  if (!confirmed) {
+    return;
+  }
+
+  await deletePhotos(editData.selectIds)
+
+  // 更新相册数据
+  editData.selectIds.forEach(v => {
+    deletePhoto(v)
+  })
+  showNotify({ type: 'success', message: '删除成功' });
+  cancelEditMode()
+}
+
 const menus = [
   {
     icon: 'star-o',
@@ -302,9 +336,7 @@ const menus = [
   {
     icon: 'delete-o',
     text: '删除',
-    handleClick: () => {
-
-    }
+    handleClick: handleDeletePhotos
   },
   {
     icon: 'cross',

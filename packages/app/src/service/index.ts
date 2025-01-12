@@ -143,6 +143,14 @@ export function deletePhoto(id: string) {
   })
 }
 
+export function deletePhotos(ids: string[]) {
+  return api.delete<ServerResponse>('file/photos/delete', {
+    json: {
+      ids
+    }
+  })
+}
+
 export function getPhotoListInfo(options: {
   likedMode?: boolean,
   albumId?: string,
