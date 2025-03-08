@@ -33,6 +33,20 @@
       "identifier": "fs:allow-exists",
       "allow": [{ "path": "$APPDATA/databases/*" }]
     },
-    "fs:allow-lstat"
+    "fs:allow-lstat",
+    "fs:allow-app-write",
+    "fs:allow-write-file",
+    "fs:allow-picture-write",
+    "fs:allow-picture-read",
+    "fs:write-all",
+    "fs:allow-remove",
+    "fs:allow-mkdir",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        "$APPDATA",
+        "$APPDATA/*"
+      ]
+    }
   ]
 }

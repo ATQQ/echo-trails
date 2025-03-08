@@ -62,7 +62,7 @@
 <script lang="ts" setup>
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { usePhotoListStore } from '@/composables/photoList';
-import { formatSize } from '@/lib/file';
+import { downloadFile, formatSize } from '@/lib/file';
 import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
@@ -270,6 +270,9 @@ const restorePhotos = () => {
   photoListStore?.restorePhotos?.([activeImage.value._id])
 }
 
+const downloadImage = () => {
+  downloadFile(activeImage.value.preview, activeImage.value.name)
+}
 const menus = computed(() => {
   if (isDelete) {
     return [
@@ -277,6 +280,11 @@ const menus = computed(() => {
         icon: 'replay',
         text: '恢复',
         handleClick: restorePhotos
+      },
+      {
+        icon: 'down',
+        text: '下载',
+        handleClick: downloadImage
       }
     ]
   }
@@ -297,6 +305,11 @@ const menus = computed(() => {
       icon: 'star-o',
       text: '添加相册',
       handleClick: handleAddAlbum
+    },
+    {
+      icon: 'down',
+      text: '下载',
+      handleClick: downloadImage
     }
   ]
 })
