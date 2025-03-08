@@ -12,20 +12,23 @@ const menus = [
     to: '/home',
     activeIcon: 'wap-home',
     activeColor: '#2196f3',
+    replace: false
   },
   {
     icon: 'photo-o',
     text: '相册',
     to: '/',
     activeIcon: 'photo',
-    activeColor: '#2196f3'
+    activeColor: '#2196f3',
+    replace: true
   },
   {
     icon: 'like-o',
     text: '我喜欢',
     to: '/like',
     activeIcon: 'like',
-    activeColor: '#f53f3f'
+    activeColor: '#f53f3f',
+    replace: false
   },
 ]
 </script>

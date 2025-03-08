@@ -11,6 +11,7 @@ const { menus } = defineProps<{
     handleClick?: () => void
     active?: boolean
     color?: string
+    replace?: boolean
   }[],
 }>()
 
@@ -20,7 +21,7 @@ const route = useRoute();
   <footer class="footer-nav safe-padding-bottom">
     <van-grid :column-num="menus.length" :border="false">
       <van-grid-item v-for="menu in menus" :key="menu.icon" :icon="route.path === menu.to ? menu.activeIcon : menu.icon"
-        :text="menu.text" :to="menu.to" :icon-color="(route.path === menu.to || menu.active) ? menu.activeColor : menu.color"
+        :text="menu.text" :to="menu.to" :replace="menu.replace" :icon-color="(route.path === menu.to || menu.active) ? menu.activeColor : menu.color"
         @click="menu.handleClick" />
     </van-grid>
   </footer>
