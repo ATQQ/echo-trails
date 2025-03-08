@@ -331,7 +331,10 @@ const handleDeletePhotos = async () => {
   cancelEditMode()
 }
 
-const handleRestorePhotos = async () => {
+const handleRestorePhotos = async (ids: string[] = []) => {
+  if (ids?.length) {
+    editData.selectIds = ids
+  }
   if (!editData.selectIds.length) {
     showNotify({ type: 'warning', message: '请选择要恢复的照片' });
     return
@@ -454,7 +457,8 @@ const isEmpty = computed(() => !photoList.length)
 providePhotoListStore({
   photoList,
   deletePhoto,
-  isEmpty
+  isEmpty,
+  restorePhotos: handleRestorePhotos
 })
 
 const handleOpenFile = async () => {
@@ -542,7 +546,8 @@ const handleOpenFile = async () => {
       </van-uploader>
     </template>
     <!-- 图片预览 -->
-    <PreviewImage :album="album" v-model:show="showPreview" :images="photoList" :start="startPosition" />
+    <PreviewImage :is-delete="isDelete" :album="album" v-model:show="showPreview" :images="photoList"
+      :start="startPosition" />
     <!-- 回到顶部 -->
     <van-back-top :bottom="isTauri ? 140 : 110" :right="20" :style="{
       '--van-back-top-icon-size': '16px',

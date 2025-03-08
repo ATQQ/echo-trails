@@ -5,6 +5,7 @@ export interface PhotoListViewStore {
   deletePhoto?: (id: string) => void
   photoList?: Reactive<Photo[]>
   isEmpty?: ComputedRef<boolean>
+  restorePhotos?: (ids?: string[]) => Promise<void>
 }
 
 export const photoListKey: InjectionKey<PhotoListViewStore> = Symbol('photoList')

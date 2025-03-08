@@ -72,10 +72,11 @@ import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from './SelectAlbumModal.vue';
 import BottomActions from './BottomActions.vue';
 
-const { images = [], start = 0, album } = defineProps<{
+const { images = [], start = 0, album, isDelete = false } = defineProps<{
   images: Photo[]
   start?: number
   album?: Album
+  isDelete?: boolean
 }>()
 
 const show = defineModel("show", { type: Boolean, default: false })
@@ -265,7 +266,20 @@ onBeforeRouteLeave((to, from, next) => {
   next()
 })
 
+const restorePhotos = () => {
+  photoListStore?.restorePhotos?.([activeImage.value._id])
+}
+
 const menus = computed(() => {
+  if (isDelete) {
+    return [
+      {
+        icon: 'replay',
+        text: '恢复',
+        handleClick: restorePhotos
+      }
+    ]
+  }
   return [
     {
       icon: activeImage.value.isLiked ? 'like' : 'like-o',
