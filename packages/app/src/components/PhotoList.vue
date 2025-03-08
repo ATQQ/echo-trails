@@ -15,6 +15,7 @@ import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
 import BottomActions from './BottomActions.vue';
 import SelectAlbumModal from './SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';
+import { preventBack } from '@/lib/router'
 
 const isActive = ref(true)
 onActivated(() => {
@@ -365,6 +366,7 @@ const handleLongPress = (idx: number) => {
   editData.active = true
   editData.selectIds = [photoList[idx]._id]
 }
+preventBack(editData, 'active')
 
 const loading = ref(false)
 const pullRefresh = () => {
