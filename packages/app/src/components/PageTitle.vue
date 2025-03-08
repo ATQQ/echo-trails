@@ -1,6 +1,6 @@
 <template>
   <header class="page-header safe-padding-top">
-    <h1>{{ title }}</h1>
+    <h1 @click="handlePressTitle">{{ title }}</h1>
     <div class="actions">
       <van-icon name="more-o" v-if="info" size="26" @click="handleShowInfoPanel" />
       <van-icon name="close" v-if="exit" size="26" @click="handleExit" />
@@ -44,6 +44,13 @@ const handleExit = () => {
 
   })
 
+}
+const emit = defineEmits<{
+  (e: 'pressTitle'): void
+}>()
+
+const handlePressTitle = () => {
+  emit('pressTitle')
 }
 
 // 信息展示

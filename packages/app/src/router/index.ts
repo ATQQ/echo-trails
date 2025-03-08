@@ -55,6 +55,16 @@ const router = createRouter({
         nav: false
       }
     },
+    {
+      path: '/delete',
+      name: 'delete',
+      component: () => import('../views/DeleteView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'DeleteView',
+        nav: false
+      }
+    }
   ],
 })
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
 import { reactive, computed, watch, toRefs, ref, onDeactivated, onActivated } from 'vue'
-import { addFileInfo, deletePhotos, getPhotos, getUploadUrl, updatePhotosAlbums, uploadFile } from '../service';
+import { addFileInfo, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../service';
 import { generateFileKey } from '../lib/file';
 import { isTauri, UploadStatus } from '../constants/index'
 import { useScroll } from '@vueuse/core'
@@ -16,6 +16,7 @@ import BottomActions from './BottomActions.vue';
 import SelectAlbumModal from './SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
+import { onBeforeRouteLeave } from 'vue-router';
 
 const isActive = ref(true)
 onActivated(() => {
@@ -30,9 +31,10 @@ onDeactivated(() => {
   isActive.value = false
 })
 
-const { likedMode = false, album } = defineProps<{
+const { likedMode = false, album, isDelete = false } = defineProps<{
   likedMode?: boolean
   album?: Album
+  isDelete?: boolean
 }>()
 
 const { arrivedState } = useScroll(window, {
@@ -72,7 +74,8 @@ const loadNext = async (index = 0, pageSize = 0) => {
   // 获取数据
   return getPhotos(index || pageInfo.pageIndex, pageSize || pageInfo.pageSize, {
     likedMode,
-    albumId: album?._id
+    albumId: album?._id,
+    isDelete
   }).then(res => {
     let addCount = 0
     // 数据去重
@@ -268,7 +271,7 @@ const editData = reactive({
 const showAlbumSelect = ref(false)
 const selectedAlbums = ref<string[]>([])
 const handleAddAlbum = async () => {
-  if(!editData.selectIds.length) {
+  if (!editData.selectIds.length) {
     showNotify({ type: 'warning', message: '请选择要添加的照片' });
     return
   }
@@ -328,23 +331,70 @@ const handleDeletePhotos = async () => {
   cancelEditMode()
 }
 
-const menus = [
-  {
-    icon: 'star-o',
-    text: '添加相册',
-    handleClick: handleAddAlbum
-  },
-  {
-    icon: 'delete-o',
-    text: '删除',
-    handleClick: handleDeletePhotos
-  },
-  {
-    icon: 'cross',
-    text: '取消',
-    handleClick: cancelEditMode
+const handleRestorePhotos = async () => {
+  if (!editData.selectIds.length) {
+    showNotify({ type: 'warning', message: '请选择要恢复的照片' });
+    return
   }
-]
+
+  const confirmed = await showConfirmDialog({
+    title: '恢复确认',
+    message:
+      `确定要恢复这${editData.selectIds.length}张照片吗？`,
+  })
+    .then(() => {
+      return true;
+    })
+    .catch(() => {
+      return false;
+    });
+  if (!confirmed) {
+    return;
+  }
+
+  await restorePhotos(editData.selectIds)
+  showNotify({ type: 'success', message: '恢复成功' });
+  // 更新本地相册数据
+  editData.selectIds.forEach(v => {
+    deletePhoto(v)
+  })
+  cancelEditMode()
+}
+
+const menus = computed(() => {
+  if (isDelete) {
+    return [
+      {
+        icon: 'replay',
+        text: '恢复',
+        handleClick: handleRestorePhotos
+      },
+      {
+        icon: 'cross',
+        text: '取消',
+        handleClick: cancelEditMode
+      }
+    ]
+  }
+
+  return [
+    {
+      icon: 'star-o',
+      text: '添加相册',
+      handleClick: handleAddAlbum
+    },
+    {
+      icon: 'delete-o',
+      text: '删除',
+      handleClick: handleDeletePhotos
+    },
+    {
+      icon: 'cross',
+      text: '取消',
+      handleClick: cancelEditMode
+    }
+  ]
+})
 const checkboxRefs = ref<any[]>([])
 const startPosition = ref(0)
 
@@ -377,6 +427,15 @@ const pullRefresh = () => {
     })
 }
 
+// 判断路由从回收站返回
+onBeforeRouteLeave((to, from, next) => {
+  if (from.name === 'delete') {
+    setTimeout(() => {
+      pullRefresh()
+    }, 1000)
+  }
+  next()
+})
 
 // provide
 const deletePhoto = (id: string) => {
@@ -473,13 +532,15 @@ const handleOpenFile = async () => {
         <div class="block"></div>
       </main>
     </van-pull-refresh>
-    <van-button v-if="isTauri" @click="handleOpenFile" class="upload-container tauri-mode">
-      <van-icon name="plus" size="16" />
-    </van-button>
-    <!-- 上传 -->
-    <van-uploader v-else class="upload-container" :after-read="afterRead" multiple>
-      <van-icon name="plus" size="16" />
-    </van-uploader>
+    <template v-if="!isDelete">
+      <van-button v-if="isTauri" @click="handleOpenFile" class="upload-container tauri-mode">
+        <van-icon name="plus" size="16" />
+      </van-button>
+      <!-- 上传 -->
+      <van-uploader v-else class="upload-container" :after-read="afterRead" multiple>
+        <van-icon name="plus" size="16" />
+      </van-uploader>
+    </template>
     <!-- 图片预览 -->
     <PreviewImage :album="album" v-model:show="showPreview" :images="photoList" :start="startPosition" />
     <!-- 回到顶部 -->

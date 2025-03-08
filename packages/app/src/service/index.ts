@@ -37,6 +37,7 @@ export function uploadFile(file: File, url: string) {
 export function getPhotos(page: number, pageSize: number, options: {
   likedMode?: boolean,
   albumId?: string,
+  isDelete?: boolean
 }) {
   return api.get<ServerResponse<Photo[]>>('file/photo/list', {
     searchParams: {
@@ -44,6 +45,7 @@ export function getPhotos(page: number, pageSize: number, options: {
       pageSize,
       ...(options.likedMode ? { likedMode: true } : {}),
       ...(options.albumId ? { albumId: options.albumId } : {}),
+      ...(options.isDelete ? { isDelete: true } : {})
     }
   }).json()
     .then((v) => {
@@ -145,6 +147,14 @@ export function deletePhoto(id: string) {
 
 export function deletePhotos(ids: string[]) {
   return api.delete<ServerResponse>('file/photos/delete', {
+    json: {
+      ids
+    }
+  })
+}
+
+export function restorePhotos(ids: string[]) {
+  return api.put<ServerResponse>('file/photos/restore', {
     json: {
       ids
     }

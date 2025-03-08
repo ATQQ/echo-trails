@@ -101,15 +101,15 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       })
     }
 
-    const { pageSize = 20, page = 1, likedMode, albumId } = ctx.req.query()
+    const { pageSize = 20, page = 1, likedMode, albumId, isDelete } = ctx.req.query()
     const isLiked = likedMode === 'true'
     const skip = (+page - 1) * +pageSize;
     const photos = await exec(() => {
       return Photo.find({
         username,
-        deleted: false,
+        deleted: !!isDelete,
         ...(isLiked ? { isLiked } : {}),
-        ...(albumId ? { albumId } : {})
+        ...(albumId ? { albumId } : {}),
       }).skip(skip)
         .limit(+pageSize)
         .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId'])
@@ -323,6 +323,43 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     })
   })
 
+  router.put('photos/restore', async (ctx) => {
+    const { ids } = await ctx.req.json()
+    const username = ctx.get('username')
+    const operator = ctx.get('operator')
+
+    await exec(async () => {
+      const photos = await Photo.find({
+        _id: {
+          $in: ids
+        },
+        deleted: true
+      }, ['key'], {
+        username
+      })
+      if (!photos.length) {
+        return ctx.json({
+          code: 1,
+          message: 'photos not found'
+        })
+      }
+
+      for (const photo of photos) {
+        // 标志是被删除过
+        // photo.deletedAt = null
+        photo.deleted = false
+        photo.updatedBy = operator
+
+        // TODO：完整的操作日志
+      }
+      await Promise.all(photos.map(v => v.save()))
+    })
+
+    return ctx.json({
+      code: 0,
+      message: 'restore success'
+    })
+  })
 
   router.get('photo/listInfo', async (ctx) => {
     const username = ctx.get('username')
