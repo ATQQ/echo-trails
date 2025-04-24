@@ -3,6 +3,7 @@ import { bearerAuth } from 'hono/bearer-auth'
 import mountedRouters from './routers'
 import { users } from './users'
 import { logger } from 'hono/logger'
+import { cors } from 'hono/cors'
 
 declare module 'hono' {
   interface ContextVariableMap {
@@ -17,8 +18,10 @@ const customLogger = (message: string, ...rest: string[]) => {
   console.log(new Date().toLocaleString(), message, ...rest)
 }
 app.use(logger(customLogger))
+app.use('*', cors())
 // 简单BA鉴权
-app.use(
+app.on(
+  ['POST', 'GET', 'DELETE', 'PUT', 'PATCH'],
   '*',
   bearerAuth({
     verifyToken: async (token, c) => {

@@ -12,7 +12,8 @@ const selectMode = computed(() => modeValue.value[0])
 const showModeSelect = ref(false);
 const columns = [
   { text: 'Server', value: 'server' },
-  { text: 'Native', value: 'native' },
+  // 开发中
+  // { text: 'Native', value: 'native' },
 ];
 
 const onModeChanged = ({ selectedValues, selectedOptions }: { selectedValues: string[], selectedOptions: any[] }) => {
