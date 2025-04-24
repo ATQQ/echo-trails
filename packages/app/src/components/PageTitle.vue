@@ -2,6 +2,7 @@
   <header class="page-header safe-padding-top">
     <h1 @click="handlePressTitle">{{ title }}</h1>
     <div class="actions">
+      <van-icon name="setting-o" v-if="setMode" size="26" @click="handleGoSetPage" />
       <van-icon name="more-o" v-if="info" size="26" @click="handleShowInfoPanel" />
       <van-icon name="close" v-if="exit" size="26" @click="handleExit" />
     </div>
@@ -21,15 +22,21 @@ import { useRouter } from 'vue-router';
 import { preventBack } from '@/lib/router'
 import InfoCard from './InfoCard.vue';
 import { getPhotoListInfo } from '@/service';
-const { title = '', exit = false, info = true, likedMode = false } = defineProps<{
+const { title = '', exit = false, info = true, likedMode = false, setMode = false } = defineProps<{
   title: string
   exit?: boolean
   info?: boolean
   likedMode?: boolean
+  setMode?: boolean
 }>()
 
 const router = useRouter();
 
+const handleGoSetPage = () => {
+  router.push({
+    name: 'set'
+  })
+}
 // 退出
 const handleExit = () => {
   showConfirmDialog({

@@ -4,9 +4,10 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { isTauri } from '@/constants';
 import { goLogin } from './login';
 
-export const api = ky.create({
-  // TODO：分环境替换
-  prefixUrl: `${import.meta.env.VITE_BASE_ORIGIN || location.origin}/api`,
+export const defaultOrigin: string = import.meta.env.VITE_BASE_ORIGIN || location.origin
+export const defaulrPrefixUrl = `${defaultOrigin}/api`
+export let api = ky.create({
+  prefixUrl: defaulrPrefixUrl,
   retry: 0,
   hooks: {
     beforeRequest: [
@@ -22,7 +23,7 @@ export const api = ky.create({
         if ([401, 400].includes(response.status)) {
           localStorage.removeItem('token')
           const { pathname } = new URL(_request.url)
-          if( pathname === '/api/check'){
+          if (pathname === '/api/check') {
             throw new Error('Unauthorized')
           }
           goLogin()
@@ -41,3 +42,44 @@ export const api = ky.create({
   },
   fetch: isTauri ? tauriFetch : undefined
 })
+
+export function refreshApi(prefixUrl?: string) {
+  const instance = ky.create({
+    prefixUrl: prefixUrl || defaulrPrefixUrl,
+    retry: 0,
+    hooks: {
+      beforeRequest: [
+        request => {
+          const token = localStorage.getItem('token')
+          if (token) {
+            request.headers.set('Authorization', `Bearer ${token}`)
+          }
+        },
+      ],
+      afterResponse: [
+        async (_request, _options, response) => {
+          if ([401, 400].includes(response.status)) {
+            localStorage.removeItem('token')
+            const { pathname } = new URL(_request.url)
+            if (pathname === '/api/check') {
+              throw new Error('Unauthorized')
+            }
+            goLogin()
+          }
+          const data: any = await response.json()
+          if (data?.code) {
+            showToast({
+              type: 'fail',
+              message: data.message,
+            })
+            throw new Error(data.message)
+          }
+          return data
+        },
+      ],
+    },
+    fetch: isTauri ? tauriFetch : undefined
+  })
+
+  api = instance
+}

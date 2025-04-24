@@ -31,7 +31,11 @@
     "fs:default",
     {
       "identifier": "fs:allow-exists",
-      "allow": [{ "path": "$APPDATA/databases/*" }]
+      "allow": [
+        {
+          "path": "$APPDATA/databases/*"
+        }
+      ]
     },
     "fs:allow-lstat",
     "fs:allow-app-write",
@@ -47,6 +51,12 @@
         "$APPDATA",
         "$APPDATA/*"
       ]
-    }
+    },
+    "log:default",
+    "store:default",
+    "store:allow-get",
+    "store:allow-set",
+    "store:allow-save",
+    "store:allow-load"
   ]
 }

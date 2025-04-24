@@ -1,4 +1,7 @@
+import { isTauri } from "@/constants";
 import { api } from "@/lib/request";
+import { invoke } from '@tauri-apps/api/core';
+
 import ky from "ky";
 
 export function login() {
@@ -6,6 +9,15 @@ export function login() {
 }
 
 export function getUploadUrl(key: string) {
+  // if (isTauri) {
+  //   return invoke('upload_token', {
+  //     key
+  //   }).then((v: any) => {
+  //     console.log(v);
+  //     return v.url
+  //   })
+  // }
+
   return api
     .get<{
       url: string

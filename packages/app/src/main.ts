@@ -10,6 +10,7 @@ import router from './router'
 import { goLogin, login } from './lib/login';
 import { isTauri } from './constants';
 import { PromiseWithResolver } from './lib/util';
+import { attachConsole } from '@tauri-apps/plugin-log'
 
 const app = createApp(App)
 
@@ -79,9 +80,13 @@ async function presetTauriMode() {
 
   // TODO: 夜间模式适配
   // TODO: 桥获取真实高度
+
+  // log
+  // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
+  await attachConsole();
+
   return promise
 }
-
 
 presetTauriMode().then(() => {
   login().then(() => {

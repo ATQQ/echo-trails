@@ -26,4 +26,11 @@ tauri-plugin-http = "2"
 tauri-plugin-os = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+log = "0.4.21"
+tauri-plugin-log = "2"
+aws-sdk-s3 = "0.28.0"
+aws-config = "0.55.3"
+tokio = { version = "1.28.0", features = ["full"] }
+dotenv = "0.15.0"
+tauri-plugin-store = "2"
 

@@ -22,7 +22,7 @@ app.use(
   '*',
   bearerAuth({
     verifyToken: async (token, c) => {
-      const pass =  Object.entries(users).some(([username, userMaps]) => {
+      const pass = Object.entries(users).some(([username, userMaps]) => {
         const matched = userMaps.find(v => v[1] === token)
         if (matched) {
           const [operator] = matched
@@ -35,6 +35,13 @@ app.use(
     },
   }),
 )
+
+// 用于配置设定
+app.post('/config/check', (ctx) => {
+  return ctx.json({
+    code: 0
+  })
+})
 
 // 用于检查登录情况
 app.post('/check', (ctx) => {

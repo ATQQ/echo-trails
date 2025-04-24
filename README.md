@@ -25,11 +25,17 @@ _“echo” 可以象征着记忆的回响，过去的经历像回声一样在�
 
 ## 🎯 Roadmap
 
-- [ ] Online Demo
+- [x] Online Demo
+- [x] Android App
+  - [ ] Native Settings
+    - [x] Web Settings
+    - [ ] Offline Settings
 - [ ] Quick Copy Start
-- [ ] Native Settings
-- [ ] Android App
 - [ ] Other platforms (Desktop,iOS)
+- [ ] Sources
+  - [x] Picture
+  - [ ] Video
+  - [ ] Audio
 
 ## 🤝 Contributing
 

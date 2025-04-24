@@ -36,6 +36,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/set',
+      name: 'set',
+      component: () => import('../views/SetView.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'SetView'
+      }
+    },
+    {
       path: '/album/:albumId',
       name: 'album-photo',
       component: () => import('../views/AlbumPhotoView.vue'),
