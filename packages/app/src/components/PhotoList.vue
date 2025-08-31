@@ -55,15 +55,25 @@ const pageInfo = reactive({
 const photoList = reactive<Photo[]>([])
 
 const existPhotoMap = new Map<string, Photo>()
-
+const repeatPhotoMap = new Map<string, Photo>()
 const albumPhotoStore = useAlbumPhotoStore()
 
+const wrapperRepeat = (photo: Photo) => {
+  if (repeatPhotoMap.has(photo.key)) {
+    photo.isRepeat = true
+    return
+  }
+  repeatPhotoMap.set(photo.key, photo)
+  photo.isRepeat = false
+}
+
 const addPhoto2List = (photo: Photo) => {
-  if (!existPhotoMap.has(photo.key)) {
-    existPhotoMap.set(photo.key, photo)
+  if (!existPhotoMap.has(photo._id)) {
+    existPhotoMap.set(photo._id, photo)
     photoList.push(photo)
     return true
   }
+
   return false
 }
 const showEmpty = ref(false)
@@ -80,6 +90,7 @@ const loadNext = async (index = 0, pageSize = 0) => {
     let addCount = 0
     // 数据去重
     res.forEach(v => {
+      wrapperRepeat(v)
       if (addPhoto2List(v)) {
         addCount += 1
       }
@@ -531,7 +542,7 @@ const handleOpenFile = async () => {
             <h2>{{ title }}<span class="week-day"> - {{ weekDay }}</span></h2>
             <van-grid :border="false" square>
               <van-grid-item v-for="item in photos" :key="item.key" class="img-border">
-                <ImageCell @click="previewImage(item.idx)" :src="item.cover" @longpress="handleLongPress(item.idx)" />
+                <ImageCell @click="previewImage(item.idx)" :src="item.cover" :is-repeat="item.isRepeat" @longpress="handleLongPress(item.idx)" />
                 <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[item.idx] = el" :name="item._id"
                   class="editSelected" />
               </van-grid-item>
