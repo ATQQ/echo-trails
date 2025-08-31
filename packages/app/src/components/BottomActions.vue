@@ -35,6 +35,7 @@ const route = useRoute();
 .footer-nav {
   padding-top: 4px;
   position: fixed;
+  z-index: 10;
   bottom: 0;
   left: 0;
   right: 0;

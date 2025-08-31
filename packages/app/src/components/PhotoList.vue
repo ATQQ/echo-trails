@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
-import { reactive, computed, watch, toRefs, ref, onDeactivated, onActivated } from 'vue'
+import { reactive, computed, watch, toRefs, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
 import { addFileInfo, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../service';
 import { generateFileKey } from '../lib/file';
 import { isTauri, UploadStatus } from '../constants/index'
-import { useScroll } from '@vueuse/core'
+import { useEventListener } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage.vue';
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { providePhotoListStore } from '@/composables/photoList';
@@ -37,10 +37,6 @@ const { likedMode = false, album, isDelete = false } = defineProps<{
   isDelete?: boolean
 }>()
 
-const { arrivedState } = useScroll(window, {
-  offset: { bottom: 200 },
-})
-const { bottom } = toRefs(arrivedState)
 
 const waitUploadList = reactive<{ key: string, url: string, status: UploadStatus, progress?: number }[]>([])
 
@@ -111,11 +107,50 @@ const loadNext = async (index = 0, pageSize = 0) => {
   })
 }
 
-watch(bottom, () => {
-  if (bottom.value) {
+// 滚动监听已在上面实现
+onUnmounted(() => {
+  // 组件卸载时清理事件监听器
+  unregisterScrollListener()
+})
+// 滚动事件监听
+const checkScrollBottom = () => {
+  if (!isActive.value) return
+  const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+  const windowHeight = window.innerHeight
+  const documentHeight = document.documentElement.scrollHeight
+
+  // 距离半个屏幕就触发
+  if (scrollTop + windowHeight >= documentHeight - windowHeight / 3) {
     loadNext()
   }
-})
+}
+
+// 根据页面活动状态注册/取消事件监听
+let scrollListener: (() => void) | null = null
+
+const registerScrollListener = () => {
+  if (scrollListener) return
+  scrollListener = useEventListener(window, 'scroll', checkScrollBottom, { passive: true })
+}
+
+const unregisterScrollListener = () => {
+  console.log('unregisterScrollListener');
+
+  if (scrollListener) {
+    scrollListener()
+    scrollListener = null
+  }
+}
+
+// 监听页面活动状态
+watch(isActive, (active) => {
+  loadNext()
+  if (active) {
+    registerScrollListener()
+  } else {
+    unregisterScrollListener()
+  }
+}, { immediate: true })
 
 // 正式列表展示使用 computed 进行groupBy分组
 const showPhotoList = computed(() => {
@@ -542,7 +577,8 @@ const handleOpenFile = async () => {
             <h2>{{ title }}<span class="week-day"> - {{ weekDay }}</span></h2>
             <van-grid :border="false" square>
               <van-grid-item v-for="item in photos" :key="item.key" class="img-border">
-                <ImageCell @click="previewImage(item.idx)" :src="item.cover" :is-repeat="item.isRepeat" @longpress="handleLongPress(item.idx)" />
+                <ImageCell @click="previewImage(item.idx)" :src="item.cover" :is-repeat="item.isRepeat"
+                  @longpress="handleLongPress(item.idx)" />
                 <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[item.idx] = el" :name="item._id"
                   class="editSelected" />
               </van-grid-item>
@@ -572,7 +608,7 @@ const handleOpenFile = async () => {
     }" />
     <!-- 底部操作栏 -->
     <transition name="van-slide-up">
-      <BottomActions style="z-index: 10" :menus="menus" v-show="editData.active" />
+      <BottomActions style="z-index: 11" :menus="menus" v-show="editData.active" />
     </transition>
     <!-- 选择相册 -->
     <SelectAlbumModal v-model:show="showAlbumSelect" @save="handleSaveAlbumSelect" :current-album-id="album?._id"
