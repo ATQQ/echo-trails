@@ -42,7 +42,7 @@ const { arrivedState } = useScroll(window, {
 })
 const { bottom } = toRefs(arrivedState)
 
-const waitUploadList = reactive<{ key: string, url: string, status: UploadStatus }[]>([])
+const waitUploadList = reactive<{ key: string, url: string, status: UploadStatus, progress?: number }[]>([])
 
 const showUploadList = computed(() => waitUploadList.filter(v => v.status !== UploadStatus.SUCCESS))
 
@@ -169,6 +169,7 @@ const addWaitUploadList = (fileInfo: FileInfoItem) => {
     key,
     url: fileInfo.objectUrl,
     status: UploadStatus.PENDING,
+    progress: 0,
   }
   const existItem = waitUploadList.find(v => v.key === key)
   if (!existItem) {
@@ -188,7 +189,9 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo) => {
   wrapperItem.status = UploadStatus.UPLOADING
 
   // 触发上传
-  await uploadFile(file, uploadUrl)
+  await uploadFile(file, uploadUrl, (progress) => {
+    wrapperItem.progress = progress
+  })
     .then(async () => {
       // 数据落库
       const result = await addFileInfo(uploadInfo)
@@ -233,8 +236,9 @@ const startUpload = async (values: FileInfoItem[]) => {
   }
 }
 
-const reUpload = (item: { key: string, url: string, status: UploadStatus }) => {
+const reUpload = (item: { key: string, url: string, status: UploadStatus, progress?: number }) => {
   item.status = UploadStatus.PENDING
+  item.progress = 0
   const fileInfo = uploadValueMap.get(item.key)
   if (fileInfo) {
     uloadOneFile(fileInfo, generateUploadInfo(fileInfo))
@@ -511,7 +515,9 @@ const handleOpenFile = async () => {
               <!-- 等待中 -->
               <div v-if="item.status === UploadStatus.PENDING" class="upload-mask">等待上传</div>
               <!-- 上传中 -->
-              <div v-if="item.status === UploadStatus.UPLOADING" class="upload-mask">上传中</div>
+              <div v-if="item.status === UploadStatus.UPLOADING" class="upload-mask">
+                上传中 {{ item.progress || 0 }}%
+              </div>
               <!-- 失败 -->
               <div @click="reUpload(item)" v-else-if="item.status === UploadStatus.ERROR" class="error-mask">上传失败
                 <van-icon name="replay" />

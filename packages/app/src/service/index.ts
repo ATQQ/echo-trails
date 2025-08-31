@@ -40,9 +40,37 @@ export function addFileInfo(body: UploadInfo) {
   }).json().then(((v: any) => v.data))
 }
 
-export function uploadFile(file: File, url: string) {
-  return ky.put(url, {
-    body: file
+export function uploadFile(file: File, url: string, onProgress?: (progress: number) => void) {
+  return new Promise<Response>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+
+    // 上传进度监听
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100)
+          onProgress(percent)
+        }
+      })
+    }
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(new Response(xhr.response, {
+          status: xhr.status,
+          statusText: xhr.statusText
+        }))
+      } else {
+        reject(new Error(`Upload failed: ${xhr.statusText}`))
+      }
+    })
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('Upload failed'))
+    })
+
+    xhr.open('PUT', url)
+    xhr.send(file)
   })
 }
 
