@@ -70,7 +70,12 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       height,
       fileType,
       bucket: process.env.S3_BUCKET,
-      exif: replaceNullKeys(exif),
+      // 不保留用不到的信息
+      exif: {
+        FileType: fileType,
+        'Image Width': width,
+        'Image Height': height,
+      },
       deleted: false,
       type,
       createdBy: operator,
