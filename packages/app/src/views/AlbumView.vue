@@ -27,6 +27,17 @@ const { value: albumList } = useLocalStorage<{
   large: [],
   small: []
 })
+
+const clearAlbumList = () => {
+  albumList.large = []
+  albumList.small = []
+}
+
+const { value: lastUpdateData } = useLocalStorage<{
+  lastUpdate: number
+}>('lastUpdate', {
+  lastUpdate: 0
+})
 const showEmpty = ref(false)
 const loading = ref(false)
 const loadAlbum = (_loading = false) => {
@@ -36,10 +47,15 @@ const loadAlbum = (_loading = false) => {
     albumList.large = res.large || []
     albumList.small = res.small || []
     showEmpty.value = !albumList.large?.length && !albumList.small?.length
+    lastUpdateData.lastUpdate = Date.now()
   })
 }
 
 onActivated(() => {
+  // 20分钟刷新一次
+  if (Date.now() - lastUpdateData.lastUpdate > 1000 * 60 * 20) {
+    clearAlbumList()
+  }
   loadAlbum()
 })
 

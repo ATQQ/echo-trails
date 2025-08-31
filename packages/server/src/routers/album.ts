@@ -33,7 +33,7 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const username = ctx.get('username')
 
     const albums = await exec(async () => {
-      const albums = await Album.find({ username, deleted: false })
+      const albums = await Album.find({ username, deleted: false }).sort({ createdAt: -1 })
       return await Promise.all(albums.map(albumService.parseAlbum))
     }) || []
 

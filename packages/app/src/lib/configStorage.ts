@@ -26,7 +26,7 @@ export async function validConfig(cfg: StorageConfig) {
 }
 
 export async function saveConfig(cfg: StorageConfig) {
-  const store = await load('config.json', { autoSave: false });
+  const store = await load('config.json', { autoSave: false, defaults: {} });
   store.set('cfg', cfg)
   await store.save();
 }
@@ -41,7 +41,13 @@ export async function refreshService(cfg: StorageConfig) {
 }
 
 export async function getConfig() {
-  const store = await load('config.json', { autoSave: false });
+  const store = await load('config.json', { autoSave: false, defaults: {
+    cfg: {
+      mode: 'server',
+      serverUrl: defaultOrigin,
+      token: ''
+    }
+  } });
   let { mode = 'server', serverUrl, token } = (await store.get<StorageConfig>('cfg')) || {}
   mode = mode || 'server'
   serverUrl = serverUrl || defaultOrigin || ''
