@@ -2,6 +2,7 @@
 // AI 生成页面：https://bolt.new/
 // 生成页面链接：https://bolt.new/~/sb1-wv4id8
 import { login } from '@/service';
+import { useLocalStorage } from '@vueuse/core';
 import { showNotify } from 'vant';
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router';
@@ -13,9 +14,16 @@ const checkLogin = () => {
   handleLogin()
 }
 
+const { value: userInfo } = useLocalStorage('userInfo', {
+  username: '',
+  operator: ''
+})
+
 const handleLogin = (silent = false) => {
   localStorage.setItem('token', password.value)
-  login().then(() => {
+  login().then((res) => {
+    userInfo.username = res.data.username
+    userInfo.operator = res.data.operator
     router.replace({
       name: 'album'
     })
@@ -48,8 +56,7 @@ const togglePasswordVisibility = () => {
         <div class="password-input">
           <input v-if="isPasswordVisible" type="text" v-model="password" placeholder="请输入密码"
             @keyup.enter="checkLogin" />
-          <input v-else type="password" v-model="password" placeholder="请输入密码"
-            @keyup.enter="checkLogin" />
+          <input v-else type="password" v-model="password" placeholder="请输入密码" @keyup.enter="checkLogin" />
           <button class="toggle-visibility" @click="togglePasswordVisibility">
             <img :src="isPasswordVisible
               ? 'https://api.iconify.design/mdi:eye-off.svg'

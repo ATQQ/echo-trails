@@ -16,7 +16,10 @@ export async function validConfig(cfg: StorageConfig) {
 
   if (mode === 'server') {
     // 校验服务端地址是否能访问
-    await ky.post(`${serverUrl}/api/config/check`, {
+    return ky.post<ServerResponse<{
+      username: string,
+      operator: string
+    }>>(`${serverUrl}/api/config/check`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

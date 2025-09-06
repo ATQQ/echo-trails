@@ -5,7 +5,10 @@ import { invoke } from '@tauri-apps/api/core';
 import ky from "ky";
 
 export function login() {
-  return api.post<ServerResponse>('check')
+  return api.post<ServerResponse<{
+    username: string
+    operator: string
+  }>>('check').json()
 }
 
 export function getUploadUrl(key: string) {

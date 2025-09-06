@@ -41,15 +41,27 @@ app.on(
 
 // 用于配置设定
 app.post('/config/check', (ctx) => {
+  const username = ctx.get('username')
+  const operator = ctx.get('operator')
   return ctx.json({
-    code: 0
+    code: 0,
+    data: {
+      username,
+      operator
+    }
   })
 })
 
 // 用于检查登录情况
 app.post('/check', (ctx) => {
+  const username = ctx.get('username')
+  const operator = ctx.get('operator')
   return ctx.json({
-    code: 0
+    code: 0,
+    data: {
+      username,
+      operator
+    }
   })
 })
 

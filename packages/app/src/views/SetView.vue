@@ -3,6 +3,7 @@ import PageTitle from '@/components/PageTitle.vue';
 import { getConfig, refreshService, saveConfig, validConfig } from '@/lib/configStorage';
 import { defaultOrigin } from '@/lib/request';
 import router from '@/router';
+import { useLocalStorage } from '@vueuse/core';
 import { showConfirmDialog, showNotify } from 'vant';
 import { computed, onMounted, ref } from 'vue';
 
@@ -24,25 +25,36 @@ const onModeChanged = ({ selectedValues, selectedOptions }: { selectedValues: st
 
 const serverUrl = ref('')
 const token = ref('');
+const { value: userInfo } = useLocalStorage('userInfo', {
+  operator: '',
+  username: ''
+})
 
 const onSubmit = async () => {
   const config = {
     mode: selectMode.value,
     serverUrl: serverUrl.value,
-    token: token.value
+    token: token.value,
   }
   try {
     // 校验数据合理性
-    await validConfig(config)
-
+    const res = await validConfig(config)
+    if (res?.data) {
+      const { operator, username } = res.data
+      userInfo.operator = operator
+      userInfo.username = username
+    }
     // 存配置数据
     await saveConfig(config)
     // 更新服务
     await refreshService(config)
-    // 回到首页
-    router.replace({
-      name: 'album'
-    })
+    showNotify({ type: 'success', message: '配置更新成功' })
+    setTimeout(() => {
+      // 回到首页
+      router.replace({
+        name: 'album'
+      })
+    }, 2000)
   } catch (err: any) {
     showNotify({ type: 'danger', message: err?.message });
   }
@@ -121,10 +133,10 @@ const onLogout = async () => {
   await saveConfig(config)
 
   showNotify({ type: 'success', message: '退出登录成功' })
-  setTimeout(()=>{
+  setTimeout(() => {
     // 刷新页面
     window.location.reload()
-  },2000)
+  }, 2000)
 }
 </script>
 
@@ -143,6 +155,10 @@ const onLogout = async () => {
           :rules="[{ required: true, message: '请填写令牌' }]" />
       </template>
 
+    </van-cell-group>
+    <van-cell-group inset>
+      <van-cell title="账号" :value="userInfo.username" />
+      <van-cell title="操作人" :value="userInfo.operator" />
     </van-cell-group>
     <div class="btn-wrapper">
       <van-button round block type="success" native-type="submit">

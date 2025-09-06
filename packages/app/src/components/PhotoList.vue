@@ -134,8 +134,6 @@ const registerScrollListener = () => {
 }
 
 const unregisterScrollListener = () => {
-  console.log('unregisterScrollListener');
-
   if (scrollListener) {
     scrollListener()
     scrollListener = null

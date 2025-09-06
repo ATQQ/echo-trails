@@ -15,9 +15,9 @@ export function generateFileKey(fileInfo: FileInfoItem) {
   const minute = fileInfo.date.getMinutes().toString().padStart(2, '0');
   const second = fileInfo.date.getSeconds().toString().padStart(2, '0');
   const uploadTime = new Date().getTime()
-
+  const { operator = 'unknow', username = 'unknow' } = JSON.parse(localStorage.getItem('userInfo') || '{}')
   // 前缀/原图时间年-月-日/时分秒-上传时间戳-原文件名
-  return `${import.meta.env.VITE_S3_PREFIX}/${year}-${month}-${day}/${hour}-${minute}-${second}-${uploadTime}-${fileInfo.name}`
+  return `${import.meta.env.VITE_S3_PREFIX}/${username}/${operator}/${year}-${month}-${day}/${hour}-${minute}-${second}-${uploadTime}-${fileInfo.name}`
 }
 
 
