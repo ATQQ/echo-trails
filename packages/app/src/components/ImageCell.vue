@@ -1,20 +1,16 @@
 <template>
-  <div class="image-cell-wrapper">
-    <van-image v-if="src" @click="emit('click')"
-      @mousedown="start" @mouseup="cancel" @mouseleave="cancel"
-      @touchstart="start" @touchend="cancel" @touchmove="cancel"
-      fit="cover" position="center" width="100%"
-      height="100%" lazy-load :src="src">
-      <slot />
-      <template v-slot:loading>
-        <van-loading type="spinner" size="20" />
-      </template>
-    </van-image>
-    <van-image v-else fit="cover" position="center" width="100%" height="100%"></van-image>
-    
+  <van-image v-if="src" @click="emit('click')" @mousedown="start" @mouseup="cancel" @mouseleave="cancel"
+    @touchstart="start" @touchend="cancel" @touchmove="cancel" fit="cover" position="center" width="100%" height="100%"
+    lazy-load :src="src" class="image-cell-wrapper">
+    <slot />
+    <template v-slot:loading>
+      <van-loading type="spinner" size="20" />
+    </template>
     <!-- 重复标识的蓝色小三角 -->
     <div v-if="isRepeat" class="repeat-indicator"></div>
-  </div>
+  </van-image>
+  <van-image v-else fit="cover" position="center" width="100%" height="100%"></van-image>
+
 </template>
 
 <script lang="ts" setup>
