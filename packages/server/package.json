@@ -2,8 +2,8 @@
   "name": "server",
   "version": "0.1.2",
   "scripts": {
-    "dev": "bun --env-file=.env.local --env-file=.env.local run  --hot src/index.ts",
-    "start": "bun --env-file=.env.local --env-file=.env.local run src/index.ts"
+    "dev": "bun --env-file=.env --env-file=.env.local run  --hot src/index.ts",
+    "start": "bun --env-file=.env --env-file=.env.local run src/index.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.685.0",

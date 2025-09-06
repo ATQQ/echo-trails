@@ -5,7 +5,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Photo } from "../db/photo";
 import { exec } from "../db";
 import photoService from "../service/photoService";
-import { s3Client } from "../lib/bitiful";
+import { bitifulS3Manager, bitifulConfig } from "../lib/bitiful";
 import { formatSize } from "../lib/file";
 
 function replaceNullKeys(obj: any) {
@@ -35,11 +35,11 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       })
     }
     const putCmd = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET,
+      Bucket: bitifulConfig.bucket,
       Key: key
     });
     //获取签名
-    const url = await getSignedUrl(s3Client, putCmd, { expiresIn: 3600 })
+    const url = await getSignedUrl(bitifulS3Manager.getClient(), putCmd, { expiresIn: 3600 })
     return ctx.json({
       url
     })
@@ -69,7 +69,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       width,
       height,
       fileType,
-      bucket: process.env.S3_BUCKET,
+      bucket: bitifulConfig.bucket,
       // 不保留用不到的信息
       exif: {
         FileType: fileType,

@@ -5,7 +5,7 @@ let isConnected = false
 
 export async function initConnect() {
   if (isConnected) return
-  const dbName = process.env.DB_NAME ||'mongoose-app'
+  const dbName = process.env.DB_NAME ||'echo-trails-app'
   await mongoose.connect(`mongodb://127.0.0.1:27017/${dbName}`);
   isConnected = true
 }

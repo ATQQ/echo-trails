@@ -2,14 +2,53 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Store } from './store';
 
-export const s3Client = new S3Client({
-  endpoint: "https://s3.bitiful.net",
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY,
-    secretAccessKey: process.env.S3_SECRET_KEY,
-  },
-  region: 'ap-northeast-1'
-});
+export const bitifulConfig = {
+  accessKey: process.env.S3_ACCESS_KEY,
+  secretKey: process.env.S3_SECRET_KEY,
+  bucket: process.env.S3_BUCKET,
+  domain: process.env.S3_DOMAIN,
+  coverStyle: process.env.BITIFUL_COVER_STYLE,
+  previewStyle: process.env.BITIFUL_PREVIEW_STTYLE,
+  albumStyle: process.env.BITIFUL_ALBUM_STYLE,
+  region: 'ap-northeast-1',
+}
+
+export function refreshBitifulConfig(v: Partial<typeof bitifulConfig>) {
+  // 提取非空的值
+  const notNullKeys = Object.fromEntries(
+    Object.entries(v).filter(([_, v]) => v !== null)
+  )
+  Object.assign(bitifulConfig, notNullKeys)
+}
+
+class BitifulS3Manager {
+  private s3Client: S3Client;
+
+  constructor() {
+    this.s3Client = this.createS3Client();
+  }
+
+  private createS3Client(): S3Client {
+    return new S3Client({
+      endpoint: "https://s3.bitiful.net",
+      credentials: {
+        accessKeyId: bitifulConfig.accessKey,
+        secretAccessKey: bitifulConfig.secretKey,
+      },
+      region: bitifulConfig.region,
+    });
+  }
+
+  public refreshClient(): void {
+    this.s3Client = this.createS3Client();
+  }
+
+  public getClient(): S3Client {
+    return this.s3Client;
+  }
+}
+
+export const bitifulS3Manager = new BitifulS3Manager();
 
 const urlStore = new Store()
 
@@ -20,24 +59,24 @@ export async function createFileLink(key: string, style?: string) {
   }
 
   const command = new GetObjectCommand({
-    Bucket: process.env.S3_BUCKET,
+    Bucket: bitifulConfig.bucket,
     Key,
   })
 
   // 添加缓存，避免频繁构造请求，缓存失效
-  const url = await getSignedUrl(s3Client, command, { expiresIn: 60 * 30 /*半小时*/ })
+  const url = await getSignedUrl(bitifulS3Manager.getClient(), command, { expiresIn: 60 * 30 /*半小时*/ })
   urlStore.set(Key, url, 1000 * 60 * 20 /*20分钟*/)
   return url
 }
 
 export async function createCoverLink(key: string) {
-  return createFileLink(key, process.env.BITIFUL_COVER_STYLE)
+  return createFileLink(key, bitifulConfig.coverStyle)
 }
 
 export async function createPreviewLink(key: string) {
-  return createFileLink(key, process.env.BITIFUL_PREVIEW_STTYLE)
+  return createFileLink(key, bitifulConfig.previewStyle)
 }
 
 export async function createAlbumLink(key: string) {
-  return createFileLink(key, process.env.BITIFUL_ALBUM_STYLE)
+  return createFileLink(key, bitifulConfig.albumStyle)
 }
