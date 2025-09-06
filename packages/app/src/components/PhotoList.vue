@@ -832,7 +832,6 @@ main {
   font-size: 12px;
   flex-direction: column;
   gap: 8px;
-  padding: 8px;
 
   .duplicate-info {
     display: flex;
@@ -843,6 +842,8 @@ main {
 
   .duplicate-actions {
     display: flex;
+    justify-content: center;
+    width: 100%;
 
     :deep(.van-button) {
       --van-button-mini-height: 24px;
