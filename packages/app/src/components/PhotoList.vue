@@ -318,6 +318,39 @@ const reUpload = (item: { key: string, url: string, status: UploadStatus, progre
   }
 }
 
+// 删除重复文件
+const removeDuplicateFile = (item: { key: string, url: string, status: UploadStatus, progress?: number }) => {
+  // 从待上传列表中移除
+  const index = waitUploadList.findIndex(upload => upload.key === item.key)
+  if (index !== -1) {
+    waitUploadList.splice(index, 1)
+  }
+
+  // 清理相关数据
+  uploadInfoMap.delete(uploadValueMap.get(item.key)!)
+  uploadValueMap.delete(item.key)
+
+  // 释放对象URL
+  if (item.url) {
+    URL.revokeObjectURL(item.url)
+  }
+
+  showNotify({ type: 'success', message: '已删除重复文件' })
+}
+
+// 强制上传重复文件
+const forceUpload = (item: { key: string, url: string, status: UploadStatus, progress?: number }) => {
+  item.status = UploadStatus.PENDING
+  item.progress = 0
+
+  const fileInfo = uploadValueMap.get(item.key)
+  if (fileInfo) {
+    // 重新生成上传信息，跳过重复检测
+    const info = generateUploadInfo(fileInfo)
+    limit(() => uloadOneFile(fileInfo, info, true)) // 添加强制上传标志
+  }
+}
+
 const afterRead = async (files: any) => {
   // 解析获取图片信息
   const fileInfoList = await Promise.all(
@@ -616,8 +649,14 @@ const handleOpenFile = async () => {
               <!-- TODO：添加删除逻辑 -->
               <!-- 重复 -->
               <div v-else-if="item.status === UploadStatus.DUPLICATE" class="duplicate-mask">
-                文件重复,
-                <van-icon name="warning" />
+                <div class="duplicate-info">
+                  <van-icon name="warning" />
+                  <span>文件重复</span>
+                </div>
+                <div class="duplicate-actions">
+                  <van-button size="mini" type="danger" @click="removeDuplicateFile(item)">删除</van-button>
+                  <van-button size="mini" type="primary" @click="forceUpload(item)">上传</van-button>
+                </div>
               </div>
               <!-- 失败 -->
               <div @click="reUpload(item)" v-else-if="item.status === UploadStatus.ERROR" class="error-mask">上传失败
@@ -792,6 +831,24 @@ main {
   color: #fff;
   font-size: 12px;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  padding: 8px;
+
+  .duplicate-info {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .duplicate-actions {
+    display: flex;
+
+    :deep(.van-button) {
+      --van-button-mini-height: 24px;
+      --van-button-mini-font-size: 10px;
+      --van-button-mini-padding: 0 8px;
+    }
+  }
 }
 </style>
