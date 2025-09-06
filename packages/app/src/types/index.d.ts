@@ -49,6 +49,8 @@ interface FileInfoItem {
   lastModified: number
   date: Date
   exif: any
+  md5?: string
+  repeat?: boolean
 }
 
 interface UploadInfo {
@@ -59,5 +61,6 @@ interface UploadInfo {
   size: number
   type: string
   likedMode: boolean
+  md5?: string
   albumId?: string[]
 }

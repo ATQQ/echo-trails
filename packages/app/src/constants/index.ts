@@ -3,6 +3,7 @@ export enum UploadStatus {
   UPLOADING,
   SUCCESS,
   ERROR,
+  DUPLICATE,
 }
 
 export const isTauri = !!window.__TAURI__

@@ -215,3 +215,14 @@ export function getPhotoListInfo(options: {
       return v.data
     })
 }
+
+export function checkDuplicateByMd5(md5: string) {
+  return api.get<ServerResponse<{
+    isDuplicate: boolean,
+    existingPhoto?: Photo
+  }>>('file/check/duplicate', {
+    searchParams: {
+      md5
+    }
+  }).json().then((v) => v.data)
+}

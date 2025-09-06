@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
 import { reactive, computed, watch, toRefs, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
-import { addFileInfo, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../service';
-import { generateFileKey } from '../lib/file';
+import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../service';
+import { generateFileKey, getFileMd5Hash } from '../lib/file';
 import { isTauri, UploadStatus } from '../constants/index'
 import { useEventListener } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage.vue';
@@ -201,6 +201,7 @@ const generateUploadInfo = (value: FileInfoItem) => {
     size: file.size,
     type: file.type,
     likedMode,
+    md5: value.md5,
     ...(album ? { albumId: [album._id] } : {})
   }
   uploadInfoMap.set(value, result)
@@ -214,7 +215,7 @@ const addWaitUploadList = (fileInfo: FileInfoItem) => {
   const temp = {
     key,
     url: fileInfo.objectUrl,
-    status: UploadStatus.PENDING,
+    status: fileInfo.repeat ? UploadStatus.DUPLICATE : UploadStatus.PENDING,
     progress: 0,
   }
   const existItem = waitUploadList.find(v => v.key === key)
@@ -223,16 +224,43 @@ const addWaitUploadList = (fileInfo: FileInfoItem) => {
   }
 }
 
-const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo) => {
+const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forceUpload = false) => {
   const key = uploadInfo.key
   const { file } = fileInfo
 
-  // 获取上传链接
-  const uploadUrl = await getUploadUrl(key)
-
   // 获取到上传列表里对应项
   const wrapperItem = waitUploadList.find(v => v.key === key)!
+
+  // 列表里重复的情况
+  if (!forceUpload && wrapperItem.status === UploadStatus.DUPLICATE) {
+    return
+  }
+  // MD5判断是否重复，重复则先不上传做提示
+  if (!forceUpload && uploadInfo.md5) {
+    try {
+      const duplicateResult = await checkDuplicateByMd5(uploadInfo.md5)
+      if (duplicateResult.isDuplicate) {
+        wrapperItem.status = UploadStatus.DUPLICATE
+        showNotify({
+          type: 'warning',
+          message: `文件 ${uploadInfo.name} 已存在，跳过上传`
+        })
+        return
+      }
+    } catch (error) {
+      showNotify({
+        type: 'danger',
+        message: `检查MD5重复失败: ${error}`
+      })
+      // 检查失败时继续上传流程
+    }
+  }
+
+  // 准备上传
   wrapperItem.status = UploadStatus.UPLOADING
+
+  // 获取上传链接
+  const uploadUrl = await getUploadUrl(key)
 
   // 触发上传
   await uploadFile(file, uploadUrl, (progress) => {
@@ -265,7 +293,7 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo) => {
 }
 
 const uploadValueMap = new Map<string, FileInfoItem>()
-const limit = pLimit(10);
+const limit = pLimit(5);
 const startUpload = async (values: FileInfoItem[]) => {
   for (const value of values) {
     // 加入待上传列表，同时支持列表里展示
@@ -277,7 +305,6 @@ const startUpload = async (values: FileInfoItem[]) => {
     // 记录开始上传的文件原始信息，重传使用
     uploadValueMap.set(info.key, value)
 
-    // TODO: 并发控制
     limit(() => uloadOneFile(value, info))
   }
 }
@@ -297,7 +324,7 @@ const afterRead = async (files: any) => {
     [files].flat().map(async value => {
       const { file, objectUrl } = value
       const exif = value?.exif || await getImageExif(file)
-
+      const md5 = await getFileMd5Hash(file)
       return {
         file,
         objectUrl,
@@ -305,9 +332,31 @@ const afterRead = async (files: any) => {
         lastModified: file.lastModified,
         date: file.lastModifiedDate,
         exif,
+        md5,
       } as FileInfoItem
     }),
   )
+
+  // 本地MD5重复检测
+  const duplicateFiles: string[] = []
+
+  for (const fileInfo of fileInfoList) {
+    // 检查是否与已有的待上传列表中的文件MD5重复
+    const existingUploadInfo = Array.from(uploadInfoMap.values()).find(info => info.md5 === fileInfo.md5)
+    if (existingUploadInfo) {
+      fileInfo.repeat = true
+      duplicateFiles.push(fileInfo.name)
+    }
+  }
+
+  // 提示重复文件
+  if (duplicateFiles.length > 0) {
+    showNotify({
+      type: 'warning',
+      message: `检测到重复文件${duplicateFiles.length}个，已跳过上传`
+    })
+  }
+
   startUpload(fileInfoList)
 }
 
@@ -564,6 +613,12 @@ const handleOpenFile = async () => {
               <div v-if="item.status === UploadStatus.UPLOADING" class="upload-mask">
                 上传中 {{ item.progress || 0 }}%
               </div>
+              <!-- TODO：添加删除逻辑 -->
+              <!-- 重复 -->
+              <div v-else-if="item.status === UploadStatus.DUPLICATE" class="duplicate-mask">
+                文件重复,
+                <van-icon name="warning" />
+              </div>
               <!-- 失败 -->
               <div @click="reUpload(item)" v-else-if="item.status === UploadStatus.ERROR" class="error-mask">上传失败
                 <van-icon name="replay" />
@@ -722,5 +777,21 @@ main {
   align-items: center;
   color: #f53f3f;
   font-size: 12px;
+}
+
+.duplicate-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 165, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  font-size: 12px;
+  flex-direction: column;
+  gap: 4px;
 }
 </style>

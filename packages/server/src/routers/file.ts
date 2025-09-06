@@ -46,7 +46,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   })
 
   router.post('add/info', async (ctx) => {
-    const { key, exif = {}, size, name, lastModified, type, albumId, likedMode } = await ctx.req.json()
+    const { key, exif = {}, size, name, lastModified, type, albumId, likedMode, md5 } = await ctx.req.json()
     const fileType = exif['FileType']?.value || 'unknown'
     const width = exif['Image Width']?.value || 0
     const height = exif['Image Height']?.value || 0
@@ -81,6 +81,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       createdBy: operator,
       updatedBy: operator,
       isLiked: !!likedMode,
+      md5: md5 || '',
       ...((albumId && Array.isArray(albumId)) ? { albumId } : {})
     }
 
@@ -400,6 +401,44 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     ]
     return ctx.json({
       data
+    })
+  })
+
+  router.get('check/duplicate', async (ctx) => {
+    const md5 = ctx.req.query('md5')
+    const username = ctx.get('username')
+
+    if (!md5) {
+      return ctx.json({
+        code: 1,
+        message: 'md5 is required'
+      })
+    }
+
+    if (!username) {
+      return ctx.json({
+        code: 1,
+        message: 'username is required'
+      })
+    }
+
+    const existingPhoto = await exec(() => {
+      return Photo.findOne({
+        username,
+        md5,
+        deleted: false
+      }).select(['_id', 'key']).exec()
+    })
+
+    return ctx.json({
+      code: 0,
+      data: {
+        isDuplicate: !!existingPhoto,
+        existingPhoto: existingPhoto ? {
+          id: existingPhoto._id,
+          key: existingPhoto.key
+        } : null
+      }
     })
   })
 

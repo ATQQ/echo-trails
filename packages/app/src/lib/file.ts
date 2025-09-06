@@ -4,6 +4,7 @@ import { showNotify } from "vant";
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 // 检查是否为Android平台，因为Android需要特殊处理文件路径权限
 import { invoke } from '@tauri-apps/api/core';
+import SparkMD5 from 'spark-md5';
 
 export function generateFileKey(fileInfo: FileInfoItem) {
   // 年-月-日/时分/上传时间-文件名
@@ -12,10 +13,11 @@ export function generateFileKey(fileInfo: FileInfoItem) {
   const day = fileInfo.date.getDate().toString().padStart(2, '0');
   const hour = fileInfo.date.getHours().toString().padStart(2, '0');
   const minute = fileInfo.date.getMinutes().toString().padStart(2, '0');
+  const second = fileInfo.date.getSeconds().toString().padStart(2, '0');
   const uploadTime = new Date().getTime()
 
-  // TODO：优化
-  return `${import.meta.env.VITE_S3_PREFIX}/${year}-${month}-${day}/${hour}-${minute}/${uploadTime}-${fileInfo.name}`
+  // 前缀/原图时间年-月-日/时分秒-上传时间戳-原文件名
+  return `${import.meta.env.VITE_S3_PREFIX}/${year}-${month}-${day}/${hour}-${minute}-${second}-${uploadTime}-${fileInfo.name}`
 }
 
 
@@ -72,4 +74,43 @@ export function downloadFile(url: string, name: string) {
       a.click()
     }
   }
+}
+
+export function getFileMd5Hash(file: File) {
+  return new Promise((resolve, reject) => {
+    const blobSlice = File.prototype.slice
+    const chunkSize = 2097152 // Read in chunks of 2MB
+    const chunks = Math.ceil(file.size / chunkSize)
+    let currentChunk = 0
+    const spark = new SparkMD5.ArrayBuffer()
+    const fileReader = new FileReader()
+
+    function loadNext() {
+      const start = currentChunk * chunkSize
+      const end = start + chunkSize >= file.size ? file.size : start + chunkSize
+
+      fileReader.readAsArrayBuffer(blobSlice.call(file, start, end))
+    }
+    fileReader.onload = function (e) {
+      // console.log('read chunk nr', currentChunk + 1, 'of', chunks)
+      spark.append(e?.target?.result as ArrayBuffer) // Append array buffer
+      currentChunk += 1
+
+      if (currentChunk < chunks) {
+        loadNext()
+      }
+      else {
+        // console.log('finished loading')
+        const hashResult = spark.end()
+        // console.info('computed hash', hashResult) // Compute hash
+        resolve(hashResult)
+      }
+    }
+
+    fileReader.onerror = function () {
+      reject(new Error('oops, something went wrong.'))
+    }
+
+    loadNext()
+  })
 }

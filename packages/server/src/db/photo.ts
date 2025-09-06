@@ -21,6 +21,7 @@ const photoSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     required: true,
   },
+  md5: { type: String, required: false, default: '' },
   createdBy: { type: String, required: false, default: '' },
   updatedBy: { type: String, required: false, default: '' },
 });
