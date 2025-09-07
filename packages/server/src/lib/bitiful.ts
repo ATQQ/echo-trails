@@ -10,13 +10,13 @@ export const bitifulConfig = {
   coverStyle: process.env.BITIFUL_COVER_STYLE,
   previewStyle: process.env.BITIFUL_PREVIEW_STTYLE,
   albumStyle: process.env.BITIFUL_ALBUM_STYLE,
-  region: 'ap-northeast-1',
+  region: process.env.S3_REGION ||  'cn-east-1',
 }
 
 export function refreshBitifulConfig(v: Partial<typeof bitifulConfig>) {
   // 提取非空的值
   const notNullKeys = Object.fromEntries(
-    Object.entries(v).filter(([_, v]) => v !== null)
+    Object.entries(v).filter(([_, v]) => !!v)
   )
   Object.assign(bitifulConfig, notNullKeys)
 }
@@ -41,6 +41,7 @@ class BitifulS3Manager {
 
   public refreshClient(): void {
     this.s3Client = this.createS3Client();
+    urlStore.clear()
   }
 
   public getClient(): S3Client {

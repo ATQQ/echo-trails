@@ -23,7 +23,7 @@ export let api = ky.create({
         if ([401, 400].includes(response.status)) {
           localStorage.removeItem('token')
           const { pathname } = new URL(_request.url)
-          if (pathname === '/api/check') {
+          if (pathname === '/api/check' || pathname === '/api/config/bitiful') {
             throw new Error('Unauthorized')
           }
           goLogin()
