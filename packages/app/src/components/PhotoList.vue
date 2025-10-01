@@ -79,6 +79,7 @@ const addPhoto2List = (photo: Photo) => {
   return false
 }
 const showEmpty = ref(false)
+const hasMoreData = ref(true)
 const loadNext = async (index = 0, pageSize = 0) => {
   if (!isActive.value) return
   if (pageInfo.lock) return
@@ -107,10 +108,19 @@ const loadNext = async (index = 0, pageSize = 0) => {
     if (addCount === pageInfo.pageSize) {
       // 数据不够时，不新增页码
       pageInfo.pageIndex += 1
+    } else {
+      // 没有更多数据了
+      hasMoreData.value = false
     }
   }).finally(() => {
     pageInfo.lock = false
   })
+}
+
+// 手动加载更多
+const handleLoadMore = async () => {
+  if (!hasMoreData.value || pageInfo.lock) return
+  await loadNext()
 }
 
 // 滚动监听已在上面实现
@@ -684,6 +694,20 @@ const handleOpenFile = async () => {
           </template>
         </van-checkbox-group>
         <!-- 空白块，用于触发列表滚动加载 -->
+        <!-- 加载更多按钮 -->
+        <div class="load-more-container" v-if="!showEmpty && photoList.length > 0">
+          <van-button 
+            v-if="hasMoreData" 
+            @click="handleLoadMore" 
+            :loading="pageInfo.lock"
+            type="default"
+            size="small"
+            class="load-more-btn"
+          >
+            {{ pageInfo.lock ? '加载中...' : '加载更多' }}
+          </van-button>
+          <div v-else class="no-more-text">没有更多了</div>
+        </div>
         <div class="block"></div>
       </main>
     </van-pull-refresh>
@@ -854,6 +878,31 @@ main {
       --van-button-mini-font-size: 10px;
       --van-button-mini-padding: 0 8px;
     }
+  }
+}
+
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 0;
+  background-color: #fff;
+
+  .load-more-btn {
+    --van-button-default-background: #f7f8fa;
+    --van-button-default-border-color: #ebedf0;
+    --van-button-default-color: #646566;
+    --van-button-small-height: 32px;
+    --van-button-small-padding: 0 16px;
+    --van-button-small-font-size: 14px;
+    border-radius: 16px;
+    min-width: 100px;
+  }
+
+  .no-more-text {
+    color: #969799;
+    font-size: 14px;
+    text-align: center;
   }
 }
 </style>
