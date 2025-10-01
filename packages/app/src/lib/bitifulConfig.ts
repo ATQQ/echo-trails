@@ -10,6 +10,7 @@ export interface BitifulConfig {
   previewStyle: string
   albumStyle: string
   region: string
+  endpoint: string
 }
 
 // 获取 bitiful 配置
@@ -53,9 +54,9 @@ export async function getBitifulConfigLocal(): Promise<BitifulConfig | null> {
 export async function updateBitifulConfigComplete(config: Partial<BitifulConfig>): Promise<BitifulConfig> {
   // 先更新远端
   const updatedConfig = await updateBitifulConfig(config)
-  
+
   // 再存储到本地
   await saveBitifulConfigLocal(updatedConfig)
-  
+
   return updatedConfig
 }

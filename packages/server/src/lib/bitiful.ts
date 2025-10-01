@@ -13,6 +13,7 @@ export const bitifulConfig = {
   previewStyle: process.env.BITIFUL_PREVIEW_STTYLE,
   albumStyle: process.env.BITIFUL_ALBUM_STYLE,
   region: process.env.S3_REGION ||  'cn-east-1',
+  endpoint: process.env.S3_ENDPOINT || 'https://s3.bitiful.net',
 }
 
 // 配置字段到环境变量名的映射关系
@@ -25,6 +26,7 @@ const CONFIG_TO_ENV_MAP = {
   coverStyle: 'BITIFUL_COVER_STYLE',
   previewStyle: 'BITIFUL_PREVIEW_STTYLE',
   albumStyle: 'BITIFUL_ALBUM_STYLE',
+  endpoint: 'S3_ENDPOINT',
 } as const;
 
 export function refreshBitifulConfig(v: Partial<typeof bitifulConfig>) {
@@ -107,7 +109,7 @@ class BitifulS3Manager {
 
   private createS3Client(): S3Client {
     return new S3Client({
-      endpoint: "https://s3.bitiful.net",
+      endpoint: bitifulConfig.endpoint,
       credentials: {
         accessKeyId: bitifulConfig.accessKey,
         secretAccessKey: bitifulConfig.secretKey,
