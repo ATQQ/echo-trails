@@ -118,7 +118,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         ...(albumId ? { albumId } : {}),
       }).skip(skip)
         .limit(+pageSize)
-        .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId'])
+        .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId', 'md5'])
         .sort({
           lastModified: -1
         })
@@ -133,6 +133,19 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const data = await Promise.all(photos.map(async (photo) => {
       return await photoService.parsePhoto(photo)
     }))
+
+    // 根据md5字段补全isRepeat字段
+    const md5Map = new Map<string, Photo>()
+    data?.forEach(photo => {
+      if (!photo.md5) {
+        return
+      }
+      if (md5Map.has(photo.md5)) {
+        Object.assign(photo, { isRepeat: true })
+      } else {
+        md5Map.set(photo.md5, photo)
+      }
+    })
 
     return ctx.json({
       data

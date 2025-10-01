@@ -55,7 +55,7 @@ const repeatPhotoMap = new Map<string, Photo>()
 const albumPhotoStore = useAlbumPhotoStore()
 
 const wrapperRepeat = (photo: Photo) => {
-  if (repeatPhotoMap.has(photo.key)) {
+  if (repeatPhotoMap.has(photo.key) || photo.isRepeat) {
     photo.isRepeat = true
     return
   }
@@ -68,6 +68,12 @@ const addPhoto2List = (photo: Photo) => {
     existPhotoMap.set(photo._id, photo)
     photoList.push(photo)
     return true
+  } else {
+    // 更新其中链接
+    const existPhoto = existPhotoMap.get(photo._id)!
+    existPhoto.url = photo.url
+    existPhoto.cover = photo.cover
+    existPhoto.preview = photo.preview
   }
 
   return false
