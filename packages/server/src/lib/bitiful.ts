@@ -1,6 +1,8 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Store } from './store';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export const bitifulConfig = {
   accessKey: process.env.S3_ACCESS_KEY,
@@ -13,12 +15,87 @@ export const bitifulConfig = {
   region: process.env.S3_REGION ||  'cn-east-1',
 }
 
+// 配置字段到环境变量名的映射关系
+const CONFIG_TO_ENV_MAP = {
+  accessKey: 'S3_ACCESS_KEY',
+  secretKey: 'S3_SECRET_KEY',
+  bucket: 'S3_BUCKET',
+  domain: 'S3_DOMAIN',
+  region: 'S3_REGION',
+  coverStyle: 'BITIFUL_COVER_STYLE',
+  previewStyle: 'BITIFUL_PREVIEW_STTYLE',
+  albumStyle: 'BITIFUL_ALBUM_STYLE',
+} as const;
+
 export function refreshBitifulConfig(v: Partial<typeof bitifulConfig>) {
   // 提取非空的值
   const notNullKeys = Object.fromEntries(
-    Object.entries(v).filter(([_, v]) => !!v)
+    Object.entries(v).filter(([key, v]) => {
+      // 排除Style
+      if (key.endsWith('Style')) {
+        return true
+      }
+      return !!v
+    })
   )
+
   Object.assign(bitifulConfig, notNullKeys)
+
+  // 构建环境变量对象
+  const envVars = Object.entries(CONFIG_TO_ENV_MAP).reduce((acc, [configKey, envKey]) => {
+    const value = bitifulConfig[configKey as keyof typeof bitifulConfig];
+
+    // Style 字段始终写入，其他字段只有非空值才写入
+    if (configKey.endsWith('Style') || value) {
+      acc[envKey] = value || '';
+    }
+
+    return acc;
+  }, {} as Record<string, string>);
+
+  writeEnvToLocal(envVars);
+}
+
+// 实现一个方法将目标环境变量写入.env.local 中
+export function writeEnvToLocal(envVars: Record<string, string>): void {
+  const projectRoot = path.resolve(__dirname, '../../');
+  const envLocalPath = path.join(projectRoot, '.env.local');
+
+  let existingContent = '';
+  const envMap = new Map<string, string>();
+
+  // 读取现有的 .env.local 文件（如果存在）
+  if (fs.existsSync(envLocalPath)) {
+    existingContent = fs.readFileSync(envLocalPath, 'utf-8');
+
+    // 解析现有的环境变量
+    const lines = existingContent.split('\n');
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine && !trimmedLine.startsWith('#')) {
+        const equalIndex = trimmedLine.indexOf('=');
+        if (equalIndex > 0) {
+          const key = trimmedLine.substring(0, equalIndex).trim();
+          const value = trimmedLine.substring(equalIndex + 1).trim();
+          envMap.set(key, value);
+        }
+      }
+    }
+  }
+
+  // 更新或添加新的环境变量
+  for (const [key, value] of Object.entries(envVars)) {
+    envMap.set(key, value);
+  }
+
+  // 生成新的文件内容
+  const newContent = Array.from(envMap.entries())
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n');
+
+
+  // 写入文件
+  fs.writeFileSync(envLocalPath, newContent + '\n', 'utf-8');
 }
 
 class BitifulS3Manager {

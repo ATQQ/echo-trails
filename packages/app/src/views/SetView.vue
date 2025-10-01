@@ -177,8 +177,8 @@ const onLogout = async () => {
 // 保存 bitiful 配置
 const onSaveBitifulConfig = async () => {
   try {
-    // 创建配置副本，排除 region 字段
-    const { region, ...configWithoutRegion } = bitifulConfig.value
+    // ~~创建配置副本，排除 region 字段~~
+    const { ...configWithoutRegion } = bitifulConfig.value
     await updateBitifulConfigComplete(configWithoutRegion)
     showNotify({ type: 'success', message: 'Bitiful 配置更新成功' })
   } catch (err: any) {
