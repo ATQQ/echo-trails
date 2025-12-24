@@ -8,7 +8,32 @@ export function login() {
   return api.post<ServerResponse<{
     username: string
     operator: string
+    isAdmin: boolean
   }>>('check').json()
+}
+
+export const checkLogin = login;
+
+export interface User {
+  username: string
+  operators: { name: string, isSystem: boolean }[]
+  isSystem: boolean
+}
+
+export function getUserList() {
+  return api.get<ServerResponse<User[]>>('user/list').json().then(v => v.data)
+}
+
+export function addUser(data: { username: string, operator: string, token: string }) {
+  return api.post<ServerResponse>('user/add', { json: data }).json()
+}
+
+export function addOperator(data: { username: string, operator: string, token: string }) {
+  return api.post<ServerResponse>('user/operator/add', { json: data }).json()
+}
+
+export function updatePassword(data: { username: string, operator: string, token: string }) {
+  return api.post<ServerResponse>('user/password', { json: data }).json()
 }
 
 export function getUploadUrl(key: string) {

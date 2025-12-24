@@ -84,6 +84,16 @@ const router = createRouter({
         componentName: 'ManageView',
         nav: false
       }
+    },
+    {
+      path: '/manage/accounts',
+      name: 'manage-accounts',
+      component: () => import('../views/AccountListView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'AccountListView',
+        nav: false
+      }
     }
   ],
 })

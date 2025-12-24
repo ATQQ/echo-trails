@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLocalStorage } from '@vueuse/core';
 import { showConfirmDialog, showToast, showLoadingToast, closeToast } from 'vant';
 import { isTauri } from '@/constants';
+import { checkLogin } from '@/service';
 
 const router = useRouter();
 
@@ -11,6 +12,19 @@ const router = useRouter();
 const { value: userInfo } = useLocalStorage('userInfo', {
   username: '',
   operator: ''
+});
+
+const isAdmin = ref(false);
+
+onMounted(async () => {
+  try {
+    const res = await checkLogin();
+    if (res.code === 0) {
+      isAdmin.value = res.data.isAdmin;
+    }
+  } catch (e) {
+    console.error(e);
+  }
 });
 
 // App 版本号 (这里暂时硬编码，或者从环境变量读取)
@@ -86,6 +100,7 @@ const goBack = () => {
       <van-cell-group title="账号管理" inset>
         <van-cell title="当前用户" :value="userInfo.username || '未登录'" />
         <van-cell title="操作员" :value="userInfo.operator || '-'" />
+        <!-- 在这里新增一个账号管理tab -->
         <van-cell title="退出登录" is-link @click="handleLogout" class="logout-cell" />
       </van-cell-group>
 
