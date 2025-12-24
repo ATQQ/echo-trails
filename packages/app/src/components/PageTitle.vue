@@ -2,7 +2,7 @@
   <header class="page-header safe-padding-top">
     <h1 @click="handlePressTitle">{{ title }}</h1>
     <div class="actions">
-      <van-icon name="setting-o" v-if="setMode" size="26" @click="handleGoSetPage" />
+      <van-icon name="setting-o" v-if="setMode" size="26" @click="handleGoManagePage" />
       <van-icon name="more-o" v-if="info" size="26" @click="handleShowInfoPanel" />
       <van-icon name="close" v-if="exit" size="26" @click="handleExit" />
     </div>
@@ -32,9 +32,9 @@ const { title = '', exit = false, info = true, likedMode = false, setMode = fals
 
 const router = useRouter();
 
-const handleGoSetPage = () => {
+const handleGoManagePage = () => {
   router.push({
-    name: 'set'
+    name: 'manage'
   })
 }
 // 退出
@@ -64,10 +64,10 @@ const handlePressTitle = () => {
 const showInfoPanel = ref(false)
 const listData = ref<InfoItem[]>([])
 const handleShowInfoPanel = async () => {
+  // 调接口拉数据
   listData.value = await getPhotoListInfo({
     likedMode
   })
-  // 调接口拉数据
   showInfoPanel.value = true
 }
 preventBack(showInfoPanel)

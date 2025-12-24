@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import PageTitle from '@/components/PageTitle.vue';
 import { getConfig, refreshService, saveConfig, validConfig } from '@/lib/configStorage';
 import { getBitifulConfig, getBitifulConfigLocal, updateBitifulConfigComplete, type BitifulConfig } from '@/lib/bitifulConfig';
 import { defaultOrigin } from '@/lib/request';
@@ -84,6 +83,10 @@ const onSubmit = async () => {
 };
 
 const showExit = ref(false)
+
+const onClickLeft = () => {
+  router.back();
+};
 
 onMounted(async () => {
   // 取数据
@@ -189,7 +192,14 @@ const onSaveBitifulConfig = async () => {
 </script>
 
 <template>
-  <PageTitle title="设置" :info="false" />
+  <van-nav-bar
+    title="服务配置"
+    left-text="返回"
+    left-arrow
+    @click-left="onClickLeft"
+    placeholder
+    class="safe-padding-top"
+  />
   <van-form @submit="onSubmit">
     <van-cell-group inset>
       <!-- 模式选择 -->
@@ -205,8 +215,8 @@ const onSaveBitifulConfig = async () => {
 
     </van-cell-group>
     <van-cell-group inset>
-      <van-cell title="账号" :value="userInfo.username" />
-      <van-cell title="操作人" :value="userInfo.operator" />
+      <van-cell title="家庭" :value="userInfo.username" />
+      <van-cell title="操作账号" :value="userInfo.operator" />
     </van-cell-group>
 
     <!-- Bitiful 配置区域 -->

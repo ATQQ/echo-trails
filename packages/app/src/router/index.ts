@@ -74,6 +74,16 @@ const router = createRouter({
         componentName: 'DeleteView',
         nav: false
       }
+    },
+    {
+      path: '/manage',
+      name: 'manage',
+      component: () => import('../views/ManageView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'ManageView',
+        nav: false
+      }
     }
   ],
 })

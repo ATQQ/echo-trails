@@ -1,18 +1,53 @@
-import * as mongoose from 'mongoose';
+import mongoose from 'mongoose';
+import { Context, Next } from 'hono';
 
-let timer: Timer
+let timer: NodeJS.Timeout | null = null
 let isConnected = false
 
 export async function initConnect() {
   if (isConnected) return
-  const dbName = process.env.DB_NAME ||'echo-trails-app'
-  await mongoose.connect(`mongodb://127.0.0.1:27017/${dbName}`);
+  const dbName = process.env.DB_NAME || 'echo-trails-app'
+  if (mongoose.connection.readyState === 0) {
+    await mongoose.connect(`mongodb://127.0.0.1:27017/${dbName}`);
+  }
   isConnected = true
+}
+
+function clearDisconnectTimer() {
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+}
+
+function startDisconnectTimer() {
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(async () => {
+    try {
+      if (mongoose.connection.readyState !== 0) {
+        await mongoose.disconnect();
+      }
+      isConnected = false
+    } catch (e) {
+      console.error('DB disconnect error:', e);
+    }
+  }, 1000 * 120);
+}
+
+export async function dbMiddleware(c: Context, next: Next) {
+  await initConnect();
+  clearDisconnectTimer();
+
+  try {
+    await next();
+  } finally {
+    startDisconnectTimer();
+  }
 }
 
 export async function exec<T extends (...args: any[]) => any>(fn: T) {
   await initConnect();
-  if (timer) clearTimeout(timer);
+  clearDisconnectTimer();
 
   try {
     const result: ReturnType<T> = await fn();
@@ -20,10 +55,6 @@ export async function exec<T extends (...args: any[]) => any>(fn: T) {
   } catch (error) {
     console.error(error);
   } finally {
-    timer = setTimeout(async () => {
-      await mongoose.disconnect();
-      isConnected = false
-    }, 1000 * 120);
+    startDisconnectTimer();
   }
-
 }

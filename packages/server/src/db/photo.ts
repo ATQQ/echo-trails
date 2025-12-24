@@ -1,4 +1,4 @@
-import * as mongoose from 'mongoose';
+import mongoose from 'mongoose';
 const photoSchema = new mongoose.Schema({
   username: { type: String, required: true },
   key: { type: String, required: true },

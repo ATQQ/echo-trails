@@ -207,11 +207,13 @@ export function restorePhotos(ids: string[]) {
 export function getPhotoListInfo(options: {
   likedMode?: boolean,
   albumId?: string,
+  isDelete?: boolean
 }) {
   return api.get<ServerResponse<InfoItem[]>>('file/photo/listInfo', {
     searchParams: {
       ...(options.likedMode ? { likedMode: true } : {}),
       ...(options.albumId ? { albumId: options.albumId } : {}),
+      ...(options.isDelete ? { isDelete: true } : {})
     }
   }).json()
     .then((v) => {

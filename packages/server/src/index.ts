@@ -12,6 +12,8 @@ declare module 'hono' {
   }
 }
 
+import { dbMiddleware } from './db'
+
 const app = new Hono().basePath('/api')
 
 const customLogger = (message: string, ...rest: string[]) => {
@@ -19,6 +21,7 @@ const customLogger = (message: string, ...rest: string[]) => {
 }
 app.use(logger(customLogger))
 app.use('*', cors())
+app.use('*', dbMiddleware)
 // 简单BA鉴权
 app.on(
   ['POST', 'GET', 'DELETE', 'PUT', 'PATCH'],

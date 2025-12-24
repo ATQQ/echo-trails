@@ -3,7 +3,6 @@ import { Hono } from 'hono'
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Photo } from "../db/photo";
-import { exec } from "../db";
 import photoService from "../service/photoService";
 import { bitifulS3Manager, bitifulConfig } from "../lib/bitiful";
 import { formatSize } from "../lib/file";
@@ -86,9 +85,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     }
 
     const photo = new Photo(payload)
-    await exec(async () => {
-      await photo.save()
-    })
+    await photo.save()
     const addData = await photoService.parsePhoto(photo)
 
     return ctx.json({
@@ -110,20 +107,19 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const { pageSize = 20, page = 1, likedMode, albumId, isDelete } = ctx.req.query()
     const isLiked = likedMode === 'true'
     const skip = (+page - 1) * +pageSize;
-    const photos = await exec(() => {
-      return Photo.find({
-        username,
-        deleted: !!isDelete,
-        ...(isLiked ? { isLiked } : {}),
-        ...(albumId ? { albumId } : {}),
-      }).skip(skip)
-        .limit(+pageSize)
-        .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId', 'md5'])
-        .sort({
-          lastModified: -1
-        })
-        .exec()
-    })
+    const photos = await Photo.find({
+      username,
+      deleted: !!isDelete,
+      ...(isLiked ? { isLiked } : {}),
+      ...(albumId ? { albumId } : {}),
+    }).skip(skip)
+      .limit(+pageSize)
+      .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId', 'md5'])
+      .sort({
+        lastModified: -1
+      })
+      .exec()
+
     if (!photos) {
       return ctx.json({
         code: 1,
@@ -158,21 +154,20 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const username = ctx.get('username')
     const operator = ctx.get('operator')
 
-    await exec(async () => {
-      const photo = await Photo.findById(id, ['description'], {
-        username
-      })
-      if (!photo) {
-        return ctx.json({
-          code: 1,
-          message: 'photo not found'
-        })
-      }
-
-      photo.description = description
-      photo.updatedBy = operator
-      await photo.save()
+    const photo = await Photo.findById(id, ['description'], {
+      username
     })
+    if (!photo) {
+      return ctx.json({
+        code: 1,
+        message: 'photo not found'
+      })
+    }
+
+    photo.description = description
+    photo.updatedBy = operator
+    await photo.save()
+
     return ctx.json({
       code: 0,
       message: 'update success'
@@ -184,20 +179,18 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const username = ctx.get('username')
     const operator = ctx.get('operator')
 
-    await exec(async () => {
-      const photo = await Photo.findById(id, ['isLiked'], {
-        username
-      })
-      if (!photo) {
-        return ctx.json({
-          code: 1,
-          message: 'photo not found'
-        })
-      }
-      photo.isLiked = !photo.isLiked
-      photo.updatedBy = operator
-      await photo.save()
+    const photo = await Photo.findById(id, ['isLiked'], {
+      username
     })
+    if (!photo) {
+      return ctx.json({
+        code: 1,
+        message: 'photo not found'
+      })
+    }
+    photo.isLiked = !photo.isLiked
+    photo.updatedBy = operator
+    await photo.save()
 
     return ctx.json({
       code: 0,
@@ -216,20 +209,18 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         message: 'albumIds should be an array'
       })
     }
-    await exec(async () => {
-      const photo = await Photo.findById(id, ['albumId'], {
-        username
-      })
-      if (!photo) {
-        return ctx.json({
-          code: 1,
-          message: 'photo not found'
-        })
-      }
-      photo.albumId = albumIds
-      photo.updatedBy = operator
-      await photo.save()
+    const photo = await Photo.findById(id, ['albumId'], {
+      username
     })
+    if (!photo) {
+      return ctx.json({
+        code: 1,
+        message: 'photo not found'
+      })
+    }
+    photo.albumId = albumIds
+    photo.updatedBy = operator
+    await photo.save()
 
     return ctx.json({
       code: 0,
@@ -248,24 +239,22 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         message: 'albumIds or ids should be an array'
       })
     }
-    await exec(async () => {
-      const photos = await Photo.find({ _id: { $in: ids } }, ['albumId'], {
-        username
-      })
-      if (!photos.length) {
-        return ctx.json({
-          code: 1,
-          message: 'photos not found'
-        })
-      }
-      for (const photo of photos) {
-        // 去重
-        const newAlbumIds = albumIds.filter(v => !photo?.albumId?.includes(v))
-        photo.albumId = newAlbumIds.concat(photo.albumId || [])
-        photo.updatedBy = operator
-      }
-      await Promise.all(photos.map(v => v.save()))
+    const photos = await Photo.find({ _id: { $in: ids } }, ['albumId'], {
+      username
     })
+    if (!photos.length) {
+      return ctx.json({
+        code: 1,
+        message: 'photos not found'
+      })
+    }
+    for (const photo of photos) {
+      // 去重
+      const newAlbumIds = albumIds.filter(v => !photo?.albumId?.includes(v))
+      photo.albumId = newAlbumIds.concat(photo.albumId || [])
+      photo.updatedBy = operator
+    }
+    await Promise.all(photos.map(v => v.save()))
 
     return ctx.json({
       code: 0,
@@ -277,26 +266,24 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const { id } = await ctx.req.json()
     const username = ctx.get('username')
     const operator = ctx.get('operator')
-    await exec(async () => {
-      const photo = await Photo.findById(id, ['key'], {
-        username
-      })
-      if (!photo) {
-        return ctx.json({
-          code: 1,
-          message: 'photo not found'
-        })
-      }
-      photo.deletedAt = new Date()
-      photo.deleted = true
-      photo.updatedBy = operator
-      await photo.save()
-      // const deleteCmd = new PutObjectCommand({
-      //   Bucket: process.env.S3_BUCKET,
-      //   Key: photo.key,
-      // });
-      // await s3Client.send(deleteCmd)
+    const photo = await Photo.findById(id, ['key'], {
+      username
     })
+    if (!photo) {
+      return ctx.json({
+        code: 1,
+        message: 'photo not found'
+      })
+    }
+    photo.deletedAt = new Date()
+    photo.deleted = true
+    photo.updatedBy = operator
+    await photo.save()
+    // const deleteCmd = new PutObjectCommand({
+    //   Bucket: process.env.S3_BUCKET,
+    //   Key: photo.key,
+    // });
+    // await s3Client.send(deleteCmd)
 
     return ctx.json({
       code: 0,
@@ -308,33 +295,31 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const { ids } = await ctx.req.json()
     const username = ctx.get('username')
     const operator = ctx.get('operator')
-    await exec(async () => {
-      const photos = await Photo.find({
-        _id: {
-          $in: ids
-        }
-      }, ['key'], {
-        username
-      })
-      if (!photos.length) {
-        return ctx.json({
-          code: 1,
-          message: 'photos not found'
-        })
+    const photos = await Photo.find({
+      _id: {
+        $in: ids
       }
-
-      for (const photo of photos) {
-        photo.deletedAt = new Date()
-        photo.deleted = true
-        photo.updatedBy = operator
-      }
-      await Promise.all(photos.map(v => v.save()))
-      // const deleteCmd = new PutObjectCommand({
-      //   Bucket: process.env.S3_BUCKET,
-      //   Key: photo.key,
-      // });
-      // await s3Client.send(deleteCmd)
+    }, ['key'], {
+      username
     })
+    if (!photos.length) {
+      return ctx.json({
+        code: 1,
+        message: 'photos not found'
+      })
+    }
+
+    for (const photo of photos) {
+      photo.deletedAt = new Date()
+      photo.deleted = true
+      photo.updatedBy = operator
+    }
+    await Promise.all(photos.map(v => v.save()))
+    // const deleteCmd = new PutObjectCommand({
+    //   Bucket: process.env.S3_BUCKET,
+    //   Key: photo.key,
+    // });
+    // await s3Client.send(deleteCmd)
 
     return ctx.json({
       code: 0,
@@ -347,32 +332,30 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const username = ctx.get('username')
     const operator = ctx.get('operator')
 
-    await exec(async () => {
-      const photos = await Photo.find({
-        _id: {
-          $in: ids
-        },
-        deleted: true
-      }, ['key'], {
-        username
-      })
-      if (!photos.length) {
-        return ctx.json({
-          code: 1,
-          message: 'photos not found'
-        })
-      }
-
-      for (const photo of photos) {
-        // 标志是被删除过
-        // photo.deletedAt = null
-        photo.deleted = false
-        photo.updatedBy = operator
-
-        // TODO：完整的操作日志
-      }
-      await Promise.all(photos.map(v => v.save()))
+    const photos = await Photo.find({
+      _id: {
+        $in: ids
+      },
+      deleted: true
+    }, ['key'], {
+      username
     })
+    if (!photos.length) {
+      return ctx.json({
+        code: 1,
+        message: 'photos not found'
+      })
+    }
+
+    for (const photo of photos) {
+      // 标志是被删除过
+      // photo.deletedAt = null
+      photo.deleted = false
+      photo.updatedBy = operator
+
+      // TODO：完整的操作日志
+    }
+    await Promise.all(photos.map(v => v.save()))
 
     return ctx.json({
       code: 0,
@@ -382,18 +365,16 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
   router.get('photo/listInfo', async (ctx) => {
     const username = ctx.get('username')
-    const { likedMode, albumId } = ctx.req.query()
+    const { likedMode, albumId, isDelete } = ctx.req.query()
     const isLiked = likedMode === 'true'
-    const photos = await exec(() => {
-      return Photo.find({
-        username,
-        deleted: false,
-        ...(isLiked ? { isLiked } : {}),
-        ...(albumId ? { albumId } : {})
-      })
-        .select(['size'])
-        .exec()
+    const photos = await Photo.find({
+      username,
+      deleted: !!isDelete,
+      ...(isLiked ? { isLiked } : {}),
+      ...(albumId ? { albumId } : {})
     })
+      .select(['size'])
+      .exec()
     if (!photos) {
       return ctx.json({
         code: 1,
@@ -435,13 +416,11 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       })
     }
 
-    const existingPhoto = await exec(() => {
-      return Photo.findOne({
-        username,
-        md5,
-        deleted: false
-      }).select(['_id', 'key']).exec()
-    })
+    const existingPhoto = await Photo.findOne({
+      username,
+      md5,
+      deleted: false
+    }).select(['_id', 'key']).exec()
 
     return ctx.json({
       code: 0,
