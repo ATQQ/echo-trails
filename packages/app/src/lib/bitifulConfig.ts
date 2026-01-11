@@ -1,9 +1,11 @@
 import { api } from './request'
 import { load } from '@tauri-apps/plugin-store'
+import { isTauri } from '@/constants'
 
 export interface BitifulConfig {
   accessKey: string
   secretKey: string
+  cdnToken: string
   bucket: string
   domain: string
   coverStyle: string
@@ -35,16 +37,25 @@ export async function updateBitifulConfig(config: Partial<BitifulConfig>): Promi
 
 // 本地存储 bitiful 配置
 export async function saveBitifulConfigLocal(config: BitifulConfig) {
-  const store = await load('bitiful-config.json', { autoSave: false, defaults: {} })
-  store.set('config', config)
-  await store.save()
+  if (isTauri) {
+    const store = await load('bitiful-config.json', { autoSave: false, defaults: {} })
+    store.set('config', config)
+    await store.save()
+  } else {
+    localStorage.setItem('bitiful-config', JSON.stringify(config))
+  }
 }
 
 // 获取本地存储的 bitiful 配置
 export async function getBitifulConfigLocal(): Promise<BitifulConfig | null> {
   try {
-    const store = await load('bitiful-config.json', { autoSave: false, defaults: {} })
-    return await store.get<BitifulConfig>('config') || null
+    if (isTauri) {
+      const store = await load('bitiful-config.json', { autoSave: false, defaults: {} })
+      return await store.get<BitifulConfig>('config') || null
+    } else {
+      const saved = localStorage.getItem('bitiful-config')
+      return saved ? JSON.parse(saved) : null
+    }
   } catch (error) {
     return null
   }

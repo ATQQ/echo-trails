@@ -36,6 +36,7 @@ const showBitifulConfig = ref(false)
 const bitifulConfig = ref<BitifulConfig>({
   accessKey: '',
   secretKey: '',
+  cdnToken: '',
   bucket: '',
   domain: '',
   coverStyle: '',
@@ -121,7 +122,7 @@ const onReset = async () => {
   }
 
   // 清空配置数据
-  localStorage.clear()
+  localStorage.removeItem('config')
 
   mode.value = 'server'
   modeValue.value = ['server']
@@ -217,10 +218,11 @@ const onSaveBitifulConfig = async () => {
         <van-field v-model="bitifulConfig.accessKey" name="accessKey" label="Access Key" placeholder="默认不回显展示" />
         <van-field v-model="bitifulConfig.secretKey" type="password" name="secretKey" label="Secret Key"
           placeholder="默认不回显展示" />
+        <van-field v-model="bitifulConfig.cdnToken" name="cdnToken" label="CDN Token" placeholder="默认不回显展示" />
         <van-field v-model="bitifulConfig.bucket" name="bucket" label="Bucket" placeholder="请输入 Bucket 名称" />
         <van-field v-model="bitifulConfig.region" name="region" label="Region" placeholder="请输入 Region" />
         <van-field v-model="bitifulConfig.endpoint" name="endpoint" label="Endpoint" placeholder="请输入 Endpoint" />
-        <van-field v-model="bitifulConfig.domain" name="domain" label="Domain" placeholder="自定义域名" />
+        <van-field v-model="bitifulConfig.domain" name="domain" label="CDN Domain" placeholder="自定义域名" />
         <!-- 添加提示 -->
         <van-cell title="💡 提示" value="配置样式节约流量" title-class="text-blue-600" value-class="text-gray-500 text-sm" />
         <van-field v-model="bitifulConfig.coverStyle" name="coverStyle" label="封面样式" placeholder="（选填）封面样式" />
