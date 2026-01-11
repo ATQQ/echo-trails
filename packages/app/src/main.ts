@@ -44,6 +44,13 @@ async function presetTauriMode() {
               padding-top: calc(8px + env(safe-area-inset-top));
               padding-bottom: 8px;
             }
+            .van-dialog {
+              padding: 0;
+            }
+
+            .van-toast{
+              padding: 10px;
+            }
           `
   } else {
     style.textContent = `
@@ -55,6 +62,13 @@ async function presetTauriMode() {
             }
             .van-popup{
               padding-top: 38px;
+            }
+            .van-dialog {
+              padding: 0;
+            }
+
+            .van-toast{
+              padding: 10px;
             }
           `
   }

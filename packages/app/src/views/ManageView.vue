@@ -2,9 +2,11 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLocalStorage } from '@vueuse/core';
-import { showConfirmDialog, showToast, showLoadingToast, closeToast } from 'vant';
+import { showConfirmDialog, showToast, showLoadingToast, closeToast, showDialog } from 'vant';
 import { isTauri } from '@/constants';
 import { checkLogin } from '@/service';
+import { version } from '../../package.json';
+import { type } from '@tauri-apps/plugin-os';
 
 const router = useRouter();
 
@@ -28,8 +30,9 @@ onMounted(async () => {
   }
 });
 
-// App 版本号 (这里暂时硬编码，或者从环境变量读取)
-const appVersion = ref('0.1.2');
+
+// App 版本号
+const appVersion = ref(version);
 
 // 退出登录
 const handleLogout = () => {
@@ -58,18 +61,62 @@ const goToServiceConfig = () => {
 };
 
 // 检查更新
-const handleCheckUpdate = () => {
+const handleCheckUpdate = async () => {
   const toast = showLoadingToast({
     message: '检查更新中...',
     forbidClick: true,
     duration: 0,
   });
 
-  // 模拟检查更新
-  setTimeout(() => {
+  try {
+    const versionUrl = import.meta.env.VITE_VERSION_URL || '/version.json';
+    const res = await fetch(`${versionUrl}?t=${Date.now()}`);
+    if (!res.ok) {
+      throw new Error('Check update failed');
+    }
+    const versionInfo = await res.json();
+    
+    let platform = 'macos';
+    if (isTauri) {
+      platform = await type();
+    } else {
+      // 简单判断 Web 端环境，或者统一视为 'web' 或 'macos' (根据需求)
+      // 这里简单映射一下，实际可能需要更详细的 UA 判断
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes('android')) platform = 'android';
+      else if (ua.includes('iphone') || ua.includes('ipad')) platform = 'ios';
+      else if (ua.includes('windows')) platform = 'windows';
+      else if (ua.includes('linux')) platform = 'linux';
+    }
+
+    const currentPlatformInfo = versionInfo[platform];
+
+    if (currentPlatformInfo && currentPlatformInfo.version !== appVersion.value) {
+      closeToast();
+      showConfirmDialog({
+        title: '发现新版本',
+        message: `最新版本：${currentPlatformInfo.version}\n\n${currentPlatformInfo.description || ''}`,
+        confirmButtonText: '去更新',
+      })
+        .then(() => {
+          if (currentPlatformInfo.downloadUrl) {
+            window.open(currentPlatformInfo.downloadUrl, '_blank');
+          } else {
+            showToast('暂无下载地址');
+          }
+        })
+        .catch(() => {
+          // on cancel
+        });
+    } else {
+      closeToast();
+      showToast('当前已是最新版本');
+    }
+  } catch (e) {
+    console.error(e);
     closeToast();
-    showToast('当前已是最新版本');
-  }, 1500);
+    showToast('检查更新失败');
+  }
 };
 
 // 关于项目

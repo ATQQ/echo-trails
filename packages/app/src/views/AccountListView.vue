@@ -212,13 +212,3 @@ onMounted(loadUsers);
   padding: 16px;
 }
 </style>
-<style>
-
-.van-dialog {
-  padding: 0;
-}
-
-.van-toast{
-  padding: 10px;
-}
-</style>

@@ -1,0 +1,32 @@
+{
+  "macos": {
+    "version": "0.1.2",
+    "downloadUrl": "",
+    "forceUpdate": false,
+    "description": "初始版本"
+  },
+  "windows": {
+    "version": "0.1.2",
+    "downloadUrl": "",
+    "forceUpdate": false,
+    "description": "初始版本"
+  },
+  "linux": {
+    "version": "0.1.2",
+    "downloadUrl": "",
+    "forceUpdate": false,
+    "description": "初始版本"
+  },
+  "android": {
+    "version": "0.1.2",
+    "downloadUrl": "",
+    "forceUpdate": false,
+    "description": "初始版本"
+  },
+  "ios": {
+    "version": "0.1.2",
+    "downloadUrl": "",
+    "forceUpdate": false,
+    "description": "初始版本"
+  }
+}
