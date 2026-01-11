@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getConfig, refreshService, saveConfig, validConfig } from '@/lib/configStorage';
+import { checkServiceHealth } from '@/service';
 import { getBitifulConfig, getBitifulConfigLocal, updateBitifulConfigComplete, type BitifulConfig } from '@/lib/bitifulConfig';
 import { defaultOrigin } from '@/lib/request';
 import router from '@/router';
@@ -48,23 +49,12 @@ const onSubmit = async () => {
   const config = {
     mode: selectMode.value,
     serverUrl: serverUrl.value,
-    token: token.value,
+    token: '',
   }
   try {
     // 校验数据合理性
-    const res = await validConfig(config)
-    if (res?.data) {
-      const { operator, username } = res.data
-      userInfo.operator = operator
-      userInfo.username = username
-    }
-    showNotify({ type: 'success', message: '配置更新成功' })
-    setTimeout(() => {
-      // 回到首页
-      router.replace({
-        name: 'album'
-      })
-    }, 2000)
+    await checkServiceHealth(config.serverUrl)
+    showNotify({ type: 'success', message: '服务地址校验通过' })
   } catch (err: any) {
     // 清空用户信息
     userInfo.operator = ''
@@ -209,15 +199,15 @@ const onSaveBitifulConfig = async () => {
       <template v-if="selectMode === 'server'">
         <van-field v-model="serverUrl" name="serverUrl" label="服务地址" placeholder="服务地址"
           :rules="[{ required: true, message: '请填写服务地址' }]" />
-        <van-field v-model="token" type="password" name="token" label="令牌" placeholder="验证身份" s
-          :rules="[{ required: true, message: '请填写令牌' }]" />
+        <!-- <van-field v-model="token" type="password" name="token" label="令牌" placeholder="验证身份" s
+          :rules="[{ required: true, message: '请填写令牌' }]" /> -->
       </template>
 
     </van-cell-group>
-    <van-cell-group inset>
+    <!-- <van-cell-group inset>
       <van-cell title="家庭" :value="userInfo.username" />
       <van-cell title="操作账号" :value="userInfo.operator" />
-    </van-cell-group>
+    </van-cell-group> -->
 
     <!-- Bitiful 配置区域 -->
     <van-cell-group inset v-if="showExit">

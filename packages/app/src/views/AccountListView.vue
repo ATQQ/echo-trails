@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { getUserList, addUser, addOperator, updatePassword, type User } from '@/service';
+import { isTauri } from '@/constants';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 
 const router = useRouter();
 const userList = ref<User[]>([]);
@@ -37,15 +39,17 @@ const loadUsers = async () => {
 const handleAddUser = async () => {
   if (!formData.value.username || !formData.value.operator || !formData.value.token) {
     showToast('Please fill all fields');
-    return;
+    return false;
   }
   try {
     await addUser(formData.value);
     showToast('User added');
     showAddUser.value = false;
     loadUsers();
+    return true;
   } catch (e: any) {
     showToast(e.message || 'Failed');
+    return false;
   }
 };
 
@@ -58,15 +62,17 @@ const openAddOperator = (user: User) => {
 const handleAddOperator = async () => {
    if (!formData.value.operator || !formData.value.token) {
     showToast('Please fill all fields');
-    return;
+    return false;
   }
   try {
     await addOperator(formData.value);
     showToast('Operator added');
     showAddOperator.value = false;
     loadUsers();
+    return true;
   } catch (e: any) {
     showToast(e.message || 'Failed');
+    return false;
   }
 }
 
@@ -80,17 +86,53 @@ const openUpdatePassword = (user: User, operatorName: string) => {
 const handleUpdatePassword = async () => {
    if (!formData.value.token) {
     showToast('Please enter new token');
-    return;
+    return false;
   }
   try {
     await updatePassword(formData.value);
     showToast('Password updated');
     showUpdatePassword.value = false;
     loadUsers();
+    return true;
   } catch (e: any) {
     showToast(e.message || 'Failed');
+    return false;
   }
 }
+
+const onBeforeClose = async (action: string, done: (close?: boolean) => void, handler: () => Promise<boolean>) => {
+  if (action === 'confirm') {
+    const success = await handler();
+    done(success);
+  } else {
+    done();
+  }
+};
+
+
+const generateToken = async () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+  let result = '';
+  const length = 16;
+  const array = new Uint32Array(length);
+  window.crypto.getRandomValues(array);
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(array[i] % chars.length);
+  }
+  formData.value.token = result;
+
+  try {
+    if (isTauri) {
+      await writeText(result);
+    } else {
+      await navigator.clipboard.writeText(result);
+    }
+    showToast('Token已生成并复制到剪贴板');
+  } catch (e) {
+    console.error('Copy failed', e);
+    showToast('Token已生成');
+  }
+};
 
 onMounted(loadUsers);
 </script>
@@ -102,7 +144,6 @@ onMounted(loadUsers);
       left-text="返回"
       left-arrow
       @click-left="router.back()"
-      fixed
       placeholder
       class="safe-padding-top"
       right-text="新增"
@@ -126,27 +167,45 @@ onMounted(loadUsers);
     </div>
 
     <!-- Dialogs -->
-    <van-dialog v-model:show="showAddUser" title="新增账号组" show-cancel-button @confirm="handleAddUser">
+    <van-dialog v-model:show="showAddUser" title="新增账号组" show-cancel-button :before-close="(action) => action === 'confirm' ? handleAddUser() : true">
        <div class="dialog-content">
-         <van-field v-model="formData.username" label="账户名" placeholder="请输入账户名" />
-         <van-field v-model="formData.operator" label="操作员" placeholder="请输入操作员名" />
-         <van-field v-model="formData.token" label="Token" placeholder="请输入Token" />
-       </div>
-    </van-dialog>
-    
-    <van-dialog v-model:show="showAddOperator" title="新增操作员" show-cancel-button @confirm="handleAddOperator">
-       <div class="dialog-content">
-         <van-cell title="账户名" :value="formData.username" />
-         <van-field v-model="formData.operator" label="操作员" placeholder="请输入操作员名" />
-         <van-field v-model="formData.token" label="Token" placeholder="请输入Token" />
+         <van-cell-group inset>
+           <van-field v-model="formData.username" label="账户名" placeholder="请输入账户名" />
+           <van-field v-model="formData.operator" label="操作员" placeholder="请输入操作员名" />
+           <van-field v-model="formData.token" label="Token" placeholder="请输入Token">
+              <template #button>
+                <van-button size="small" type="primary" @click="generateToken">生成</van-button>
+              </template>
+           </van-field>
+         </van-cell-group>
        </div>
     </van-dialog>
 
-    <van-dialog v-model:show="showUpdatePassword" title="修改密码" show-cancel-button @confirm="handleUpdatePassword">
+    <van-dialog v-model:show="showAddOperator" title="新增操作员" show-cancel-button :before-close="(action) => action === 'confirm' ? handleAddOperator() : true">
        <div class="dialog-content">
-         <van-cell title="账户名" :value="formData.username" />
-         <van-cell title="操作员" :value="formData.operator" />
-         <van-field v-model="formData.token" label="新Token" placeholder="请输入新Token" />
+         <van-cell-group inset>
+           <van-cell title="账户名" :value="formData.username" />
+           <van-field v-model="formData.operator" label="操作员" placeholder="请输入操作员名" />
+           <van-field v-model="formData.token" label="Token" placeholder="请输入Token">
+              <template #button>
+                <van-button size="small" type="primary" @click="generateToken">生成</van-button>
+              </template>
+           </van-field>
+         </van-cell-group>
+       </div>
+    </van-dialog>
+
+    <van-dialog v-model:show="showUpdatePassword" title="修改密码" show-cancel-button :before-close="(action) => action === 'confirm' ? handleUpdatePassword() : true">
+       <div class="dialog-content">
+         <van-cell-group inset>
+           <van-cell title="账户名" :value="formData.username" />
+           <van-cell title="操作员" :value="formData.operator" />
+           <van-field v-model="formData.token" label="新Token" placeholder="请输入新Token">
+              <template #button>
+                <van-button size="small" type="primary" @click="generateToken">生成</van-button>
+              </template>
+           </van-field>
+         </van-cell-group>
        </div>
     </van-dialog>
 
@@ -158,6 +217,6 @@ onMounted(loadUsers);
   padding: 16px;
 }
 .dialog-content {
-  padding: 10px 0;
+  padding-top: 10px;
 }
 </style>

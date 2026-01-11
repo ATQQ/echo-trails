@@ -1,207 +1,246 @@
 <script setup lang="ts">
-// AI 生成页面：https://bolt.new/
-// 生成页面链接：https://bolt.new/~/sb1-wv4id8
 import { login } from '@/service';
 import { useLocalStorage } from '@vueuse/core';
 import { showNotify } from 'vant';
-import { onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-const password = ref('')
-const isPasswordVisible = ref(false)
-const router = useRouter()
-const checkLogin = () => {
-  handleLogin()
-}
+const password = ref('');
+const isPasswordVisible = ref(false);
+const router = useRouter();
 
 const { value: userInfo } = useLocalStorage('userInfo', {
   username: '',
   operator: ''
-})
+});
 
 const handleLogin = (silent = false) => {
-  localStorage.setItem('token', password.value)
+  localStorage.setItem('token', password.value);
   login().then((res) => {
-    userInfo.username = res.data.username
-    userInfo.operator = res.data.operator
+    userInfo.username = res.data.username;
+    userInfo.operator = res.data.operator;
     router.replace({
       name: 'album'
-    })
+    });
     if (silent) return;
     showNotify({ type: 'success', message: '登录成功！' });
   }).catch(() => {
     if (silent) return;
     showNotify({ type: 'danger', message: '无效秘钥！' });
-  })
-}
+  });
+};
+
+const checkLogin = () => {
+  handleLogin();
+};
+
+const goToSettings = () => {
+  router.push({ name: 'set' });
+};
 
 onMounted(() => {
-  handleLogin(true)
-})
-const togglePasswordVisibility = () => {
-  isPasswordVisible.value = !isPasswordVisible.value
-}
+  if (localStorage.getItem('token')) {
+      handleLogin(true);
+  }
+});
 </script>
 
 <template>
-  <div class="login-container">
-    <div class="login-card">
-      <div class="header">
-        <img src="https://api.iconify.design/mdi:cat.svg" alt="Cute Cat" class="cat-icon" />
-        <h1>欢迎回来</h1>
-        <p>请输入密码登录</p>
+  <div class="login-container safe-padding-top">
+    <div class="header">
+      <div class="settings-icon" @click="goToSettings">
+        <van-icon name="setting-o" size="24" color="#333" />
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="brand-section">
+        <h1 class="app-name">Echo Trails</h1>
+        <p class="slogan">记录你的美好瞬间</p>
       </div>
 
-      <div class="form-group">
-        <div class="password-input">
-          <input v-if="isPasswordVisible" type="text" v-model="password" placeholder="请输入密码"
-            @keyup.enter="checkLogin" />
-          <input v-else type="password" v-model="password" placeholder="请输入密码" @keyup.enter="checkLogin" />
-          <button class="toggle-visibility" @click="togglePasswordVisibility">
-            <img :src="isPasswordVisible
-              ? 'https://api.iconify.design/mdi:eye-off.svg'
-              : 'https://api.iconify.design/mdi:eye.svg'" :alt="isPasswordVisible ? '隐藏密码' : '显示密码'" />
-          </button>
+      <div class="features-section">
+        <div class="feature-item">
+          <div class="icon-circle image-bg">
+            <van-icon name="photo" size="24" color="#fff" />
+          </div>
+          <span>图片</span>
+        </div>
+        <div class="feature-item">
+          <div class="icon-circle video-bg">
+            <van-icon name="play-circle" size="24" color="#fff" />
+          </div>
+          <span>视频</span>
+        </div>
+        <div class="feature-item">
+          <div class="icon-circle audio-bg">
+            <van-icon name="music" size="24" color="#fff" />
+          </div>
+          <span>音频</span>
         </div>
       </div>
 
-      <button class="login-button" @click="checkLogin">
-        登录
-      </button>
+      <div class="form-section">
+        <van-field
+          v-model="password"
+          :type="isPasswordVisible ? 'text' : 'password'"
+          placeholder="请输入访问秘钥"
+          left-icon="lock"
+          :right-icon="isPasswordVisible ? 'eye-o' : 'closed-eye'"
+          @click-right-icon="isPasswordVisible = !isPasswordVisible"
+          class="password-field"
+          @keyup.enter="checkLogin"
+        />
+
+        <van-button
+          type="primary"
+          block
+          round
+          class="login-btn"
+          @click="checkLogin"
+        >
+          确定
+        </van-button>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Secure & Private Storage</p>
     </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
-div,
-h1,
-p {
-  user-select: none;
-}
-
 .login-container {
-  height: 100vh;
-  box-sizing: border-box;
+  min-height: 100vh;
+  background-color: #f7f8fa;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%);
-}
-
-.login-card {
-  width: 100%;
-  max-width: 320px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  padding: 30px 20px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  animation: float 6s ease-in-out infinite;
-  margin-bottom: 40px;
-}
-
-@keyframes float {
-  0% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
-
-  100% {
-    transform: translateY(0px);
-  }
+  flex-direction: column;
+  position: relative;
 }
 
 .header {
+  padding: 16px;
+  display: flex;
+  justify-content: flex-end;
+
+  .settings-icon {
+    padding: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+    transition: transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+}
+
+.content {
+  flex: 1;
+  padding: 20px 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin-top: -60px; /* Offset to center visually better */
+}
+
+.brand-section {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 40px;
 
-  .cat-icon {
-    width: 60px;
-    height: 60px;
-    margin-bottom: 16px;
-    filter: invert(73%) sepia(11%) saturate(1384%) hue-rotate(307deg) brightness(101%) contrast(97%);
-  }
-
-  h1 {
-    color: #e91e63;
-    font-size: 24px;
+  .app-name {
+    font-size: 32px;
+    font-weight: 800;
+    background: linear-gradient(45deg, #1989fa, #7bc6ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     margin-bottom: 8px;
+    letter-spacing: 1px;
   }
+
+  .slogan {
+    font-size: 14px;
+    color: #969799;
+    letter-spacing: 2px;
+  }
+}
+
+.features-section {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 48px;
+
+  .feature-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+
+    span {
+      font-size: 12px;
+      color: #646566;
+    }
+  }
+
+  .icon-circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s;
+
+    &:active {
+      transform: scale(0.95);
+    }
+
+    &.image-bg {
+      background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+    }
+
+    &.video-bg {
+      background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+    }
+
+    &.audio-bg {
+      background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+    }
+  }
+}
+
+.form-section {
+  .password-field {
+    border-radius: 12px;
+    margin-bottom: 24px;
+    background: #fff;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  }
+
+  .login-btn {
+    height: 48px;
+    font-size: 16px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(25, 137, 250, 0.3);
+  }
+}
+
+.footer {
+  padding: 24px;
+  text-align: center;
 
   p {
-    color: #9e9e9e;
-    font-size: 14px;
-  }
-}
-
-.form-group {
-  margin-bottom: 24px;
-
-  .password-input {
-    position: relative;
-
-    input {
-      width: 100%;
-      padding: 12px 40px 12px 16px;
-      border: 2px solid #f8bbd0;
-      border-radius: 12px;
-      font-size: 16px;
-      transition: all 0.3s ease;
-      box-sizing: border-box;
-
-      &:focus {
-        outline: none;
-        border-color: #f06292;
-        box-shadow: 0 0 0 3px rgba(240, 98, 146, 0.2);
-      }
-    }
-
-    .toggle-visibility {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      padding: 4px;
-      cursor: pointer;
-
-      img {
-        width: 20px;
-        height: 20px;
-        opacity: 0.5;
-        transition: opacity 0.3s ease;
-      }
-
-      &:hover img {
-        opacity: 0.8;
-      }
-    }
-  }
-}
-
-.login-button {
-  width: 100%;
-  padding: 14px;
-  background: linear-gradient(45deg, #f06292, #ec407a);
-  border: none;
-  border-radius: 12px;
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(236, 64, 122, 0.3);
-  }
-
-  &:active {
-    transform: translateY(0);
+    font-size: 12px;
+    color: #c8c9cc;
+    font-family: monospace;
   }
 }
 </style>

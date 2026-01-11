@@ -15,12 +15,13 @@ const { value: userInfo } = useLocalStorage('userInfo', {
 });
 
 const isAdmin = ref(false);
-
+const isLogin = ref(false);
 onMounted(async () => {
   try {
     const res = await checkLogin();
     if (res.code === 0) {
       isAdmin.value = res.data.isAdmin;
+      isLogin.value = true;
     }
   } catch (e) {
     console.error(e);
@@ -41,6 +42,7 @@ const handleLogout = () => {
       localStorage.removeItem('token');
       userInfo.username = '';
       userInfo.operator = '';
+      isLogin.value = false;
 
       showToast('已退出登录');
       router.replace('/login');
@@ -97,20 +99,26 @@ const goBack = () => {
 
     <div class="content">
       <!-- 账号管理 -->
-      <van-cell-group title="账号管理" inset>
+      <van-cell-group title="账号管理" inset v-if="isAdmin">
+        <van-cell title="账号列表" is-link to="/manage/accounts" />
+      </van-cell-group>
+
+      <!-- 基础配置 -->
+      <van-cell-group title="基础配置" inset>
         <van-cell title="当前用户" :value="userInfo.username || '未登录'" />
         <van-cell title="操作员" :value="userInfo.operator || '-'" />
+        <!-- 账号管理菜单 -->
         <!-- 在这里新增一个账号管理tab -->
         <van-cell title="退出登录" is-link @click="handleLogout" class="logout-cell" />
       </van-cell-group>
 
       <!-- 服务配置 -->
-      <van-cell-group v-if="isTauri" title="系统设置" inset>
+      <van-cell-group v-if="isAdmin" title="系统设置" inset>
         <van-cell title="服务配置" is-link @click="goToServiceConfig" label="配置服务器地址和访问令牌" />
       </van-cell-group>
 
       <!-- 功能 -->
-      <van-cell-group title="功能" inset>
+      <van-cell-group v-if="isLogin" title="功能" inset>
         <van-cell title="回收站" is-link to="/delete" />
       </van-cell-group>
 

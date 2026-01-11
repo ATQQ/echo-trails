@@ -4,6 +4,10 @@ import { invoke } from '@tauri-apps/api/core';
 
 import ky from "ky";
 
+export function checkServiceHealth(baseUrl: string) {
+  return ky.get(`${baseUrl}/api/ping`).json()
+}
+
 export function login() {
   return api.post<ServerResponse<{
     username: string

@@ -87,7 +87,7 @@
         !['/login','/set'].includes(window.location.pathname)
       ) {
         if(!!window.__TAURI__){
-          window.location.href = `${location.origin}/set`
+          window.location.href = `${location.origin}/login`
         } else {
           window.location.href = `${location.origin}/login`
         }

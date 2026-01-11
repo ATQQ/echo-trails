@@ -24,6 +24,16 @@ const customLogger = (message: string, ...rest: string[]) => {
 app.use(logger(customLogger))
 app.use('*', cors())
 app.use('*', dbMiddleware)
+
+// 健康监测
+app.get('/ping', (c) => {
+  return c.json({
+    code: 0,
+    data: 'pong'
+  })
+})
+
+
 // 简单BA鉴权
 app.on(
   ['POST', 'GET', 'DELETE', 'PUT', 'PATCH'],
@@ -66,7 +76,7 @@ app.on(
       } catch (e) {
         console.error('Auth DB error', e)
       }
-      
+
       return false
     },
   }),
