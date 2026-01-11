@@ -105,8 +105,8 @@ const goBack = () => {
 
       <!-- 基础配置 -->
       <van-cell-group title="基础配置" inset>
-        <van-cell title="当前用户" :value="userInfo.username || '未登录'" />
-        <van-cell title="操作员" :value="userInfo.operator || '-'" />
+        <van-cell title="家庭" :value="userInfo.username || '未登录'" />
+        <van-cell title="用户" :value="userInfo.operator || '-'" />
         <!-- 账号管理菜单 -->
         <!-- 在这里新增一个账号管理tab -->
         <van-cell title="退出登录" is-link @click="handleLogout" class="logout-cell" />

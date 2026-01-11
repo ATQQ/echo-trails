@@ -47,6 +47,30 @@ export default function userRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     })
   })
 
+  // 检查 Token 是否已存在 (包括系统用户和数据库用户)
+  const isTokenExists = async (token: string) => {
+    // 1. 检查环境变量用户
+    if (process.env.SYS_TOKEN === token) {
+      return true
+    }
+
+    // 2. 检查文件配置用户
+    const fileUserExists = Object.values(fileUsers).some(operators => 
+      operators.some((op: string[]) => op[1] === token)
+    )
+    if (fileUserExists) {
+      return true
+    }
+
+    // 3. 检查数据库用户
+    const dbUserExists = await User.findOne({ 'operators.token': token })
+    if (dbUserExists) {
+      return true
+    }
+
+    return false
+  }
+
   router.post('/add', async (c) => {
     const { username, operator, token } = await c.req.json()
     if (!username || !operator || !token) {
@@ -55,6 +79,11 @@ export default function userRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
     if (fileUsers[username] || process.env.SYS_USERNAME === username) {
       return c.json({ code: 400, message: 'User already exists in system' })
+    }
+
+    // 检查 Token 唯一性
+    if (await isTokenExists(token)) {
+      return c.json({ code: 400, message: 'Token already exists' })
     }
 
     try {
@@ -76,6 +105,11 @@ export default function userRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.post('/operator/add', async (c) => {
     const { username, operator, token } = await c.req.json()
     
+    // 检查 Token 唯一性
+    if (await isTokenExists(token)) {
+      return c.json({ code: 400, message: 'Token already exists' })
+    }
+    
     const user = await User.findOne({ username })
     if (!user) {
        return c.json({ code: 404, message: 'User not found or is system user' })
@@ -92,6 +126,11 @@ export default function userRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
   router.post('/password', async (c) => {
     const { username, operator, token } = await c.req.json()
+    
+    // 检查 Token 唯一性
+    if (await isTokenExists(token)) {
+      return c.json({ code: 400, message: 'Token already exists' })
+    }
     
     const user = await User.findOne({ username })
     if (!user) {
