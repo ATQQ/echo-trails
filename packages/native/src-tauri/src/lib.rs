@@ -18,6 +18,62 @@ use tauri_plugin_log::{Target, TargetKind};
 use tauri::Wry;
 use tauri_plugin_store::StoreExt;
 use serde_json::json;
+use futures_util::StreamExt;
+use tauri::{Emitter, Manager};
+
+#[cfg(target_os = "android")]
+use jni::objects::JValue;
+
+#[derive(Clone, Serialize)]
+struct ProgressPayload {
+    progress: u64,
+    total: u64,
+    status: String,
+}
+
+#[tauri::command]
+async fn download_apk(app_handle: tauri::AppHandle, url: String, version: String) -> Result<String, String> {
+    let cache_dir = app_handle.path().app_cache_dir().map_err(|e| e.to_string())?;
+    
+    if !cache_dir.exists() {
+        std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
+    }
+    
+    let file_name = format!("echo-trails-{}.apk", version);
+    let file_path = cache_dir.join(&file_name);
+    let file_path_str = file_path.to_string_lossy().to_string();
+
+    if file_path.exists() {
+        let _ = app_handle.emit("download-progress", ProgressPayload {
+            progress: 100,
+            total: 100,
+            status: "exists".to_string(),
+        });
+        return Ok(file_path_str);
+    }
+
+    let client = reqwest::Client::new();
+    let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    let total_size = res.content_length().unwrap_or(0);
+    
+    let mut file = std::fs::File::create(&file_path).map_err(|e| e.to_string())?;
+    let mut stream = res.bytes_stream();
+    let mut downloaded: u64 = 0;
+
+    while let Some(item) = stream.next().await {
+        let chunk = item.map_err(|e| e.to_string())?;
+        file.write_all(&chunk).map_err(|e| e.to_string())?;
+        downloaded += chunk.len() as u64;
+        
+        let _ = app_handle.emit("download-progress", ProgressPayload {
+            progress: downloaded,
+            total: total_size,
+            status: "downloading".to_string(),
+        });
+    }
+
+    Ok(file_path_str)
+}
 
 // 用于返回上传令牌的响应结构体
 #[derive(Serialize, Deserialize)]
@@ -42,6 +98,40 @@ async fn save_to_pictures(file_name: String, data: Vec<u8>) -> Result<String, St
 
     // 返回保存的文件路径
     Ok(file_path)
+}
+
+#[tauri::command]
+async fn open_apk(app_handle: tauri::AppHandle, file_path: String) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    {
+        let ctx = ndk_context::android_context();
+        let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.map_err(|e| e.to_string())?;
+        let mut env = vm.attach_current_thread().map_err(|e| e.to_string())?;
+        
+        // We need the context object. ndk_context provides it as a raw pointer.
+        let context = unsafe { jni::objects::JObject::from_raw(ctx.context().cast()) };
+        
+        let class = env.find_class("com/echo_trails/app/MainActivity").map_err(|e| e.to_string())?;
+        
+        // Convert file_path to JString
+        let uri_str = env.new_string(&file_path).map_err(|e| e.to_string())?;
+        
+        env.call_static_method(
+            class,
+            "installApk",
+            "(Landroid/content/Context;Ljava/lang/String;)V",
+            &[JValue::Object(&context), JValue::Object(&uri_str)]
+        ).map_err(|e| e.to_string())?;
+        
+        Ok(())
+    }
+    
+    #[cfg(not(target_os = "android"))]
+    {
+        use tauri_plugin_opener::OpenerExt;
+        app_handle.opener().open_path(file_path, None::<&str>).await.map_err(|e| e.to_string())?;
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -159,11 +249,14 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             greet,
             save_to_pictures,
-            upload_token
+            upload_token,
+            download_apk,
+            open_apk
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -75,6 +75,8 @@
     "http:allow-fetch-cancel-body",
     "http:allow-fetch-read-body",
     "http:allow-fetch-send",
-    "clipboard-manager:allow-write-text"
+    "clipboard-manager:allow-write-text",
+    "opener:default",
+    "opener:allow-open-path"
   ]
 }

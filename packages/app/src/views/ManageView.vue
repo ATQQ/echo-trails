@@ -8,8 +8,17 @@ import { checkLogin } from '@/service';
 import { version } from '../../package.json';
 import { type } from '@tauri-apps/plugin-os';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 const router = useRouter();
+
+// Download state
+const showDownloadProgress = ref(false);
+const downloadPercent = ref(0);
+const downloadStatus = ref('');
+
+// ... existing code ...
 
 // 用户信息
 const { value: userInfo } = useLocalStorage('userInfo', {
@@ -102,7 +111,12 @@ const handleCheckUpdate = async () => {
       })
         .then(() => {
           if (currentPlatformInfo.downloadUrl) {
-            window.open(currentPlatformInfo.downloadUrl, '_blank');
+            // Check if we are on Android and use native download
+            if (platform === 'android' && isTauri) {
+              handleDownload(currentPlatformInfo.downloadUrl, currentPlatformInfo.version);
+            } else {
+              window.open(currentPlatformInfo.downloadUrl, '_blank');
+            }
           } else {
             showToast('暂无下载地址');
           }
@@ -132,6 +146,53 @@ const showAbout = () => {
 
 const goBack = () => {
   router.back();
+};
+
+const handleDownload = async (url: string, version: string) => {
+  showDownloadProgress.value = true;
+  downloadPercent.value = 0;
+  downloadStatus.value = '准备下载...';
+
+  const unlisten = await listen('download-progress', (event: any) => {
+    const { progress, total, status } = event.payload;
+    if (status === 'exists') {
+      downloadPercent.value = 100;
+      downloadStatus.value = '文件已存在';
+    } else {
+      if (total > 0) {
+        downloadPercent.value = Math.floor((progress / total) * 100);
+        downloadStatus.value = `正在下载... ${downloadPercent.value}%`;
+      } else {
+        const mb = (progress / 1024 / 1024).toFixed(2);
+        downloadStatus.value = `正在下载... ${mb}MB`;
+      }
+    }
+  });
+
+  try {
+    const filePath = await invoke('download_apk', { url, version });
+    showDownloadProgress.value = false;
+    unlisten();
+
+    showConfirmDialog({
+      title: '下载完成',
+      message: `安装包已下载到: ${filePath}\n是否立即安装？`,
+      confirmButtonText: '立即安装',
+    })
+      .then(async () => {
+        try {
+          await invoke('open_apk', { filePath });
+        } catch (e) {
+          showToast('无法打开文件: ' + e);
+        }
+      })
+      .catch(() => {});
+  } catch (e) {
+    console.error(e);
+    showToast('下载失败: ' + e);
+    showDownloadProgress.value = false;
+    unlisten();
+  }
 };
 </script>
 
@@ -182,6 +243,17 @@ const goBack = () => {
         Echo Trails v{{ appVersion }}
       </div>
     </div>
+
+    <!-- Download Progress Overlay -->
+    <van-overlay :show="showDownloadProgress" z-index="9999">
+      <div class="wrapper" style="display: flex; align-items: center; justify-content: center; height: 100%;">
+        <div class="block" style="width: 80%; background-color: #fff; border-radius: 8px; padding: 20px; text-align: center;">
+          <van-loading type="spinner" v-if="downloadPercent < 100" />
+          <div style="margin-top: 10px; font-size: 16px;">{{ downloadStatus }}</div>
+          <van-progress :percentage="downloadPercent" style="margin-top: 15px;" />
+        </div>
+      </div>
+    </van-overlay>
   </div>
 </template>
 
