@@ -111,7 +111,9 @@ async fn open_apk(app_handle: tauri::AppHandle, file_path: String) -> Result<(),
         // We need the context object. ndk_context provides it as a raw pointer.
         let context = unsafe { jni::objects::JObject::from_raw(ctx.context().cast()) };
         
-        let class = env.find_class("com/echo_trails/app/MainActivity").map_err(|e| e.to_string())?;
+        // Instead of find_class which uses the system class loader, we get the class from the context object instance.
+        // The context is the MainActivity instance, so getting its class gives us com.echo_trails.app.MainActivity.
+        let class = env.get_object_class(&context).map_err(|e| e.to_string())?;
         
         // Convert file_path to JString
         let uri_str = env.new_string(&file_path).map_err(|e| e.to_string())?;

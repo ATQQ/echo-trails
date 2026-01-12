@@ -14,9 +14,16 @@ class MainActivity : TauriActivity() {
 
   companion object {
     @JvmStatic
-    fun installApk(context: Context, uriString: String) {
+    fun installApk(context: Context, filePath: String) {
         try {
-            val uri = Uri.parse(uriString)
+            val file = java.io.File(filePath)
+            if (!file.exists()) {
+                return
+            }
+
+            val authority = context.packageName + ".fileprovider"
+            val uri = androidx.core.content.FileProvider.getUriForFile(context, authority, file)
+
             val intent = Intent(Intent.ACTION_VIEW)
             intent.setDataAndType(uri, "application/vnd.android.package-archive")
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
