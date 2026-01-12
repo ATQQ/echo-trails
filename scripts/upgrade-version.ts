@@ -8,6 +8,7 @@ import semver from 'semver';
 const rootDir = process.cwd();
 const appPackagePath = path.join(rootDir, 'packages/app/package.json');
 const tauriConfPath = path.join(rootDir, 'packages/native/src-tauri/tauri.conf.json');
+const cargoTomlPath = path.join(rootDir, 'packages/native/src-tauri/Cargo.toml');
 const versionJsonPath = path.join(rootDir, 'packages/app/public/version.json');
 
 async function main() {
@@ -16,10 +17,10 @@ async function main() {
     console.error(`Error: Could not find ${appPackagePath}`);
     process.exit(1);
   }
-  
+
   const appPkg = JSON.parse(fs.readFileSync(appPackagePath, 'utf-8'));
   const currentVersion = appPkg.version;
-  
+
   if (!semver.valid(currentVersion)) {
     console.error(`Error: Current version ${currentVersion} is invalid.`);
     process.exit(1);
@@ -69,7 +70,7 @@ async function main() {
   console.log(`\nUpgrading to: ${newVersion}\n`);
 
   // 3. Update files
-  
+
   // Update packages/app/package.json
   appPkg.version = newVersion;
   fs.writeFileSync(appPackagePath, JSON.stringify(appPkg, null, 2) + '\n');
@@ -85,29 +86,47 @@ async function main() {
     console.warn(`Warning: ${tauriConfPath} not found.`);
   }
 
+  // Update packages/native/src-tauri/Cargo.toml
+  if (fs.existsSync(cargoTomlPath)) {
+    let cargoToml = fs.readFileSync(cargoTomlPath, 'utf-8');
+    // Replace version = "x.y.z" with new version
+    // Use regex to find the version field under [package] or just the first occurrence
+    // Assuming standard Cargo.toml structure where [package] is at the top
+    const versionRegex = /^version\s*=\s*".*"/m;
+    if (versionRegex.test(cargoToml)) {
+      cargoToml = cargoToml.replace(versionRegex, `version = "${newVersion}"`);
+      fs.writeFileSync(cargoTomlPath, cargoToml);
+      console.log(`Updated ${path.relative(rootDir, cargoTomlPath)}`);
+    } else {
+      console.warn(`Warning: Could not find version field in ${cargoTomlPath}`);
+    }
+  } else {
+    console.warn(`Warning: ${cargoTomlPath} not found.`);
+  }
+
   // Update packages/app/public/version.json
   if (fs.existsSync(versionJsonPath)) {
     const versionData = JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
-    
+
     // Update top level version if exists, or just ensure structure
     // Based on previous context, we might want to update specific platform versions
     // But usually version.json tracks the latest version.
-    // Let's assume we update all platforms to the new version for now, 
+    // Let's assume we update all platforms to the new version for now,
     // or just a global version field if it exists.
-    
+
     // Looking at previous user edits, the structure seems to be:
     // { "macos": { "version": "...", "url": "..." }, ... }
-    
-    const platforms = ['macos', 'windows', 'linux'];
+
+    const platforms = ['android'];
     let updated = false;
-    
+
     for (const platform of platforms) {
       if (versionData[platform]) {
         versionData[platform].version = newVersion;
         updated = true;
       }
     }
-    
+
     // If no platform specific data, maybe it's a simple structure?
     // Let's also check for a root 'version' key just in case.
     if (versionData.version) {
@@ -135,9 +154,14 @@ async function main() {
 
   if (tagRes.value) {
     try {
+      // Commit all changes
+      execSync('git add -A', { stdio: 'inherit' });
+      execSync(`git commit -m "chore(release): v${newVersion}"`, { stdio: 'inherit' });
+      console.log(`Committed changes: chore(release): v${newVersion}`);
+
       execSync(`git tag v${newVersion}`, { stdio: 'inherit' });
       console.log(`Git tag v${newVersion} created.`);
-      
+
       const pushRes = await prompts({
         type: 'confirm',
         name: 'value',

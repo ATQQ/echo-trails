@@ -4,9 +4,9 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-use aws_sdk_s3::presigning::PresigningConfig;
-use aws_sdk_s3::primitives::ByteStream;
-use aws_sdk_s3::Client;
+// use aws_sdk_s3::presigning::PresigningConfig;
+// use aws_sdk_s3::primitives::ByteStream;
+// use aws_sdk_s3::Client;
 use log::LevelFilter;
 use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
