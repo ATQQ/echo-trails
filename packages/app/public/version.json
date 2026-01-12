@@ -19,7 +19,7 @@
   },
   "android": {
     "version": "0.2.0",
-    "downloadUrl": "",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.2.0.apk",
     "forceUpdate": false,
     "description": "初始版本"
   },

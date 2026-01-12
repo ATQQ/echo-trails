@@ -122,7 +122,13 @@ async function main() {
 
     for (const platform of platforms) {
       if (versionData[platform]) {
+        const oldVersion = versionData[platform].version;
         versionData[platform].version = newVersion;
+
+        // Update downloadUrl if it contains the old version
+        if (versionData[platform].downloadUrl && oldVersion) {
+          versionData[platform].downloadUrl = versionData[platform].downloadUrl.replace(oldVersion, newVersion);
+        }
         updated = true;
       }
     }
