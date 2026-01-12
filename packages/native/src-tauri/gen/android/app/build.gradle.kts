@@ -69,15 +69,15 @@ android {
         }
     }
     
-    applicationVariants.all {
-        val variant = this
-        variant.outputs
-            .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
-            .forEach { output ->
-                val outputFileName = "echo-trails-${variant.buildType.name}-${variant.versionName}.apk"
-                output.outputFileName = outputFileName
-            }
-    }
+    // applicationVariants.all {
+    //     val variant = this
+    //     variant.outputs
+    //         .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
+    //         .forEach { output ->
+    //             val outputFileName = "echo-trails-${variant.buildType.name}-${variant.versionName}.apk"
+    //             output.outputFileName = outputFileName
+    //         }
+    // }
 
     kotlinOptions {
         jvmTarget = "1.8"

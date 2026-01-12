@@ -22,7 +22,7 @@ console.log(`[Echo Trails] Auto-detected IP: ${ip}`);
 console.log(`[Echo Trails] VITE_BASE_ORIGIN: ${origin}`);
 const data = fs.readFileSync('./src-tauri/tauri.conf.json', 'utf8');
 const conf = JSON.parse(data);
-conf.build.beforeDevCommand = `cd ../app && VITE_BASE_ORIGIN=${origin} TAURI=true bun run dev`;
+conf.build.beforeDevCommand = `cd ../app && VITE_BASE_ORIGIN=${origin} VITE_VERSION_URL=https://photo.sugarat.top/version.json TAURI=true bun run dev`;
 conf.build.devUrl = origin;
 fs.writeFileSync('./src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2));
 

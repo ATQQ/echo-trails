@@ -7,6 +7,7 @@ import { isTauri } from '@/constants';
 import { checkLogin } from '@/service';
 import { version } from '../../package.json';
 import { type } from '@tauri-apps/plugin-os';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 
 const router = useRouter();
 
@@ -70,12 +71,13 @@ const handleCheckUpdate = async () => {
 
   try {
     const versionUrl = import.meta.env.VITE_VERSION_URL || '/version.json';
-    const res = await fetch(`${versionUrl}?t=${Date.now()}`);
+    const res = await tauriFetch(`${versionUrl}?t=${Date.now()}`)
+
     if (!res.ok) {
       throw new Error('Check update failed');
     }
     const versionInfo = await res.json();
-    
+
     let platform = 'macos';
     if (isTauri) {
       platform = await type();
@@ -89,7 +91,7 @@ const handleCheckUpdate = async () => {
       else if (ua.includes('linux')) platform = 'linux';
     }
 
-    const currentPlatformInfo = versionInfo[platform];
+    const currentPlatformInfo = (versionInfo as Record<string, any>)[platform];
 
     if (currentPlatformInfo && currentPlatformInfo.version !== appVersion.value) {
       closeToast();

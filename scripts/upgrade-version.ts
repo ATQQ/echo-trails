@@ -67,6 +67,15 @@ async function main() {
     process.exit(0);
   }
 
+  // Prompt for release description
+  const descriptionRes = await prompts({
+    type: 'text',
+    name: 'value',
+    message: 'Enter release description (optional)',
+    initial: 'Maintenance update',
+  });
+  const description = descriptionRes.value;
+
   console.log(`\nUpgrading to: ${newVersion}\n`);
 
   // 3. Update files
@@ -124,6 +133,11 @@ async function main() {
       if (versionData[platform]) {
         const oldVersion = versionData[platform].version;
         versionData[platform].version = newVersion;
+
+        // Update description if provided
+        if (description) {
+          versionData[platform].description = description;
+        }
 
         // Update downloadUrl if it contains the old version
         if (versionData[platform].downloadUrl && oldVersion) {
