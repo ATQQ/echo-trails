@@ -18,10 +18,10 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.2.0",
-    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.2.0.apk",
+    "version": "0.2.1",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.2.1.apk",
     "forceUpdate": false,
-    "description": "初始版本"
+    "description": "验证更新功能"
   },
   "ios": {
     "version": "0.1.2",
