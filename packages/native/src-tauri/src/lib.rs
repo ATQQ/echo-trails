@@ -49,7 +49,7 @@ fn calculate_md5(file_path: &std::path::Path) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn download_apk(app_handle: tauri::AppHandle, url: String, version: String) -> Result<String, String> {
+async fn download_apk(app_handle: tauri::AppHandle, url: String, version: String, md5: Option<String>) -> Result<String, String> {
     let cache_dir = app_handle.path().app_cache_dir().map_err(|e| e.to_string())?;
     
     if !cache_dir.exists() {
