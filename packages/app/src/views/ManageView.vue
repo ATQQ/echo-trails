@@ -10,6 +10,7 @@ import { type } from '@tauri-apps/plugin-os';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 const router = useRouter();
 
@@ -107,22 +108,33 @@ const handleCheckUpdate = async () => {
       showConfirmDialog({
         title: '发现新版本',
         message: `最新版本：${currentPlatformInfo.version}\n\n${currentPlatformInfo.description || ''}`,
-        confirmButtonText: '去更新',
+        confirmButtonText: (platform === 'android' && isTauri) ? '应用内更新' : '去更新',
+        cancelButtonText: (platform === 'android' && isTauri) ? '浏览器下载' : '取消',
+        closeOnClickOverlay: (platform === 'android' && isTauri),
       })
-        .then(() => {
+        .then(async () => {
           if (currentPlatformInfo.downloadUrl) {
             // Check if we are on Android and use native download
             if (platform === 'android' && isTauri) {
               handleDownload(currentPlatformInfo.downloadUrl, currentPlatformInfo.version, currentPlatformInfo.md5);
-            } else {
+            } else if (isTauri) {
+               await openUrl(currentPlatformInfo.downloadUrl);
+             } else {
               window.open(currentPlatformInfo.downloadUrl, '_blank');
             }
           } else {
             showToast('暂无下载地址');
           }
         })
-        .catch(() => {
+        .catch(async (action: any) => {
           // on cancel
+          if (action === 'cancel' && platform === 'android' && isTauri) {
+             if (currentPlatformInfo.downloadUrl) {
+                await openUrl(currentPlatformInfo.downloadUrl);
+             } else {
+                showToast('暂无下载地址');
+             }
+          }
         });
     } else {
       closeToast();

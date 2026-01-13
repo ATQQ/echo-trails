@@ -14,8 +14,13 @@
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep MainActivity installApk method for JNI calls
+-keep class com.echo_trails.app.MainActivity {
+    public static void installApk(android.content.Context, java.lang.String);
+}
