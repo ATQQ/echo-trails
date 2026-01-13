@@ -113,7 +113,7 @@ const handleCheckUpdate = async () => {
           if (currentPlatformInfo.downloadUrl) {
             // Check if we are on Android and use native download
             if (platform === 'android' && isTauri) {
-              handleDownload(currentPlatformInfo.downloadUrl, currentPlatformInfo.version);
+              handleDownload(currentPlatformInfo.downloadUrl, currentPlatformInfo.version, currentPlatformInfo.md5);
             } else {
               window.open(currentPlatformInfo.downloadUrl, '_blank');
             }
@@ -148,7 +148,7 @@ const goBack = () => {
   router.back();
 };
 
-const handleDownload = async (url: string, version: string) => {
+const handleDownload = async (url: string, version: string, md5?: string) => {
   showDownloadProgress.value = true;
   downloadPercent.value = 0;
   downloadStatus.value = '准备下载...';
@@ -170,7 +170,7 @@ const handleDownload = async (url: string, version: string) => {
   });
 
   try {
-    const filePath = await invoke('download_apk', { url, version });
+    const filePath = await invoke('download_apk', { url, version, md5 });
     showDownloadProgress.value = false;
     unlisten();
 

@@ -21,7 +21,8 @@
     "version": "0.2.1",
     "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.2.1.apk",
     "forceUpdate": false,
-    "description": "验证更新功能"
+    "description": "验证更新功能",
+    "md5": "358924d9327d6360eec538365b19aaa5"
   },
   "ios": {
     "version": "0.1.2",

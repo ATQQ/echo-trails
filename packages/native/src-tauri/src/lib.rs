@@ -31,6 +31,23 @@ struct ProgressPayload {
     status: String,
 }
 
+fn calculate_md5(file_path: &std::path::Path) -> Result<String, String> {
+    let mut file = std::fs::File::open(file_path).map_err(|e| e.to_string())?;
+    let mut buffer = [0; 8192];
+    let mut context = md5::Context::new();
+    
+    loop {
+        let count = std::io::Read::read(&mut file, &mut buffer).map_err(|e| e.to_string())?;
+        if count == 0 {
+            break;
+        }
+        context.consume(&buffer[..count]);
+    }
+    
+    let digest = context.compute();
+    Ok(format!("{:x}", digest))
+}
+
 #[tauri::command]
 async fn download_apk(app_handle: tauri::AppHandle, url: String, version: String) -> Result<String, String> {
     let cache_dir = app_handle.path().app_cache_dir().map_err(|e| e.to_string())?;
@@ -44,12 +61,45 @@ async fn download_apk(app_handle: tauri::AppHandle, url: String, version: String
     let file_path_str = file_path.to_string_lossy().to_string();
 
     if file_path.exists() {
-        let _ = app_handle.emit("download-progress", ProgressPayload {
-            progress: 100,
-            total: 100,
-            status: "exists".to_string(),
-        });
-        return Ok(file_path_str);
+        // If MD5 is provided, verify it
+        if let Some(expected_md5) = &md5 {
+            if !expected_md5.is_empty() {
+                match calculate_md5(&file_path) {
+                    Ok(current_md5) => {
+                        if current_md5.eq_ignore_ascii_case(expected_md5) {
+                             let _ = app_handle.emit("download-progress", ProgressPayload {
+                                progress: 100,
+                                total: 100,
+                                status: "exists".to_string(),
+                            });
+                            return Ok(file_path_str);
+                        } else {
+                            // MD5 mismatch, delete file
+                            let _ = std::fs::remove_file(&file_path);
+                        }
+                    },
+                    Err(_) => {
+                        let _ = std::fs::remove_file(&file_path);
+                    }
+                }
+            } else {
+                // If md5 is empty string, skip check (or maybe we should check?)
+                // Assuming empty means no check.
+                let _ = app_handle.emit("download-progress", ProgressPayload {
+                    progress: 100,
+                    total: 100,
+                    status: "exists".to_string(),
+                });
+                return Ok(file_path_str);
+            }
+        } else {
+            let _ = app_handle.emit("download-progress", ProgressPayload {
+                progress: 100,
+                total: 100,
+                status: "exists".to_string(),
+            });
+            return Ok(file_path_str);
+        }
     }
 
     let client = reqwest::Client::new();
@@ -70,6 +120,17 @@ async fn download_apk(app_handle: tauri::AppHandle, url: String, version: String
             total: total_size,
             status: "downloading".to_string(),
         });
+    }
+
+    // Verify MD5 after download
+    if let Some(expected_md5) = &md5 {
+        if !expected_md5.is_empty() {
+             let current_md5 = calculate_md5(&file_path)?;
+             if !current_md5.eq_ignore_ascii_case(expected_md5) {
+                 let _ = std::fs::remove_file(&file_path);
+                 return Err(format!("MD5 mismatch: expected {}, got {}", expected_md5, current_md5));
+             }
+        }
     }
 
     Ok(file_path_str)
