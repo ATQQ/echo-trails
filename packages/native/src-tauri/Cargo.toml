@@ -1,6 +1,6 @@
 [package]
 name = "echo-trails"
-version = "0.2.1"
+version = "0.2.2"
 description = "相册APP，记忆的回响，过去的经历像回声一样在徘徊."
 authors = ["sugar"]
 edition = "2021"

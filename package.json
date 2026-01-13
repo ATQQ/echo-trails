@@ -12,7 +12,8 @@
     "build:client": "cd packages/app && npm run build",
     "deploy:client": "bun run scripts/deploy-client.ts",
     "deploy:server": "bun run scripts/deploy-server.ts",
-    "update:md5": "bun run scripts/update-apk-md5.ts"
+    "update:md5": "bun run scripts/update-apk-md5.ts",
+    "release:git": "bun run scripts/git-release.ts"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",

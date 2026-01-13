@@ -1,7 +1,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
 import prompts from 'prompts';
 import semver from 'semver';
 
@@ -162,41 +161,6 @@ async function main() {
     }
   } else {
     console.warn(`Warning: ${versionJsonPath} not found.`);
-  }
-
-  // 4. Git Tag Prompt
-  const tagRes = await prompts({
-    type: 'confirm',
-    name: 'value',
-    message: `Create git tag v${newVersion}?`,
-    initial: true,
-  });
-
-  if (tagRes.value) {
-    try {
-      // Commit all changes
-      execSync('git add -A', { stdio: 'inherit' });
-      execSync(`git commit -m "chore(release): v${newVersion}"`, { stdio: 'inherit' });
-      console.log(`Committed changes: chore(release): v${newVersion}`);
-
-      execSync(`git tag v${newVersion}`, { stdio: 'inherit' });
-      console.log(`Git tag v${newVersion} created.`);
-
-      const pushRes = await prompts({
-        type: 'confirm',
-        name: 'value',
-        message: `Push tag to remote?`,
-        initial: true,
-      });
-
-      if (pushRes.value) {
-        execSync(`git push origin v${newVersion}`, { stdio: 'inherit' });
-        console.log(`Git tag v${newVersion} pushed.`);
-      }
-
-    } catch (error) {
-      console.error('Error creating/pushing git tag:', error);
-    }
   }
 
   console.log('\nUpgrade completed successfully!');
