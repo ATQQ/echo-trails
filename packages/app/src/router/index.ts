@@ -26,6 +26,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/discovery',
+      name: 'discovery',
+      component: () => import('../views/DiscoveryView.vue'),
+      meta: {
+        keepAlive: true,
+        nav: true,
+        componentName: 'DiscoveryView'
+      }
+    },
+    {
       path: '/like',
       name: 'like',
       component: () => import('../views/LikeView.vue'),
