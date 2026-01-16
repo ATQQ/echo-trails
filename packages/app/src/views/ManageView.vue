@@ -160,6 +160,15 @@ const goBack = () => {
   router.back();
 };
 
+const openGithub = async () => {
+  const url = 'https://github.com/ATQQ/echo-trails';
+  if (isTauri) {
+    await openUrl(url);
+  } else {
+    window.open(url, '_blank');
+  }
+};
+
 const handleDownload = async (url: string, version: string, md5?: string) => {
   showDownloadProgress.value = true;
   downloadPercent.value = 0;
@@ -252,7 +261,10 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
 
       <!-- 版本信息 -->
       <div class="version-info">
-        Echo Trails v{{ appVersion }}
+        <div>Echo Trails v{{ appVersion }}</div>
+        <div class="github-link" @click="openGithub">
+          开源地址: https://github.com/ATQQ/echo-trails
+        </div>
       </div>
     </div>
 
@@ -272,6 +284,7 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
 <style scoped lang="scss">
 .manage-container {
   min-height: 100vh;
+  box-sizing: border-box;
   background-color: #f7f8fa;
 }
 
@@ -292,5 +305,11 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
   text-align: center;
   color: #969799;
   font-size: 12px;
+
+  .github-link {
+    margin-top: 8px;
+    color: var(--van-primary-color);
+    cursor: pointer;
+  }
 }
 </style>

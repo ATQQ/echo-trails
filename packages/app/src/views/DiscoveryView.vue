@@ -100,6 +100,7 @@ const handleClick = (item: AppItem) => {
   background-color: #f7f8fa;
   min-height: 100vh;
   padding-bottom: 80px; // Space for bottom nav
+  box-sizing: border-box;
 
   .header {
     margin-bottom: 24px;
