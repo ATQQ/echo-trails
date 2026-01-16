@@ -5,11 +5,23 @@
   "workspaces": [
     "packages/*"
   ],
+  "scripts": {
+    "upgrade": "bun run scripts/upgrade-version.ts",
+    "lint": "eslint . --fix",
+    "format": "prettier --write packages",
+    "build:client": "cd packages/app && npm run build",
+    "deploy:client": "bun run scripts/deploy-client.ts",
+    "deploy:server": "bun run scripts/deploy-server.ts",
+    "update:md5": "bun run scripts/update-apk-md5.ts",
+    "release:git": "bun run scripts/git-release.ts"
+  },
   "devDependencies": {
-    "@types/bun": "latest",
     "@tsconfig/node20": "^20.1.4",
+    "@types/bun": "latest",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20.17.0",
+    "@types/prompts": "^2.4.9",
+    "@types/semver": "^7.7.1",
     "@vitejs/plugin-vue": "^5.1.4",
     "@vitest/eslint-plugin": "1.1.7",
     "@vue/eslint-config-prettier": "^10.0.0",
@@ -19,17 +31,12 @@
     "jsdom": "^25.0.1",
     "npm-run-all2": "^7.0.1",
     "prettier": "^3.3.3",
+    "prompts": "^2.4.2",
+    "semver": "^7.7.3",
     "typescript": "~5.6.0",
     "vitest": "^2.1.3"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
-  },
-  "scripts": {
-    "lint": "eslint . --fix",
-    "format": "prettier --write packages",
-    "build:client":"cd packages/app && npm run build",
-    "deploy:client":"bun run scripts/deploy-client.ts",
-    "deploy:server":"bun run scripts/deploy-server.ts"
   }
 }

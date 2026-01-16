@@ -26,6 +26,26 @@ const router = createRouter({
       }
     },
     {
+      path: '/discovery',
+      name: 'discovery',
+      component: () => import('../views/DiscoveryView.vue'),
+      meta: {
+        keepAlive: true,
+        nav: true,
+        componentName: 'DiscoveryView'
+      }
+    },
+    {
+      path: '/weight-record',
+      name: 'weight',
+      component: () => import('../views/WeightView.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'WeightView'
+      }
+    },
+    {
       path: '/like',
       name: 'like',
       component: () => import('../views/LikeView.vue'),
@@ -72,6 +92,26 @@ const router = createRouter({
       meta: {
         keepAlive: false,
         componentName: 'DeleteView',
+        nav: false
+      }
+    },
+    {
+      path: '/manage',
+      name: 'manage',
+      component: () => import('../views/ManageView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'ManageView',
+        nav: false
+      }
+    },
+    {
+      path: '/manage/accounts',
+      name: 'manage-accounts',
+      component: () => import('../views/AccountListView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'AccountListView',
         nav: false
       }
     }

@@ -44,6 +44,13 @@ async function presetTauriMode() {
               padding-top: calc(8px + env(safe-area-inset-top));
               padding-bottom: 8px;
             }
+            .van-dialog {
+              padding: 0;
+            }
+
+            .van-toast{
+              padding: 10px;
+            }
           `
   } else {
     style.textContent = `
@@ -55,6 +62,13 @@ async function presetTauriMode() {
             }
             .van-popup{
               padding-top: 38px;
+            }
+            .van-dialog {
+              padding: 0;
+            }
+
+            .van-toast{
+              padding: 10px;
             }
           `
   }
@@ -83,7 +97,9 @@ async function presetTauriMode() {
 
   // log
   // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
-  await attachConsole();
+  if(isTauri && import.meta.env.DEV){
+    await attachConsole();
+  }
 
   return promise
 }

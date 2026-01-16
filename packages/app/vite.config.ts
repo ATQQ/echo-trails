@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import { networkInterfaces } from 'os';
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -7,7 +8,20 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import Components from 'unplugin-vue-components/vite'
 import { VantResolver } from 'unplugin-vue-components/resolvers'
 
+function getLocalIp() {
+  const nets = networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
 const isTauriDev = process.env.TAURI
+const host = getLocalIp();
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -27,13 +41,6 @@ export default defineConfig({
     clearScreen: false,
   },
   // 2. tauri expects a fixed port, fail if that port is not available
-  css: {
-    preprocessorOptions: {
-      scss: {
-        api: 'modern'
-      }
-    }
-  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -42,7 +49,12 @@ export default defineConfig({
   server:{
     ...isTauriDev && {
       port: 1420,
+      host,
       strictPort: true,
+    },
+    hmr: {
+      host,
+      port: 1421,
     },
     proxy:{
       '/api': 'http://localhost:6692'

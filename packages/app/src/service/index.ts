@@ -4,11 +4,40 @@ import { invoke } from '@tauri-apps/api/core';
 
 import ky from "ky";
 
+export function checkServiceHealth(baseUrl: string) {
+  return ky.get(`${baseUrl}/api/ping`).json()
+}
+
 export function login() {
   return api.post<ServerResponse<{
     username: string
     operator: string
+    isAdmin: boolean
   }>>('check').json()
+}
+
+export const checkLogin = login;
+
+export interface User {
+  username: string
+  operators: { name: string, isSystem: boolean }[]
+  isSystem: boolean
+}
+
+export function getUserList() {
+  return api.get<ServerResponse<User[]>>('user/list').json().then(v => v.data)
+}
+
+export function addUser(data: { username: string, operator: string, token: string }) {
+  return api.post<ServerResponse>('user/add', { json: data }).json()
+}
+
+export function addOperator(data: { username: string, operator: string, token: string }) {
+  return api.post<ServerResponse>('user/operator/add', { json: data }).json()
+}
+
+export function updatePassword(data: { username: string, operator: string, token: string }) {
+  return api.post<ServerResponse>('user/password', { json: data }).json()
 }
 
 export function getUploadUrl(key: string) {
@@ -207,11 +236,13 @@ export function restorePhotos(ids: string[]) {
 export function getPhotoListInfo(options: {
   likedMode?: boolean,
   albumId?: string,
+  isDelete?: boolean
 }) {
   return api.get<ServerResponse<InfoItem[]>>('file/photo/listInfo', {
     searchParams: {
       ...(options.likedMode ? { likedMode: true } : {}),
       ...(options.albumId ? { albumId: options.albumId } : {}),
+      ...(options.isDelete ? { isDelete: true } : {})
     }
   }).json()
     .then((v) => {

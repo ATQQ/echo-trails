@@ -1,6 +1,7 @@
 import ky from 'ky'
 import { load } from '@tauri-apps/plugin-store';
 import { defaultOrigin, refreshApi } from './request';
+import { isTauri } from '@/constants';
 
 export interface StorageConfig {
   mode: string
@@ -29,9 +30,13 @@ export async function validConfig(cfg: StorageConfig) {
 }
 
 export async function saveConfig(cfg: StorageConfig) {
-  const store = await load('config.json', { autoSave: false, defaults: {} });
-  store.set('cfg', cfg)
-  await store.save();
+  if (isTauri) {
+    const store = await load('config.json', { autoSave: false, defaults: {} });
+    await store.set('cfg', cfg)
+    await store.save();
+  } else {
+    localStorage.setItem('config', JSON.stringify(cfg))
+  }
 }
 
 export async function refreshService(cfg: StorageConfig) {
@@ -44,14 +49,29 @@ export async function refreshService(cfg: StorageConfig) {
 }
 
 export async function getConfig() {
-  const store = await load('config.json', { autoSave: false, defaults: {
-    cfg: {
-      mode: 'server',
-      serverUrl: defaultOrigin,
-      token: ''
+  let cfg: Partial<StorageConfig> = {}
+
+  if (isTauri) {
+    const store = await load('config.json', { autoSave: false, defaults: {
+      cfg: {
+        mode: 'server',
+        serverUrl: defaultOrigin,
+        token: ''
+      }
+    } });
+    cfg = (await store.get<StorageConfig>('cfg')) || {}
+  } else {
+    try {
+      const saved = localStorage.getItem('config')
+      if (saved) {
+        cfg = JSON.parse(saved)
+      }
+    } catch (e) {
+      console.error('load config error', e)
     }
-  } });
-  let { mode = 'server', serverUrl, token } = (await store.get<StorageConfig>('cfg')) || {}
+  }
+
+  let { mode = 'server', serverUrl, token } = cfg
   mode = mode || 'server'
   serverUrl = serverUrl || defaultOrigin || ''
   token = token || localStorage.getItem('token') || ''

@@ -4,9 +4,18 @@ import { bitifulConfig, refreshBitifulConfig } from "../lib/bitiful";
 import { bitifulS3Manager } from "../lib/bitiful";
 
 export default function configRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
+  router.use('*', async (c, next) => {
+    // @ts-ignore
+    const isAdmin = c.get('isAdmin')
+    if (!isAdmin) {
+      return c.json({ code: 403, message: 'Permission denied' }, 403)
+    }
+    await next()
+  })
+
   // 获取 bitiful 配置
   router.get('/bitiful', async (ctx) => {
-    const { secretKey, accessKey, ...otherConfig } = bitifulConfig
+    const { secretKey, accessKey, cdnToken, ...otherConfig } = bitifulConfig
     return ctx.json({
       code: 0,
       data: otherConfig

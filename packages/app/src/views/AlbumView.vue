@@ -56,7 +56,17 @@ onActivated(() => {
   if (Date.now() - lastUpdateData.lastUpdate > 1000 * 60 * 20) {
     clearAlbumList()
   }
-  loadAlbum()
+  // 在这里如果有预请求数据直接回填，不用再发起请求
+  if ((window as any).__PREFETCHED_ALBUMS__) {
+    const data = (window as any).__PREFETCHED_ALBUMS__
+    albumList.large = data.large || []
+    albumList.small = data.small || []
+    showEmpty.value = !albumList.large?.length && !albumList.small?.length
+    lastUpdateData.lastUpdate = Date.now()
+    delete (window as any).__PREFETCHED_ALBUMS__
+  } else {
+    loadAlbum()
+  }
 })
 
 const showAddModal = ref(false)

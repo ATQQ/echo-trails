@@ -8,10 +8,10 @@ export async function login() {
 }
 
 export function goLogin() {
-  if (isTauri) {
-    window.location.href = `${location.origin}/set`
-    return
-  }
+  // if (isTauri) {
+  //   window.location.href = `${location.origin}/`
+  //   return
+  // }
 
   window.location.href = `${location.origin}/login`
 }

@@ -6,19 +6,23 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "dev:android": "tauri android dev"
+    "dev:android": "npm run pre:build && tauri android dev",
+    "build:android": "npm run pre:build && tauri android build && bun run ../../scripts/rename-android-apk.ts",
+    "pre:build": "node scripts/preset-build.js"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-dialog": "^2.2.0",
-    "@tauri-apps/plugin-fs": "^2.2.0",
-    "@tauri-apps/plugin-http": "^2.2.0",
+    "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/plugin-opener": "^2.5.3",
+    "@tauri-apps/plugin-dialog": "^2.5.0",
+    "@tauri-apps/plugin-fs": "^2.4.5",
+    "@tauri-apps/plugin-http": "^2.5.5",
     "@tauri-apps/plugin-log": "^2.3.1",
     "@tauri-apps/plugin-os": "^2.2.0",
     "@tauri-apps/plugin-shell": "^2",
-    "@tauri-apps/plugin-store": "^2.2.0"
+    "@tauri-apps/plugin-store": "^2.4.2",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "@tauri-apps/cli": "^2.9.6"
   }
 }

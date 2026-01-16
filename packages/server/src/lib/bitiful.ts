@@ -3,16 +3,18 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Store } from './store';
 import * as fs from 'fs';
 import * as path from 'path';
+import crypto from 'crypto';
 
 export const bitifulConfig = {
   accessKey: process.env.S3_ACCESS_KEY,
   secretKey: process.env.S3_SECRET_KEY,
   bucket: process.env.S3_BUCKET,
   domain: process.env.S3_DOMAIN,
+  cdnToken: process.env.BITIFUL_CDN_TOKEN || '',
   coverStyle: process.env.BITIFUL_COVER_STYLE,
   previewStyle: process.env.BITIFUL_PREVIEW_STTYLE,
   albumStyle: process.env.BITIFUL_ALBUM_STYLE,
-  region: process.env.S3_REGION ||  'cn-east-1',
+  region: process.env.S3_REGION || 'cn-east-1',
   endpoint: process.env.S3_ENDPOINT || 'https://s3.bitiful.net',
 }
 
@@ -26,6 +28,7 @@ const CONFIG_TO_ENV_MAP = {
   coverStyle: 'BITIFUL_COVER_STYLE',
   previewStyle: 'BITIFUL_PREVIEW_STTYLE',
   albumStyle: 'BITIFUL_ALBUM_STYLE',
+  cdnToken: 'BITIFUL_CDN_TOKEN',
   endpoint: 'S3_ENDPOINT',
 } as const;
 
@@ -143,8 +146,11 @@ export async function createFileLink(key: string, style?: string) {
     Key,
   })
 
+  let url = await getSignedUrl(bitifulS3Manager.getClient(), command, { expiresIn: 60 * 30 /*半小时*/ })
+  if (bitifulConfig.domain.startsWith('http') && bitifulConfig.cdnToken) {
+    url = createLink(key, bitifulConfig.domain, bitifulConfig.cdnToken, style)
+  }
   // 添加缓存，避免频繁构造请求，缓存失效
-  const url = await getSignedUrl(bitifulS3Manager.getClient(), command, { expiresIn: 60 * 30 /*半小时*/ })
   urlStore.set(Key, url, 1000 * 60 * 20 /*20分钟*/)
   return url
 }
@@ -159,4 +165,13 @@ export async function createPreviewLink(key: string) {
 
 export async function createAlbumLink(key: string) {
   return createFileLink(key, bitifulConfig.albumStyle)
+}
+
+function createLink(key: string, domain: string, token: string, style?: string) {
+  const deadLine = Math.floor(Date.now() / 1000) + 60 * 30; // 链接在未来的 60秒 内有效
+  const fileName = `/${key}` + (style ? `!style:${style}` : '')
+  const rawString = token + fileName + deadLine;
+  const md5Result = crypto.createHash('md5').update(rawString).digest('hex');
+  const tokenLink = domain + fileName + "?_btf_tk=" + md5Result + "&_ts=" + deadLine;
+  return tokenLink;
 }

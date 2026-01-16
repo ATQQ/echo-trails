@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import PageTitle from '@/components/PageTitle.vue';
 import { getConfig, refreshService, saveConfig, validConfig } from '@/lib/configStorage';
+import { checkServiceHealth } from '@/service';
 import { getBitifulConfig, getBitifulConfigLocal, updateBitifulConfigComplete, type BitifulConfig } from '@/lib/bitifulConfig';
 import { defaultOrigin } from '@/lib/request';
 import router from '@/router';
@@ -36,6 +36,7 @@ const showBitifulConfig = ref(false)
 const bitifulConfig = ref<BitifulConfig>({
   accessKey: '',
   secretKey: '',
+  cdnToken: '',
   bucket: '',
   domain: '',
   coverStyle: '',
@@ -49,23 +50,12 @@ const onSubmit = async () => {
   const config = {
     mode: selectMode.value,
     serverUrl: serverUrl.value,
-    token: token.value,
+    token: '',
   }
   try {
     // 校验数据合理性
-    const res = await validConfig(config)
-    if (res?.data) {
-      const { operator, username } = res.data
-      userInfo.operator = operator
-      userInfo.username = username
-    }
-    showNotify({ type: 'success', message: '配置更新成功' })
-    setTimeout(() => {
-      // 回到首页
-      router.replace({
-        name: 'album'
-      })
-    }, 2000)
+    await checkServiceHealth(config.serverUrl)
+    showNotify({ type: 'success', message: '服务地址校验通过' })
   } catch (err: any) {
     // 清空用户信息
     userInfo.operator = ''
@@ -84,6 +74,10 @@ const onSubmit = async () => {
 };
 
 const showExit = ref(false)
+
+const onClickLeft = () => {
+  router.back();
+};
 
 onMounted(async () => {
   // 取数据
@@ -128,7 +122,7 @@ const onReset = async () => {
   }
 
   // 清空配置数据
-  localStorage.clear()
+  localStorage.removeItem('config')
 
   mode.value = 'server'
   modeValue.value = ['server']
@@ -189,7 +183,14 @@ const onSaveBitifulConfig = async () => {
 </script>
 
 <template>
-  <PageTitle title="设置" :info="false" />
+  <van-nav-bar
+    title="服务配置"
+    left-text="返回"
+    left-arrow
+    @click-left="onClickLeft"
+    placeholder
+    class="safe-padding-top"
+  />
   <van-form @submit="onSubmit">
     <van-cell-group inset>
       <!-- 模式选择 -->
@@ -199,15 +200,15 @@ const onSaveBitifulConfig = async () => {
       <template v-if="selectMode === 'server'">
         <van-field v-model="serverUrl" name="serverUrl" label="服务地址" placeholder="服务地址"
           :rules="[{ required: true, message: '请填写服务地址' }]" />
-        <van-field v-model="token" type="password" name="token" label="令牌" placeholder="验证身份" s
-          :rules="[{ required: true, message: '请填写令牌' }]" />
+        <!-- <van-field v-model="token" type="password" name="token" label="令牌" placeholder="验证身份" s
+          :rules="[{ required: true, message: '请填写令牌' }]" /> -->
       </template>
 
     </van-cell-group>
-    <van-cell-group inset>
-      <van-cell title="账号" :value="userInfo.username" />
-      <van-cell title="操作人" :value="userInfo.operator" />
-    </van-cell-group>
+    <!-- <van-cell-group inset>
+      <van-cell title="家庭" :value="userInfo.username" />
+      <van-cell title="操作账号" :value="userInfo.operator" />
+    </van-cell-group> -->
 
     <!-- Bitiful 配置区域 -->
     <van-cell-group inset v-if="showExit">
@@ -217,10 +218,11 @@ const onSaveBitifulConfig = async () => {
         <van-field v-model="bitifulConfig.accessKey" name="accessKey" label="Access Key" placeholder="默认不回显展示" />
         <van-field v-model="bitifulConfig.secretKey" type="password" name="secretKey" label="Secret Key"
           placeholder="默认不回显展示" />
+        <van-field v-model="bitifulConfig.cdnToken" name="cdnToken" label="CDN Token" placeholder="默认不回显展示" />
         <van-field v-model="bitifulConfig.bucket" name="bucket" label="Bucket" placeholder="请输入 Bucket 名称" />
         <van-field v-model="bitifulConfig.region" name="region" label="Region" placeholder="请输入 Region" />
         <van-field v-model="bitifulConfig.endpoint" name="endpoint" label="Endpoint" placeholder="请输入 Endpoint" />
-        <van-field v-model="bitifulConfig.domain" name="domain" label="Domain" placeholder="自定义域名" />
+        <van-field v-model="bitifulConfig.domain" name="domain" label="CDN Domain" placeholder="自定义域名" />
         <!-- 添加提示 -->
         <van-cell title="💡 提示" value="配置样式节约流量" title-class="text-blue-600" value-class="text-gray-500 text-sm" />
         <van-field v-model="bitifulConfig.coverStyle" name="coverStyle" label="封面样式" placeholder="（选填）封面样式" />

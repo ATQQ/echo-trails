@@ -6,7 +6,7 @@ import { provideAlbumPhotoStore } from '@/composables/albumphoto';
 import { getAlbumInfo, getPhotoListInfo, updateAlbum } from '@/service';
 import { showToast } from 'vant';
 import { computed, onMounted, reactive, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { preventBack } from '@/lib/router'
 import ImageCell from '@/components/ImageCell.vue';
 
@@ -26,7 +26,10 @@ provideAlbumPhotoStore({
 onMounted(() => {
   refreshAlbum()
 })
-
+const router = useRouter()
+const handleBack = () => {
+  router.go(-1)
+}
 // 信息展示
 const showInfoPanel = ref(false)
 const listData = ref<InfoItem[]>([])
@@ -103,6 +106,7 @@ const onSubmit = () => {
       <div class="actions safe-padding-top" :class="{
         empty: !album.count
       }">
+        <span @click="handleBack" class="action-item back-btn"><van-icon name="arrow-left" /></span>
         <span @click="handleShowInfoPanel" class="action-item"><i>...</i></span>
       </div>
       <van-popup v-model:show="showInfoPanel" position="right"
@@ -116,6 +120,7 @@ const onSubmit = () => {
         <div class="operation card-margin">
           <van-button v-if="!editMode" @click="handleEdit" type="primary" block round size="small">编辑</van-button>
           <van-button v-else @click="editMode = false" type="danger" block round size="small">取消</van-button>
+          <van-button v-if="!editMode" class="card-margin" @click="showInfoPanel = false" plain block round size="small">关闭</van-button>
         </div>
       </van-popup>
     </template>
@@ -168,7 +173,7 @@ const onSubmit = () => {
   color: #fff;
   background: linear-gradient(to top, rgba(255, 255, 255, 0), rgba(0, 0, 0, 0.3));
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
 
   &.empty {
     color: #000;
@@ -189,6 +194,13 @@ const onSubmit = () => {
       line-height: 20px;
       font-style: normal
     }
+  }
+
+  .back-btn {
+    margin-left: 10px;
+    padding-top: 6px;
+    margin-right: 0;
+    font-size: 20px;
   }
 }
 

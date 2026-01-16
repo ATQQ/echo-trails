@@ -30,5 +30,13 @@ const menus = [
     activeColor: '#f53f3f',
     replace: false
   },
+  {
+    icon: 'apps-o',
+    text: '发现',
+    to: '/discovery',
+    activeIcon: 'apps-o',
+    activeColor: '#2196f3',
+    replace: false
+  },
 ]
 </script>
