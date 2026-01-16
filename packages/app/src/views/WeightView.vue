@@ -51,7 +51,7 @@ const state = reactive({
 
 // 体重数据
 const weights = ref<WeightRecord[]>([])
-const peopleOption = ref<{text: string, value: string}[]>([
+const peopleOption = ref<{ text: string, value: string }[]>([
   { text: '默认', value: 'default' }
 ])
 
@@ -80,7 +80,7 @@ function onLoad() {
   // Given the instruction, I will just implement the loading logic.
 
   if (state.people === 'default' && peopleOption.value.length > 1 && !peopleOption.value.find(v => v.value === 'default')) {
-     // Edge case handling similar to existing code, but maybe unnecessary here if handled in watchEffect
+    // Edge case handling similar to existing code, but maybe unnecessary here if handled in watchEffect
   }
 
   getWeightList(state.people, page.value, pageSize.value).then(res => {
@@ -453,7 +453,8 @@ onMounted(() => {
 
 <template>
   <div>
-    <van-nav-bar class="safe-padding-top" fixed title="体重记录" left-text="返回" left-arrow @click-left="handleBack" @click-right="handleAddPeople">
+    <van-nav-bar class="safe-padding-top" fixed title="体重记录" left-text="返回" left-arrow @click-left="handleBack"
+      @click-right="handleAddPeople">
       <template #right>
         <van-icon name="plus" size="18" />
       </template>
@@ -466,7 +467,8 @@ onMounted(() => {
       <span class="edit-family-name" @click="handleUpdateName">
         <van-icon name="edit" />
       </span>
-      <span v-if="!loading && weights.length === 0 && state.people !== 'default'" class="delete-family-name" @click="handleDeleteFamily">
+      <span v-if="!loading && weights.length === 0 && state.people !== 'default'" class="delete-family-name"
+        @click="handleDeleteFamily">
         <van-icon name="delete" />
       </span>
     </header>
@@ -500,12 +502,7 @@ onMounted(() => {
       <van-search v-model="searchWeight" placeholder="请输入过滤关键词" input-align="center" />
 
       <div class="weight-list">
-        <van-list
-          v-model:loading="loading"
-          :finished="finished"
-          finished-text="没有更多了"
-          @load="onLoad"
-        >
+        <van-list v-model:loading="loading" :finished="finished" finished-text="没有更多了" @load="onLoad">
           <van-swipe-cell v-for="(t, idx) in showWeights" :key="idx">
             <van-cell :title-style="{ flex: 1.1 }" :border="false" :title="formatDate(t.date)">
               <div style="display: flex; justify-content: space-between">
@@ -526,32 +523,22 @@ onMounted(() => {
       <van-icon name="plus" size="20" />
     </div>
     <!-- 添加家人弹窗 -->
-    <van-dialog
-      v-model:show="showAddPeople" title="添加家人" :confirm-button-color="themeColor" show-cancel-button
-      @open="onOpenPeoplDialog" @confirm="handleSurePeople"
-    >
+    <van-dialog v-model:show="showAddPeople" title="添加家人" :confirm-button-color="themeColor" show-cancel-button
+      @open="onOpenPeoplDialog" @confirm="handleSurePeople">
       <div class="people-dialog">
         <UnderInput v-model="newPeopleName" placeholder="昵称" tips="输入要记录的家人昵称" icon="manager-o" />
       </div>
     </van-dialog>
     <!-- 添加记录弹窗 -->
-    <van-dialog
-      v-model:show="showAddRecord" :title="editMode ? '修改记录' : '录入记录'" confirm-button-color="#1989fa" show-cancel-button
-      @confirm="handleSureRecord"
-    >
+    <van-dialog v-model:show="showAddRecord" :title="editMode ? '修改记录' : '录入记录'" confirm-button-color="#1989fa"
+      show-cancel-button @confirm="handleSureRecord">
       <div class="record-dialog">
-        <van-field
-          v-model="state.date" readonly clickable name="calendar" label="日期" placeholder="点击选择日期"
-          @click="state.showCalendar = true"
-        />
-        <van-field
-          v-model="state.time" readonly clickable name="datetimePicker" label="时间" placeholder="点击选择时间"
-          @click="state.showTime = true"
-        />
-        <van-field
-          v-model="state.weight" clickable type="number" name="weight" :label="`体重(${isKG ? 'kg' : '斤'})`"
-          placeholder="点击设置体重"
-        />
+        <van-field v-model="state.date" readonly clickable name="calendar" label="日期" placeholder="点击选择日期"
+          @click="state.showCalendar = true" />
+        <van-field v-model="state.time" readonly clickable name="datetimePicker" label="时间" placeholder="点击选择时间"
+          @click="state.showTime = true" />
+        <van-field v-model="state.weight" clickable type="number" name="weight" :label="`体重(${isKG ? 'kg' : '斤'})`"
+          placeholder="点击设置体重" />
         <van-field v-model="state.tips" clickable type="text" name="tips" label="备注" placeholder="(选填)" />
       </div>
     </van-dialog>
@@ -560,10 +547,8 @@ onMounted(() => {
       <van-time-picker v-model="state.timeValue" @confirm="handleSureTime" @cancel="state.showTime = false" />
     </van-popup>
     <!-- 日历 -->
-    <van-calendar
-      v-model:show="state.showCalendar" :min-date="minDate" :max-date="maxDate" :color="themeColor"
-      @confirm="handleSureDate"
-    />
+    <van-calendar v-model:show="state.showCalendar" :min-date="minDate" :max-date="maxDate" :color="themeColor"
+      @confirm="handleSureDate" />
   </div>
 </template>
 
@@ -575,42 +560,50 @@ onMounted(() => {
 .record-dialog {
   padding: 1rem 0;
 }
+
 .current-time {
   padding-top: 2rem;
   text-align: center;
   font-size: 0.65rem;
   color: #6d6d6d;
 }
+
 .current-weight {
   text-align: center;
   font-size: 3rem;
   font-weight: bold;
+
   span {
     font-size: 0.8rem;
     padding-left: 0.5rem;
     font-weight: normal;
   }
 }
+
 .rank {
   text-align: center;
   font-weight: bold;
   font-size: 0.9rem;
   color: #6d6d6d;
   margin-bottom: 0.5rem;
+
   .inc,
   .dec {
     display: inline-block;
+
     &::after {
       display: inline-block;
       font-weight: bold;
     }
   }
+
   .dec::after {
     content: '轻';
     color: green;
     font-size: 10px;
     transform: scale(0.8);
   }
+
   .inc::after {
     content: '增加';
     color: #ff6034;
@@ -630,7 +623,7 @@ onMounted(() => {
   padding-bottom: 3rem;
 }
 
-.control{
+.control {
   text-align: center;
 }
 
@@ -657,19 +650,25 @@ onMounted(() => {
   line-height: 1rem;
 }
 
-.family-select-wrapper{
+.family-select-wrapper {
   position: relative;
   margin-top: 46px;
 
-  .edit-family-name{
+  .edit-family-name {
     position: absolute;
     right: 1rem;
-    top: 30%;
+    top: 50%;
   }
-  .delete-family-name{
+
+  .delete-family-name {
     position: absolute;
     left: 1rem;
-    top: 30%;
+    top: 50%;
   }
+}
+</style>
+<style>
+.van-dropdown-item__content {
+  padding-top: 0;
 }
 </style>

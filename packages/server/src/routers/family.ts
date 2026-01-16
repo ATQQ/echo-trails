@@ -16,7 +16,7 @@ export default function familyRouter(router: Hono) {
   // List families
   router.get('/list', async (c) => {
     const username = c.get('username' as any)
-    const list = await Family.find({ username, isDelete: false }).sort({ createdAt: 1 })
+    const list = await Family.find({ username, isDelete: { $ne: true } }).sort({ createdAt: 1 })
     return c.json({ code: 0, data: list })
   })
 
@@ -30,7 +30,7 @@ export default function familyRouter(router: Hono) {
     }
 
     // Check duplicate name
-    const exists = await Family.findOne({ username, name, isDelete: false })
+    const exists = await Family.findOne({ username, name, isDelete: { $ne: true } })
     if (exists) {
       return c.json({ code: 400, message: 'Name already exists' })
     }
