@@ -57,6 +57,7 @@ const peopleOption = ref<{text: string, value: string}[]>([
 
 // 搜索关键字
 const searchWeight = ref('')
+const loading = ref(true)
 
 // 实际展示的列表
 const showWeights = computed(() =>
@@ -83,11 +84,14 @@ function refreshFamilies() {
   // store.dispatch('weight/getFamilyList')
   getFamilyList().then(res => {
     if (res.code === 0) {
-      peopleOption.value = [
-        { text: '默认', value: 'default' },
-        ...res.data.map(m => ({ text: m.name, value: m.familyId }))
-      ]
+      const list = res.data.map(m => ({ text: m.name, value: m.familyId }))
+      if (!list.find(v => v.value === 'default')) {
+        list.unshift({ text: '默认', value: 'default' })
+      }
+      peopleOption.value = list
     }
+  }).finally(() => {
+    loading.value = false
   })
 }
 
@@ -426,7 +430,7 @@ onMounted(() => {
       <span class="edit-family-name" @click="handleUpdateName">
         <van-icon name="edit" />
       </span>
-      <span v-if="weights.length === 0 && state.people !== 'default'" class="delete-family-name" @click="handleDeleteFamily">
+      <span v-if="!loading && weights.length === 0 && state.people !== 'default'" class="delete-family-name" @click="handleDeleteFamily">
         <van-icon name="delete" />
       </span>
     </header>
