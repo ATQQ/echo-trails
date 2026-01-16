@@ -12,6 +12,10 @@
     <div class="safe-padding-top" style="width: 100%"></div>
     <!-- 基本信息卡片展示 -->
     <InfoCard :data="listData" />
+    <!-- 关闭按钮 -->
+    <div class="operation card-margin">
+      <van-button @click="showInfoPanel = false" plain block round size="small">关闭</van-button>
+    </div> 。
   </van-popup>
 </template>
 
@@ -90,5 +94,13 @@ preventBack(showInfoPanel)
   .actions .van-icon {
     margin-right: 16px;
   }
+}
+
+.card-margin {
+  margin-top: 20px;
+}
+
+.operation {
+  padding: var(--van-cell-group-inset-padding);
 }
 </style>
