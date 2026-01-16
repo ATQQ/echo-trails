@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { showConfirmDialog, showFailToast, showSuccessToast } from 'vant'
-import { computed, onMounted, reactive, ref, watchEffect } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { getWeightDiff, getTimeDiffDes } from '@/lib/weight-utils'
 import { getWeightList, addWeight, updateWeight, deleteWeight, type WeightRecord } from '@/service/weight'
@@ -9,6 +9,7 @@ import UnderInput from '@/components/UnderInput.vue'
 import dayjs from 'dayjs'
 import { Chart } from '@antv/f2'
 import ScrollBar from '@antv/f2/es/plugin/scroll-bar'
+import '@antv/f2/es/interaction/pan'
 
 // Register ScrollBar plugin
 Chart.plugins.register(ScrollBar)
@@ -327,6 +328,15 @@ const overviewData = computed(() => {
 })
 
 const mychart = ref(null as unknown as HTMLCanvasElement) // Changed type to HTMLCanvasElement for F2
+let chartInstance: any = null
+
+onUnmounted(() => {
+  if (chartInstance) {
+    chartInstance.destroy()
+    chartInstance = null
+  }
+})
+
 watchEffect(() => {
   // demo: https://antv-2018.alipay.com/zh-cn/f2/3.x/demo/interaction/pan-for-line-chart.html
   if (weights.value.length !== 0 && mychart.value) {
@@ -342,19 +352,24 @@ watchEffect(() => {
       v.idx = idx + 1
     })
 
+    if (chartInstance) {
+      chartInstance.destroy()
+    }
+
     // Step 1: 创建 Chart 对象
-    const chart = new Chart<WeightRecord>({
+    chartInstance = new Chart<WeightRecord>({
       el: mychart.value,
       pixelRatio: window.devicePixelRatio // 指定分辨率
     })
+    const chart = chartInstance
     const wMax = Math.max(...data.map(v => v.weight))
     const wMin = Math.min(...data.map(v => v.weight))
     const buf = 4
-    // @ts-expect-error
     chart.source(data, {
       weight: {
         min: wMin - buf > 0 ? wMin - buf : 0,
-        max: wMax + buf
+        max: wMax + buf,
+        tickCount: 5
       },
       idx: {
         min: data.length - 10 > 0 ? data.length - 10 : 0,
@@ -378,6 +393,11 @@ watchEffect(() => {
         items[0].name = `时间${formatDate(date, 'yyyy-MM-dd hh:mm')} 体重`
       }
     })
+
+    chart.axis('idx', {
+      label: null
+    })
+
     chart.line().position('idx*weight')
     chart.point().position('idx*weight').style({
       lineWidth: 1,
