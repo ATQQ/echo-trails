@@ -36,7 +36,7 @@ const menus = [
     to: '/discovery',
     activeIcon: 'apps-o',
     activeColor: '#2196f3',
-    replace: false
+    replace: true
   },
 ]
 </script>
