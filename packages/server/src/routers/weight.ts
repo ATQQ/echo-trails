@@ -83,7 +83,11 @@ export default function weightRouter(router: Hono) {
       return c.json({ code: 400, message: 'Missing id' })
     }
 
-    const res = await Weight.findOneAndDelete({ _id: id, username })
+    const res = await Weight.findOneAndUpdate(
+      { _id: id, username },
+      { isDelete: true },
+      { new: true }
+    )
 
     if (!res) {
       return c.json({ code: 404, message: 'Record not found' })

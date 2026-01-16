@@ -4,6 +4,7 @@ const familySchema = new mongoose.Schema({
   familyId: { type: String, required: true },
   name: { type: String, required: true },
   username: { type: String, required: true }, // The account owner
+  isDelete: { type: Boolean, default: false },
   createdAt: { type: Date, default: () => new Date() },
   updatedAt: { type: Date, default: () => new Date() }
 }, { timestamps: true });

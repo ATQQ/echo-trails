@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { Family } from '../db/family'
+import { getUniqueKey } from '../lib/string'
 
 export default function familyRouter(router: Hono) {
 
@@ -15,7 +16,7 @@ export default function familyRouter(router: Hono) {
   // List families
   router.get('/list', async (c) => {
     const username = c.get('username' as any)
-    const list = await Family.find({ username }).sort({ createdAt: 1 })
+    const list = await Family.find({ username, isDelete: false }).sort({ createdAt: 1 })
     return c.json({ code: 0, data: list })
   })
 
@@ -29,7 +30,7 @@ export default function familyRouter(router: Hono) {
     }
 
     // Check duplicate name
-    const exists = await Family.findOne({ username, name })
+    const exists = await Family.findOne({ username, name, isDelete: false })
     if (exists) {
       return c.json({ code: 400, message: 'Name already exists' })
     }
@@ -39,7 +40,7 @@ export default function familyRouter(router: Hono) {
     // The Schema has familyId required? Let's check Schema.
     // Schema: familyId: { type: String, required: true }
     // We should generate one.
-    const familyId = new Date().getTime().toString() + Math.random().toString(36).substring(7)
+    const familyId = getUniqueKey()
 
     const res = await Family.create({
       username,
@@ -81,7 +82,11 @@ export default function familyRouter(router: Hono) {
       return c.json({ code: 400, message: 'Missing familyId' })
     }
 
-    const res = await Family.findOneAndDelete({ familyId, username })
+    const res = await Family.findOneAndUpdate(
+      { familyId, username },
+      { isDelete: true },
+      { new: true }
+    )
 
     if (!res) {
       return c.json({ code: 404, message: 'Family member not found' })

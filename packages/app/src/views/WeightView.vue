@@ -78,6 +78,8 @@ function refreshRecord(familyId: string) {
       res.data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       weights.value = res.data
     }
+  }).finally(() => {
+    loading.value = false
   })
 }
 function refreshFamilies() {
@@ -90,8 +92,6 @@ function refreshFamilies() {
       }
       peopleOption.value = list
     }
-  }).finally(() => {
-    loading.value = false
   })
 }
 
