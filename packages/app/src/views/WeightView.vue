@@ -1,18 +1,13 @@
 <script setup lang="ts">
 import { showConfirmDialog, showFailToast, showSuccessToast } from 'vant'
-import { computed, onMounted, onUnmounted, reactive, ref, watchEffect } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { getWeightDiff, getTimeDiffDes } from '@/lib/weight-utils'
 import { getWeightList, addWeight, updateWeight, deleteWeight, type WeightRecord } from '@/service/weight'
 import { getFamilyList, addFamily, updateFamily, deleteFamily, type FamilyMember } from '@/service/family'
 import UnderInput from '@/components/UnderInput.vue'
 import dayjs from 'dayjs'
-import { Chart } from '@antv/f2'
-import ScrollBar from '@antv/f2/es/plugin/scroll-bar'
-import '@antv/f2/es/interaction/pan'
-
-// Register ScrollBar plugin
-Chart.plugins.register(ScrollBar)
+import { createChart, ColorType, LineSeries } from 'lightweight-charts'
 
 const formatDate = (date: any, fmt: string = 'yyyy-MM-dd') => {
   if (!date) return ''
@@ -327,107 +322,105 @@ const overviewData = computed(() => {
   return res
 })
 
-const mychart = ref(null as unknown as HTMLCanvasElement) // Changed type to HTMLCanvasElement for F2
-let chartInstance: any = null
+const chartContainer = ref<HTMLElement | null>(null)
+let chart: any = null
+let series: any = null
 
 onUnmounted(() => {
-  if (chartInstance) {
-    chartInstance.destroy()
-    chartInstance = null
+  if (chart) {
+    chart.remove()
+    chart = null
   }
+  window.removeEventListener('resize', handleResize)
 })
 
-watchEffect(() => {
-  // demo: https://antv-2018.alipay.com/zh-cn/f2/3.x/demo/interaction/pan-for-line-chart.html
-  if (weights.value.length !== 0 && mychart.value) {
-    const data = [
-      ...weights.value.map((v, idx) => ({
-        weight: v.weight,
-        date: v.date,
-        idx
-      }))
-    ]
-    data.sort((a, b) => +new Date(a.date) - +new Date(b.date))
-    data.forEach((v, idx) => {
-      v.idx = idx + 1
-    })
+const handleResize = () => {
+  if (chart && chartContainer.value) {
+    chart.applyOptions({ width: chartContainer.value.clientWidth })
+  }
+}
 
-    if (chartInstance) {
-      chartInstance.destroy()
+watchEffect(async () => {
+  if (weights.value.length !== 0 && chartContainer.value) {
+    await nextTick()
+    if (!chartContainer.value) return
+
+    // 如果图表已存在，先销毁
+    if (chart) {
+      chart.remove()
+      chart = null
     }
 
-    // Step 1: 创建 Chart 对象
-    chartInstance = new Chart<WeightRecord>({
-      el: mychart.value,
-      pixelRatio: window.devicePixelRatio // 指定分辨率
-    })
-    const chart = chartInstance
-    const wMax = Math.max(...data.map(v => v.weight))
-    const wMin = Math.min(...data.map(v => v.weight))
-    const buf = 4
-    chart.source(data, {
-      weight: {
-        min: wMin - buf > 0 ? wMin - buf : 0,
-        max: wMax + buf,
-        tickCount: 5
-      },
-      idx: {
-        min: data.length - 10 > 0 ? data.length - 10 : 0,
-        max: data.length
+    const dataMap = new Map();
+    weights.value.forEach(item => {
+      const time = Math.floor(new Date(item.date).getTime() / 1000); // Lightweight charts uses seconds
+      // Keep the last record for the same timestamp (or handle duplicates as needed)
+      // Since weights are sorted by date desc in weights.value (usually),
+      // if we iterate and set map, the last one set will be from the beginning of weights array
+      // if we iterate forwards? No, Map preserves insertion order but keys are unique.
+      // If we want the latest record for a timestamp, and weights is desc,
+      // the first one we see is the latest.
+      // So if map doesn't have it, set it.
+      if (!dataMap.has(time)) {
+        dataMap.set(time, item.weight);
       }
-    })
-    chart.tooltip({
-      showCrosshairs: true,
-      showItemMarker: false,
-      background: {
-        radius: 2,
-        fill: '#1890FF',
-        padding: [3, 5]
+    });
+
+    const data = Array.from(dataMap.entries())
+      .map(([time, value]) => ({ time: time as any, value }))
+      .sort((a, b) => a.time - b.time);
+
+    chart = createChart(chartContainer.value, {
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: '#969799',
       },
-      nameStyle: {
-        fill: '#fff'
+      width: chartContainer.value.clientWidth,
+      height: 220,
+      grid: {
+        vertLines: { visible: false },
+        horzLines: { color: '#f0f0f0' },
       },
-      onShow: function onShow(ev: any) {
-        const { items } = ev
-        const { date } = items[0].origin
-        items[0].name = `时间${formatDate(date, 'yyyy-MM-dd hh:mm')} 体重`
-      }
+      rightPriceScale: {
+        borderVisible: false,
+        scaleMargins: {
+          top: 0.2,
+          bottom: 0.2,
+        },
+      },
+      timeScale: {
+        borderVisible: false,
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: (time: number) => {
+          return dayjs(time * 1000).format('MM-DD')
+        }
+      },
+      localization: {
+        dateFormat: 'yyyy-MM-dd',
+        timeFormatter: (time: number) => {
+          return dayjs(time * 1000).format('YYYY-MM-DD HH:mm')
+        }
+      },
+      handleScroll: {
+        vertTouchDrag: false,
+      },
     })
 
-    chart.axis('idx', {
-      label: null
+    series = chart.addSeries(LineSeries, {
+      color: '#1989fa',
+      lineWidth: 2,
+      crosshairMarkerVisible: true,
+      lastValueVisible: true,
+      priceLineVisible: false,
     })
 
-    chart.line().position('idx*weight')
-    chart.point().position('idx*weight').style({
-      lineWidth: 1,
-      stroke: '#fff'
-    })
+    series.setData(data)
 
-    chart.interaction('pan')
+    // Fit content
+    chart.timeScale().fitContent()
 
-    // 定义进度条
-    chart.scrollBar({
-      mode: 'x',
-      xStyle: {
-        offsetY: -5
-      }
-    })
-
-    // 绘制 tag
-    if (data.length > 0) {
-      const last = data[data.length - 1]
-      chart.guide().tag({
-        position: [last.idx, last.weight],
-        withPoint: false,
-        content: String(last.weight),
-        limitInPlot: true,
-        offsetX: 5,
-        direct: 'cr'
-      })
-    }
-
-    chart.render()
+    window.addEventListener('resize', handleResize)
   }
 })
 
@@ -514,7 +507,7 @@ onMounted(() => {
         <span :class="t.symbol" />
         <span class="res">{{ t.res }}</span>
       </p>
-      <canvas ref="mychart" style="width: 100%; height: 220px" />
+      <div ref="chartContainer" style="width: 100%; height: 220px" />
       <van-divider :style="{ color: '#1989fa', borderColor: '#1989fa', padding: '0 16px' }">
         体重记录（{{ isKG ? 'kg' : '斤' }}）
         <van-switch v-model="isKG" :size="18" inactive-color="#e8ffee" />
@@ -690,5 +683,8 @@ onMounted(() => {
 <style>
 .van-dropdown-item__content {
   padding-top: 0;
+}
+#tv-attr-logo{
+  display: none;
 }
 </style>

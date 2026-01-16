@@ -86,7 +86,6 @@ const otherApps = ref<AppItem[]>([
 const handleClick = (item: AppItem) => {
   if (item.url) {
     // Navigate if url exists
-    console.log('Navigating to', item.url);
     router.push(item.url);
   } else {
     showToast('功能开发中，敬请期待');

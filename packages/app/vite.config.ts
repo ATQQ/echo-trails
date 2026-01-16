@@ -5,12 +5,14 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
-import Components from 'unplugin-vue-components/vite'
-import { VantResolver } from 'unplugin-vue-components/resolvers'
+import AutoImport from 'unplugin-auto-import/vite';
+import Components from 'unplugin-vue-components/vite';
+import { VantResolver } from '@vant/auto-import-resolver';
 
 function getLocalIp() {
   const nets = networkInterfaces();
   for (const name of Object.keys(nets)) {
+    // @ts-ignore
     for (const net of nets[name]) {
       if (net.family === 'IPv4' && !net.internal) {
         return net.address;
@@ -27,10 +29,16 @@ export default defineConfig({
   plugins: [
     vue(),
     // vueDevTools(),
+    AutoImport({
+      resolvers: [VantResolver()],
+    }),
     Components({
       resolvers: [VantResolver()],
     }),
   ],
+  // build:{
+  //   sourcemap: true
+  // },
   define:{
     'process.env.TAURI': isTauriDev,
   },
