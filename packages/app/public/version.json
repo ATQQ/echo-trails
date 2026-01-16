@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.2.2",
-    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.2.2.apk",
+    "version": "0.3.0",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.3.0.apk",
     "forceUpdate": false,
-    "description": "安装包支持MD5校验",
-    "md5": "bc158f5115fadea6eb2c8ed0fba0f403"
+    "description": "迁移体重记录页面",
+    "md5": "4760ebbcc27310451b62ab4382b7e5aa"
   },
   "ios": {
     "version": "0.1.2",
