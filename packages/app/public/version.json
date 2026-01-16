@@ -22,7 +22,7 @@
     "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.3.0.apk",
     "forceUpdate": false,
     "description": "迁移体重记录页面",
-    "md5": "4760ebbcc27310451b62ab4382b7e5aa"
+    "md5": "c26d5758b098eae84a436d72b523099d"
   },
   "ios": {
     "version": "0.1.2",
