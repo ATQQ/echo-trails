@@ -67,7 +67,7 @@ interface AppItem {
 }
 
 const healthApps = ref<AppItem[]>([
-  { text: '体重记录', icon: 'chart-trending-o', color: '#1989fa' },
+  { text: '体重记录', icon: 'chart-trending-o', color: '#1989fa', url: '/weight-record' },
   { text: '血压监测', icon: 'like-o', color: '#ee0a24' },
 ]);
 
@@ -87,6 +87,7 @@ const handleClick = (item: AppItem) => {
   if (item.url) {
     // Navigate if url exists
     console.log('Navigating to', item.url);
+    router.push(item.url);
   } else {
     showToast('功能开发中，敬请期待');
   }

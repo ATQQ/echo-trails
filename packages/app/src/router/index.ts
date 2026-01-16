@@ -36,6 +36,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/weight-record',
+      name: 'weight',
+      component: () => import('../views/WeightView.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'WeightView'
+      }
+    },
+    {
       path: '/like',
       name: 'like',
       component: () => import('../views/LikeView.vue'),

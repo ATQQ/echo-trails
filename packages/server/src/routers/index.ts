@@ -3,8 +3,10 @@ import fileRouter from "./file";
 import albumRouter from "./album";
 import configRouter from "./config";
 import userRouter from "./user";
+import weightRouter from "./weight";
+import familyRouter from "./family";
 
-const routers = [fileRouter, albumRouter, configRouter, userRouter]
+const routers = [fileRouter, albumRouter, configRouter, userRouter, weightRouter, familyRouter]
 export default function mountedRouter(app: any) {
   routers.forEach(router => {
     const child = new Hono()
