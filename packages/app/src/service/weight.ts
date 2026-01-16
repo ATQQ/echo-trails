@@ -9,8 +9,11 @@ export interface WeightRecord {
   familyId: string;
 }
 
-export const getWeightList = (familyId?: string) => {
-  const searchParams: Record<string, string> = {};
+export const getWeightList = (familyId?: string, page: number = 1, pageSize: number = 30) => {
+  const searchParams: Record<string, string> = {
+    page: String(page),
+    pageSize: String(pageSize)
+  };
   if (familyId) {
     searchParams.familyId = familyId;
   }

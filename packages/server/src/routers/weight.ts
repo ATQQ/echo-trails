@@ -16,12 +16,24 @@ export default function weightRouter(router: Hono) {
   router.get('/list', async (c) => {
     const username = c.get('username' as any)
     const familyId = c.req.query('familyId')
+    const page = parseInt(c.req.query('page') || '1')
+    const pageSize = parseInt(c.req.query('pageSize') || '1000')
 
     const query: any = { username }
     query.familyId = familyId || 'default'
 
     // Sort by date desc
-    const list = await Weight.find(query).sort({ date: -1 }).limit(1000)
+    const list = await Weight.find(query)
+      .sort({ date: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+    
+    // Also return total count for pagination info if needed, 
+    // but for simple infinite scroll, just the list might be enough.
+    // However, knowing if there are more items is helpful.
+    // Let's stick to the current response format { code: 0, data: list } to minimize breakage,
+    // or extend it. The user only asked to "change to pagination interface".
+    // Client checks list length < pageSize to know if finished.
 
     return c.json({ code: 0, data: list })
   })

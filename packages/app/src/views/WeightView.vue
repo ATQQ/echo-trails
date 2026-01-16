@@ -57,7 +57,10 @@ const peopleOption = ref<{text: string, value: string}[]>([
 
 // 搜索关键字
 const searchWeight = ref('')
-const loading = ref(true)
+const loading = ref(false)
+const finished = ref(false)
+const page = ref(1)
+const pageSize = ref(30)
 
 // 实际展示的列表
 const showWeights = computed(() =>
@@ -70,17 +73,50 @@ const showWeights = computed(() =>
   })
 )
 
-function refreshRecord(familyId: string) {
-  // store.dispatch('weight/getRecords', { familyId })
-  getWeightList(familyId).then(res => {
+function onLoad() {
+  // If we are searching locally, we might not want to load more from server?
+  // Or we just load more to find matches?
+  // For now, let's assume search doesn't stop loading, but usually search should probably be server side if data is large.
+  // Given the instruction, I will just implement the loading logic.
+
+  if (state.people === 'default' && peopleOption.value.length > 1 && !peopleOption.value.find(v => v.value === 'default')) {
+     // Edge case handling similar to existing code, but maybe unnecessary here if handled in watchEffect
+  }
+
+  getWeightList(state.people, page.value, pageSize.value).then(res => {
     if (res.code === 0) {
-      // Sort by date desc
-      res.data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      weights.value = res.data
+      const newData = res.data
+      if (page.value === 1) {
+        weights.value = newData
+      } else {
+        weights.value.push(...newData)
+      }
+
+      // Check if finished
+      if (newData.length < pageSize.value) {
+        finished.value = true
+      } else {
+        page.value++
+      }
+    } else {
+      finished.value = true
     }
+  }).catch(() => {
+    finished.value = true
   }).finally(() => {
     loading.value = false
   })
+}
+
+function refreshRecord(familyId: string) {
+  // Reset pagination
+  page.value = 1
+  finished.value = false
+  loading.value = true
+  weights.value = [] // Clear existing to trigger clean load or just let onLoad handle it
+  // onLoad will be triggered by van-list if immediate-check is true (default) and content is not enough
+  // But since we clear weights, it should trigger.
+  onLoad()
 }
 function refreshFamilies() {
   // store.dispatch('weight/getFamilyList')
@@ -417,13 +453,13 @@ onMounted(() => {
 
 <template>
   <div>
-    <van-nav-bar title="体重记录" left-text="返回" left-arrow @click-left="handleBack" @click-right="handleAddPeople">
+    <van-nav-bar class="safe-padding-top" fixed title="体重记录" left-text="返回" left-arrow @click-left="handleBack" @click-right="handleAddPeople">
       <template #right>
         <van-icon name="plus" size="18" />
       </template>
     </van-nav-bar>
     <!-- 选人 -->
-    <header class="family-select-wrapper">
+    <header class="family-select-wrapper safe-padding-top">
       <van-dropdown-menu :active-color="themeColor">
         <van-dropdown-item v-model="state.people" :options="peopleOption" @change="handleSelectPeople" />
       </van-dropdown-menu>
@@ -464,18 +500,25 @@ onMounted(() => {
       <van-search v-model="searchWeight" placeholder="请输入过滤关键词" input-align="center" />
 
       <div class="weight-list">
-        <van-swipe-cell v-for="(t, idx) in showWeights" :key="idx">
-          <van-cell :title-style="{ flex: 1.1 }" :border="false" :title="formatDate(t.date)">
-            <div style="display: flex; justify-content: space-between">
-              <span>{{ (isKG ? t.weight : t.weight * 2).toFixed(2) }}</span>
-              <span>{{ t.tips || '' }}</span>
-            </div>
-          </van-cell>
-          <template #right>
-            <van-button square type="primary" text="编辑" @click="handleUpdateWeight(idx)" />
-            <van-button square type="danger" text="删除" @click="handleDeleteWeight(idx)" />
-          </template>
-        </van-swipe-cell>
+        <van-list
+          v-model:loading="loading"
+          :finished="finished"
+          finished-text="没有更多了"
+          @load="onLoad"
+        >
+          <van-swipe-cell v-for="(t, idx) in showWeights" :key="idx">
+            <van-cell :title-style="{ flex: 1.1 }" :border="false" :title="formatDate(t.date)">
+              <div style="display: flex; justify-content: space-between">
+                <span>{{ (isKG ? t.weight : t.weight * 2).toFixed(2) }}</span>
+                <span>{{ t.tips || '' }}</span>
+              </div>
+            </van-cell>
+            <template #right>
+              <van-button square type="primary" text="编辑" @click="handleUpdateWeight(idx)" />
+              <van-button square type="danger" text="删除" @click="handleDeleteWeight(idx)" />
+            </template>
+          </van-swipe-cell>
+        </van-list>
       </div>
     </main>
     <!-- 添加记录 -->
@@ -616,6 +659,7 @@ onMounted(() => {
 
 .family-select-wrapper{
   position: relative;
+  margin-top: 46px;
 
   .edit-family-name{
     position: absolute;
