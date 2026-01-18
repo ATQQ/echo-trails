@@ -41,7 +41,7 @@ export default function appRouter(app: Hono) {
   // 2. 尝试拉取远程配置
   // 3. 比较版本号
   // 4. 返回处理好的结果给前端
-  return app.get('/app/check-update', async (c) => {
+  app.get('/check-update', async (c) => {
     const currentVersion = c.req.query('version')
     const platform = (c.req.query('platform') || 'android') as keyof PlatformVersion
 
@@ -137,4 +137,6 @@ export default function appRouter(app: Hono) {
       data: result
     })
   })
+
+  return 'app'
 }

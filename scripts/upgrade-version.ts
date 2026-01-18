@@ -9,6 +9,7 @@ const appPackagePath = path.join(rootDir, 'packages/app/package.json');
 const tauriConfPath = path.join(rootDir, 'packages/native/src-tauri/tauri.conf.json');
 const cargoTomlPath = path.join(rootDir, 'packages/native/src-tauri/Cargo.toml');
 const versionJsonPath = path.join(rootDir, 'packages/app/public/version.json');
+const updateJsonPath = path.join(rootDir, 'packages/app/public/update.json');
 
 async function main() {
   // 1. Read current version from packages/app/package.json
@@ -116,51 +117,87 @@ async function main() {
   if (fs.existsSync(versionJsonPath)) {
     const versionData = JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
 
-    // Update top level version if exists, or just ensure structure
-    // Based on previous context, we might want to update specific platform versions
-    // But usually version.json tracks the latest version.
-    // Let's assume we update all platforms to the new version for now,
-    // or just a global version field if it exists.
-
-    // Looking at previous user edits, the structure seems to be:
-    // { "macos": { "version": "...", "url": "..." }, ... }
-
     const platforms = ['android'];
     let updated = false;
 
     for (const platform of platforms) {
       if (versionData[platform]) {
-        const oldVersion = versionData[platform].version;
-        versionData[platform].version = newVersion;
+        // Handle array format (new) or object format (old)
+        if (Array.isArray(versionData[platform])) {
+          // For version.json, we probably just want to update the latest version in place
+          // OR prepend a new one? Usually version.json is for "latest" check.
+          // But if it's history-aware, we should prepend.
+          // User requirement: "version.json also updated to latest structure"
+          // Let's assume we prepend a new entry for history.
 
-        // Update description if provided
-        if (description) {
-          versionData[platform].description = description;
-        }
+          const currentLatest = versionData[platform][0] || {};
+          const oldVersion = currentLatest.version;
 
-        // Update downloadUrl if it contains the old version
-        if (versionData[platform].downloadUrl && oldVersion) {
-          versionData[platform].downloadUrl = versionData[platform].downloadUrl.replace(oldVersion, newVersion);
+          const newEntry = {
+            ...currentLatest,
+            version: newVersion,
+            description: description || currentLatest.description,
+            // Reset fields that should be new
+            md5: undefined,
+            downloadUrl: currentLatest.downloadUrl ? currentLatest.downloadUrl.replace(oldVersion, newVersion) : ''
+          };
+
+          versionData[platform].unshift(newEntry);
+          updated = true;
+        } else {
+          // Old object format
+          const oldVersion = versionData[platform].version;
+          versionData[platform].version = newVersion;
+
+          if (description) {
+            versionData[platform].description = description;
+          }
+
+          if (versionData[platform].downloadUrl && oldVersion) {
+            versionData[platform].downloadUrl = versionData[platform].downloadUrl.replace(oldVersion, newVersion);
+          }
+          updated = true;
         }
-        updated = true;
       }
-    }
-
-    // If no platform specific data, maybe it's a simple structure?
-    // Let's also check for a root 'version' key just in case.
-    if (versionData.version) {
-      versionData.version = newVersion;
-      updated = true;
     }
 
     if (updated) {
       fs.writeFileSync(versionJsonPath, JSON.stringify(versionData, null, 2) + '\n');
       console.log(`Updated ${path.relative(rootDir, versionJsonPath)}`);
-    } else {
-      console.log(`No version fields found to update in ${path.relative(rootDir, versionJsonPath)}`);
+    }
+  }
+
+  // Update packages/app/public/update.json
+  if (fs.existsSync(updateJsonPath)) {
+    const updateData = JSON.parse(fs.readFileSync(updateJsonPath, 'utf-8'));
+    const platforms = ['android'];
+    let updated = false;
+
+    for (const platform of platforms) {
+      if (updateData[platform] && Array.isArray(updateData[platform])) {
+        const currentLatest = updateData[platform][0] || {};
+        const oldVersion = currentLatest.version;
+
+        const newEntry = {
+          ...currentLatest,
+          version: newVersion,
+          description: description || currentLatest.description,
+          md5: undefined, // Clear MD5 for new version
+          downloadUrl: currentLatest.downloadUrl ? currentLatest.downloadUrl.replace(oldVersion, newVersion) : ''
+        };
+
+        // Prepend new version
+        updateData[platform].unshift(newEntry);
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      fs.writeFileSync(updateJsonPath, JSON.stringify(updateData, null, 2) + '\n');
+      console.log(`Updated ${path.relative(rootDir, updateJsonPath)}`);
     }
   } else {
-    console.warn(`Warning: ${versionJsonPath} not found.`);
+    console.warn(`Warning: ${updateJsonPath} not found.`);
   }
 
   console.log('\nUpgrade completed successfully!');

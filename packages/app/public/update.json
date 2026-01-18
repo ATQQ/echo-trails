@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.3.1",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.3.1.apk",
+      "forceUpdate": false,
+      "description": "修复图片时间获取异常问题;优化版本升级逻辑",
+      "md5": "7e27774e2ec8b73a97c4e45b40fe3768"
+    },
+    {
       "version": "0.3.0",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.3.0.apk",
       "forceUpdate": false,

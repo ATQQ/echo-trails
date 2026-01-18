@@ -7,7 +7,7 @@ import weightRouter from "./weight";
 import familyRouter from "./family";
 import appRouter from "./app";
 
-const routers = [fileRouter, albumRouter, configRouter, userRouter, weightRouter, familyRouter, appRouter]
+const routers = [appRouter, fileRouter, albumRouter, configRouter, userRouter, weightRouter, familyRouter]
 export default function mountedRouter(app: any) {
   routers.forEach(router => {
     const child = new Hono()
