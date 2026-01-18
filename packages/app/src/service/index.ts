@@ -80,7 +80,7 @@ export function uploadFile(file: File, url: string, onProgress?: (progress: numb
     if (onProgress) {
       xhr.upload.addEventListener('progress', (event) => {
         if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100)
+          const percent = Math.floor((event.loaded / event.total) * 100)
           onProgress(percent)
         }
       })

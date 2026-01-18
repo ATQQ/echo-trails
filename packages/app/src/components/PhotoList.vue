@@ -84,18 +84,18 @@ const loadCache = () => {
       photoList.length = 0
       existPhotoMap.clear()
       repeatPhotoMap.clear()
-      
+
       cache.list.forEach((p: Photo) => {
         photoList.push(p)
         existPhotoMap.set(p._id, p)
         // 恢复去重 map (如果有必要，或者等待下次 wrapperRepeat)
         if (p.isRepeat) {
-             // 这里简化处理，不完全恢复 repeatPhotoMap 可能影响不大，
-             // 因为 repeatPhotoMap 主要用于 wrapperRepeat 函数，
-             // 而缓存的数据应该是已经 wrapper 过的。
+          // 这里简化处理，不完全恢复 repeatPhotoMap 可能影响不大，
+          // 因为 repeatPhotoMap 主要用于 wrapperRepeat 函数，
+          // 而缓存的数据应该是已经 wrapper 过的。
         }
       })
-      
+
       pageInfo.pageIndex = cache.pageIndex || 1
       showEmpty.value = photoList.length === 0
       return true
@@ -157,7 +157,13 @@ const loadNext = async (index = 0, pageSize = 0) => {
       }
     })
     showEmpty.value = photoList.length === 0
+    // 按时间排个序
+    photoList.sort((a, b) => {
+      return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+    })
 
+    // 更新缓存
+    saveCache()
     // 指定页码时不做额外操作
     if (index || pageSize) {
       return
@@ -170,8 +176,6 @@ const loadNext = async (index = 0, pageSize = 0) => {
       // 没有更多数据了
       hasMoreData.value = false
     }
-    // 更新缓存
-    saveCache()
   }).finally(() => {
     pageInfo.lock = false
   })
@@ -231,52 +235,52 @@ watch(isActive, (active) => {
       // 原有逻辑：
       // loadNext()
       // registerScrollListener()
-      
+
       // 如果我们保留了数据，再次激活时是否需要 loadNext?
       // 通常 keep-alive 激活时不需要重新加载第一页，除非为了刷新数据。
       // 原有逻辑在 active 为 true 时调用了 loadNext()，这可能会导致重复请求第一页（如果 pageIndex 没变）或者请求下一页？
       // 让我们看下 loadNext 实现：如果 index/pageSize 未传，使用 pageInfo.pageIndex。
       // 如果之前加载到了第 3 页，再次激活时会请求第 3 页。这可能不是想要的行为（可能是想刷新或者保持不动）。
-      
+
       // 假设原有逻辑是合理的（虽然看起来有点怪），我们尽量保持兼容。
       // 但为了利用缓存且避免闪烁，如果已经有数据，我们就不自动 loadNext 了？
       // 或者，如果已经有数据，我们静默刷新？
-      
+
       // 鉴于用户需求是“首次快速加载，不用重复发起请求”，
       // 我们可以认为：如果 photoList 有数据（无论是缓存恢复的还是内存中保留的），就不必立即 loadNext。
       // 但为了数据新鲜度，可能需要后台静默更新。
-      
+
       // 让我们修改逻辑：
       // 1. 如果没数据 -> loadCache -> 成功则显示缓存 -> 失败则 loadNext
       // 2. 如果有数据 -> 可能是内存中的 -> 不做操作（或者根据需求刷新）
-      
+
       // 原有逻辑是：
-      // loadNext() 
+      // loadNext()
       // 这意味着每次 activated 都会请求一次数据。
       // 结合 loadNext 内部逻辑：
       // getPhotos(index || pageInfo.pageIndex, ...)
       // 如果 pageIndex 已经增加了，这会请求“当前页”。
-      
+
       // 我们调整为：只有当没有数据时，或者缓存失效时，才发起请求。
       // 如果从缓存恢复了，就不请求了（除非用户手动下拉刷新）。
       // 如果内存里有数据，也不请求了。
-      
+
       // 但是，如果用户在其他设备删除了照片，这里不刷新就看不到了。
       // AlbumView 的逻辑是 20 分钟过期。
       // 这里我们已经加了 loadCache 的 20 分钟过期检查。
       // 所以如果 loadCache 成功，或者是内存数据，我们可以暂不刷新，或者静默刷新。
-      
+
       // 为了严格遵循“不用重复发起请求”，我们仅在数据为空时尝试加载。
     }
-    
+
     // 修正：如果原有逻辑是每次都 loadNext，那可能是为了自动加载更多？
     // 或者是因为 keep-alive 的行为？
-    
+
     // 如果我们只在 photoList 为空时加载：
     if (photoList.length === 0) {
-         loadNext()
+      loadNext()
     }
-    
+
     registerScrollListener()
   } else {
     unregisterScrollListener()
@@ -285,6 +289,7 @@ watch(isActive, (active) => {
 
 // 正式列表展示使用 computed 进行groupBy分组
 const showPhotoList = computed(() => {
+  // 按时间排个序
   // 按照 category 进行分组
   return photoList.reduce<{ title: string, weekDay: string, photos: (Photo & { idx: number })[] }[]>((pre, cur, idx) => {
     const { category } = cur
@@ -738,15 +743,48 @@ const handleOpenFile = async () => {
   const files = await Promise.all(selected.map(async v => {
     const _file = await readFile(v, { baseDir: BaseDirectory.Resource })
     const fileInfo = await lstat(v, { baseDir: BaseDirectory.Resource })
+    // 如果 mtime 是当前时间，尝试使用 birthtime
+    const fileTime = fileInfo.mtime || new Date()
+
+    // Tauri 的 lstat 在某些系统/文件系统上可能返回不准确的 mtime，
+    // 或者当文件被复制/移动时，mtime 可能会更新。
+    // 如果有 birthtime (创建时间)，优先使用它可能更接近原始拍摄时间？
+    // 但在 Linux/Unix 上 birthtime 可能不可靠。
+    // 另外，如果是从手机相册选取的临时文件，系统可能会创建一个临时副本，导致 mtime 是当前时间。
+    // 如果是这种情况，我们可能需要依赖 EXIF 数据来获取真实的拍摄时间。
+    // 这里我们先获取 EXIF。
 
     // Uint8Array 转 blob
     const file = new Blob([_file.buffer], { type: 'image/jpeg' })
-    const exif = await getImageExif(_file.buffer)
+    const exif: any = await getImageExif(_file.buffer)
+
+    // 尝试从 EXIF 获取拍摄时间
+    let exifDate: Date | null = null
+    if (exif && exif['DateTimeOriginal']) {
+      // DateTimeOriginal 格式通常是 "YYYY:MM:DD HH:MM:SS"
+      const dateStr = exif['DateTimeOriginal'].description
+      if (dateStr) {
+        // 替换冒号为连字符以兼容 Date 解析 (部分浏览器可能不支持 YYYY:MM:DD)
+        // 格式化为 "YYYY-MM-DDTHH:MM:SS" 或直接尝试解析
+        const parts = dateStr.split(' ');
+        if (parts.length >= 2) {
+          const dateParts = parts[0].split(':');
+          if (dateParts.length === 3) {
+            const timeStr = parts[1];
+            exifDate = new Date(`${dateParts.join('-')}T${timeStr}`);
+          }
+        }
+      }
+    }
+
+    // 优先级：EXIF 时间 > 文件修改时间 > 当前时间
+    const finalDate = exifDate || fileTime;
+
     const name = decodeURIComponent(v).split('/').pop()
     Object.assign(file, {
       name,
-      lastModified: +(fileInfo.mtime || new Date()),
-      lastModifiedDate: fileInfo.mtime || new Date(),
+      lastModified: +finalDate,
+      lastModifiedDate: finalDate,
     })
     return new Promise((resolve) => {
       resolve({
@@ -813,14 +851,8 @@ const handleOpenFile = async () => {
         <!-- 空白块，用于触发列表滚动加载 -->
         <!-- 加载更多按钮 -->
         <div class="load-more-container" v-if="!showEmpty && photoList.length > 0">
-          <van-button 
-            v-if="hasMoreData" 
-            @click="handleLoadMore" 
-            :loading="pageInfo.lock"
-            type="default"
-            size="small"
-            class="load-more-btn"
-          >
+          <van-button v-if="hasMoreData" @click="handleLoadMore" :loading="pageInfo.lock" type="default" size="small"
+            class="load-more-btn">
             {{ pageInfo.lock ? '加载中...' : '加载更多' }}
           </van-button>
           <div v-else class="no-more-text">没有更多了</div>
