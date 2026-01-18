@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
-import { reactive, computed, watch, toRefs, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
+import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
 import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../service';
 import { generateFileKey, getFileMd5Hash } from '../lib/file';
 import { isTauri, UploadStatus } from '../constants/index'
@@ -17,6 +17,7 @@ import SelectAlbumModal from './SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
 import { onBeforeRouteLeave } from 'vue-router';
+import { invoke } from '@tauri-apps/api/core';
 
 const isActive = ref(true)
 onActivated(() => {
@@ -742,18 +743,26 @@ const handleOpenFile = async () => {
 
   const files = await Promise.all(selected.map(async v => {
     const _file = await readFile(v, { baseDir: BaseDirectory.Resource })
-    const fileInfo = await lstat(v, { baseDir: BaseDirectory.Resource })
-    // 如果 mtime 是当前时间，尝试使用 birthtime
-    const fileTime = fileInfo.mtime || new Date()
 
-    // Tauri 的 lstat 在某些系统/文件系统上可能返回不准确的 mtime，
-    // 或者当文件被复制/移动时，mtime 可能会更新。
-    // 如果有 birthtime (创建时间)，优先使用它可能更接近原始拍摄时间？
-    // 但在 Linux/Unix 上 birthtime 可能不可靠。
-    // 另外，如果是从手机相册选取的临时文件，系统可能会创建一个临时副本，导致 mtime 是当前时间。
-    // 如果是这种情况，我们可能需要依赖 EXIF 数据来获取真实的拍摄时间。
-    // 这里我们先获取 EXIF。
+    // 获取准确的文件时间
+    let fileTime = new Date()
+    try {
+      const info = await invoke<{ last_modified: number, creation_time: number }>('get_file_info', { filePath: v })
+      if (info && info.last_modified > 0) {
+        fileTime = new Date(info.last_modified)
+      }
 
+      // 如果有创建时间，且创建时间早于修改时间（或者修改时间不可信），可以考虑使用创建时间
+      // 不过通常照片的修改时间即为拍摄时间（如果没有被编辑过）。
+      // 在 Android 上 creation_time 并不总是可靠，但 BasicFileAttributes 尽力获取。
+    } catch (e) {
+      console.error('Failed to get file info via Rust:', e)
+      // Fallback to lstat if bridge fails
+      const fileInfo = await lstat(v, { baseDir: BaseDirectory.Resource })
+      if (fileInfo.mtime) {
+        fileTime = fileInfo.mtime
+      }
+    }
     // Uint8Array 转 blob
     const file = new Blob([_file.buffer], { type: 'image/jpeg' })
     const exif: any = await getImageExif(_file.buffer)
@@ -777,7 +786,7 @@ const handleOpenFile = async () => {
       }
     }
 
-    // 优先级：EXIF 时间 > 文件修改时间 > 当前时间
+    // 优先级：EXIF 时间 > Native获取的时间 > 当前时间
     const finalDate = exifDate || fileTime;
 
     const name = decodeURIComponent(v).split('/').pop()

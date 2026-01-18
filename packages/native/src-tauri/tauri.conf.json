@@ -4,8 +4,8 @@
   "version": "0.3.0",
   "identifier": "com.echo-trails.app",
   "build": {
-    "beforeDevCommand": "cd ../app && VITE_BASE_ORIGIN=http://192.168.48.27:1420 VITE_VERSION_URL=https://photo.sugarat.top/version.json TAURI=true bun run dev",
-    "devUrl": "http://192.168.48.27:1420",
+    "beforeDevCommand": "cd ../app && VITE_BASE_ORIGIN=http://192.168.48.42:1420 VITE_VERSION_URL=https://photo.sugarat.top/version.json TAURI=true bun run dev",
+    "devUrl": "http://192.168.48.42:1420",
     "beforeBuildCommand": "cd ../app && VITE_VERSION_URL=https://photo.sugarat.top/version.json VITE_BASE_ORIGIN=https://photo.sugarat.top TAURI=true bun run build",
     "frontendDist": "../../app/dist"
   },

@@ -40,6 +40,11 @@ app.on(
   '*',
   bearerAuth({
     verifyToken: async (token, c) => {
+      // 排除不需要鉴权的路径
+      if (c.req.path.startsWith('/api/app/check-update')) {
+        return true
+      }
+
       // 1. File Users
       const pass = Object.entries(users).some(([username, userMaps]) => {
         const matched = userMaps.find(v => v[1] === token)

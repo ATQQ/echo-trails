@@ -7,10 +7,10 @@ import { isTauri } from '@/constants';
 import { checkLogin } from '@/service';
 import { version } from '../../package.json';
 import { type } from '@tauri-apps/plugin-os';
-import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { api } from "@/lib/request";
 
 const router = useRouter();
 
@@ -80,20 +80,11 @@ const handleCheckUpdate = async () => {
   });
 
   try {
-    const versionUrl = import.meta.env.VITE_VERSION_URL || '/version.json';
-    const res = await tauriFetch(`${versionUrl}?t=${Date.now()}`)
-
-    if (!res.ok) {
-      throw new Error('Check update failed');
-    }
-    const versionInfo = await res.json();
-
+    // 获取当前平台
     let platform = 'macos';
     if (isTauri) {
       platform = await type();
     } else {
-      // 简单判断 Web 端环境，或者统一视为 'web' 或 'macos' (根据需求)
-      // 这里简单映射一下，实际可能需要更详细的 UA 判断
       const ua = navigator.userAgent.toLowerCase();
       if (ua.includes('android')) platform = 'android';
       else if (ua.includes('iphone') || ua.includes('ipad')) platform = 'ios';
@@ -101,26 +92,50 @@ const handleCheckUpdate = async () => {
       else if (ua.includes('linux')) platform = 'linux';
     }
 
-    const currentPlatformInfo = (versionInfo as Record<string, any>)[platform];
+    // 直接调用后端 API 检查更新
+    // 我们需要传入 version 和 platform
+    const res = await api.get('app/check-update', {
+      searchParams: {
+        version: appVersion.value,
+        platform: platform,
+        t: Date.now()
+      }
+    }).json<ServerResponse<any>>(); // 假设 ServerResponse 是通用的 { code, data }
 
-    if (currentPlatformInfo && currentPlatformInfo.version !== appVersion.value) {
+    if (res.code !== 0) {
+      throw new Error(res.message || 'Check update failed');
+    }
+
+    const updateInfo = res.data;
+
+    if (updateInfo && updateInfo.hasUpdate) {
       closeToast();
+
+      // 构建更新提示信息
+      let message = `最新版本：${updateInfo.latestVersion}\n\n${updateInfo.description || ''}`;
+
+      // 如果有详细 changelog
+      if (updateInfo.changelog) {
+          const log = updateInfo.changelog;
+          message = `最新版本：${updateInfo.latestVersion}\n发布日期：${log.date || ''}\n\n${log.description || updateInfo.description}`;
+      }
+
       showConfirmDialog({
         title: '发现新版本',
-        message: `最新版本：${currentPlatformInfo.version}\n\n${currentPlatformInfo.description || ''}`,
+        message: message,
         confirmButtonText: (platform === 'android' && isTauri) ? '应用内更新' : '去更新',
         cancelButtonText: (platform === 'android' && isTauri) ? '浏览器下载' : '取消',
         closeOnClickOverlay: (platform === 'android' && isTauri),
       })
         .then(async () => {
-          if (currentPlatformInfo.downloadUrl) {
+          if (updateInfo.downloadUrl) {
             // Check if we are on Android and use native download
             if (platform === 'android' && isTauri) {
-              handleDownload(currentPlatformInfo.downloadUrl, currentPlatformInfo.version, currentPlatformInfo.md5);
+              handleDownload(updateInfo.downloadUrl, updateInfo.latestVersion, updateInfo.md5);
             } else if (isTauri) {
-               await openUrl(currentPlatformInfo.downloadUrl);
+               await openUrl(updateInfo.downloadUrl);
              } else {
-              window.open(currentPlatformInfo.downloadUrl, '_blank');
+              window.open(updateInfo.downloadUrl, '_blank');
             }
           } else {
             showToast('暂无下载地址');
@@ -129,8 +144,8 @@ const handleCheckUpdate = async () => {
         .catch(async (action: any) => {
           // on cancel
           if (action === 'cancel' && platform === 'android' && isTauri) {
-             if (currentPlatformInfo.downloadUrl) {
-                await openUrl(currentPlatformInfo.downloadUrl);
+             if (updateInfo.downloadUrl) {
+                await openUrl(updateInfo.downloadUrl);
              } else {
                 showToast('暂无下载地址');
              }

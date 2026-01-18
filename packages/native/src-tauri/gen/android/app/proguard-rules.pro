@@ -23,4 +23,11 @@
 # Keep MainActivity installApk method for JNI calls
 -keep class com.echo_trails.app.MainActivity {
     public static void installApk(android.content.Context, java.lang.String);
+    public static com.echo_trails.app.FileInfo getFileInfo(java.lang.String);
+    public static com.echo_trails.app.FileInfo getFileInfoWithContext(android.content.Context, java.lang.String);
+}
+
+# Keep FileInfo class and its fields for JNI calls
+-keep class com.echo_trails.app.FileInfo {
+    <fields>;
 }

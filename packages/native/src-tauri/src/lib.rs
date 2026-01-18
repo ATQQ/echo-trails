@@ -197,6 +197,83 @@ async fn open_apk(app_handle: tauri::AppHandle, file_path: String) -> Result<(),
     }
 }
 
+#[derive(Serialize)]
+struct FileInfo {
+    last_modified: i64,
+    creation_time: i64,
+    size: u64,
+}
+
+#[tauri::command]
+async fn get_file_info(file_path: String) -> Result<FileInfo, String> {
+    #[cfg(target_os = "android")]
+    {
+        let ctx = ndk_context::android_context();
+        let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.map_err(|e| e.to_string())?;
+        let mut env = vm.attach_current_thread().map_err(|e| e.to_string())?;
+        
+        let context = unsafe { jni::objects::JObject::from_raw(ctx.context().cast()) };
+        let class = env.get_object_class(&context).map_err(|e| e.to_string())?;
+        
+        let path_jstr = env.new_string(&file_path).map_err(|e| e.to_string())?;
+        
+        // 调用 Java 方法获取文件信息
+        // 使用 getFileInfoWithContext 以支持 Content URI
+        let result = env.call_static_method(
+            class,
+            "getFileInfoWithContext",
+            "(Landroid/content/Context;Ljava/lang/String;)Lcom/echo_trails/app/FileInfo;",
+            &[JValue::Object(&context), JValue::Object(&path_jstr)]
+        ).map_err(|e| e.to_string())?;
+        
+        let file_info_obj = result.l().map_err(|e| e.to_string())?;
+        
+        if file_info_obj.is_null() {
+             return Err(format!("Failed to get file info for path: {}", file_path));
+        }
+
+        // 获取字段
+        let last_modified = env.get_field(&file_info_obj, "lastModified", "J")
+            .map_err(|e| e.to_string())?
+            .j()
+            .map_err(|e| e.to_string())?;
+            
+        let creation_time = env.get_field(&file_info_obj, "creationTime", "J")
+            .map_err(|e| e.to_string())?
+            .j()
+            .map_err(|e| e.to_string())?;
+
+        let size = env.get_field(&file_info_obj, "size", "J")
+            .map_err(|e| e.to_string())?
+            .j()
+            .map_err(|e| e.to_string())?;
+
+        Ok(FileInfo {
+            last_modified,
+            creation_time,
+            size: size as u64
+        })
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        let metadata = std::fs::metadata(&file_path).map_err(|e| e.to_string())?;
+        let modified = metadata.modified().map_err(|e| e.to_string())?
+            .duration_since(std::time::UNIX_EPOCH).map_err(|e| e.to_string())?
+            .as_millis() as i64;
+            
+        let created = metadata.created().map_err(|e| e.to_string())?
+             .duration_since(std::time::UNIX_EPOCH).map_err(|e| e.to_string())?
+             .as_millis() as i64;
+
+        Ok(FileInfo {
+            last_modified: modified,
+            creation_time: created,
+            size: metadata.len()
+        })
+    }
+}
+
 #[tauri::command]
 async fn upload_token(key: String) -> Result<UploadTokenResponse, String> {
     // 打印环境变量加载状态，用于调试
@@ -319,7 +396,8 @@ pub fn run() {
             save_to_pictures,
             upload_token,
             download_apk,
-            open_apk
+            open_apk,
+            get_file_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
