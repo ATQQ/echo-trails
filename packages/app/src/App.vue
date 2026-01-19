@@ -28,8 +28,8 @@ onMounted(() => {
 
 html,
 body {
-  overscroll-behavior: none;
   /* 禁用弹性滚动 */
+  overscroll-behavior: none;
   --footer-area-height: 70px;
 }
 

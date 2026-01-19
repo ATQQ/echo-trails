@@ -51,6 +51,10 @@ async function presetTauriMode() {
             .van-toast{
               padding: 10px;
             }
+            body {
+              --footer-area-height: calc(60px + constant(safe-area-inset-top));
+              --footer-area-height: calc(60px + env(safe-area-inset-top));
+            }
           `
   } else {
     style.textContent = `
@@ -69,6 +73,9 @@ async function presetTauriMode() {
 
             .van-toast{
               padding: 10px;
+            }
+            body {
+              --footer-area-height: 86px;
             }
           `
   }
