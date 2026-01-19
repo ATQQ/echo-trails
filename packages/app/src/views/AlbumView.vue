@@ -147,7 +147,7 @@ preventBack(showAddModal)
 
 <style scoped lang="scss">
 .album {
-  padding-bottom: 60px;
+  padding-bottom: var(--footer-area-height);
 }
 
 .large-card {

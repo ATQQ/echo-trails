@@ -30,6 +30,7 @@ html,
 body {
   overscroll-behavior: none;
   /* 禁用弹性滚动 */
+  --footer-area-height: 70px;
 }
 
 :root {

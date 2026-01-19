@@ -869,6 +869,11 @@ const handleOpenFile = async () => {
         <div class="block"></div>
       </main>
     </van-pull-refresh>
+    <!-- 回到顶部 -->
+    <van-back-top :bottom="'calc(var(--footer-area-height) + 48px)'" :right="20" :style="{
+      '--van-back-top-icon-size': '16px',
+      '--van-back-top-size': '36px',
+    }" />
     <template v-if="!isDelete">
       <van-button v-if="isTauri" @click="handleOpenFile" class="upload-container tauri-mode">
         <van-icon name="plus" size="16" />
@@ -881,11 +886,6 @@ const handleOpenFile = async () => {
     <!-- 图片预览 -->
     <PreviewImage :is-delete="isDelete" :album="album" v-model:show="showPreview" :images="photoList"
       :start="startPosition" />
-    <!-- 回到顶部 -->
-    <van-back-top :bottom="isTauri ? 140 : 110" :right="20" :style="{
-      '--van-back-top-icon-size': '16px',
-      '--van-back-top-size': '36px',
-    }" />
     <!-- 底部操作栏 -->
     <transition name="van-slide-up">
       <BottomActions style="z-index: 11" :menus="menus" v-show="editData.active" />
@@ -942,7 +942,7 @@ main {
 .upload-container {
   position: fixed;
   right: 20px;
-  bottom: 60px;
+  bottom: var(--footer-area-height);
   --van-button-icon-size: 1em;
   z-index: 1;
   box-sizing: border-box;
@@ -954,7 +954,7 @@ main {
   border: none;
 
   &.tauri-mode {
-    bottom: 90px;
+    // bottom: 90px;
   }
 
   :deep(.van-uploader__input-wrapper) {
