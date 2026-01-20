@@ -46,6 +46,12 @@ _“echo” 可以象征着记忆的回响，过去的经历像回声一样在�
 
 ### 技术栈
 
+<div align="center">
+  <p>
+    <strong>90% 代码由AI驱动生成</strong>
+  </p>
+</div>
+
 - [Web 端](./packages/app/): [Vue 3](https://vuejs.org/) + [Vite](https://vite.dev/) + [Vant](https://vant.pro/vant/) + [Bun](https://bun.sh/)
 - [服务端](./packages/server/): [Bun](https://bun.sh/) + [Hono](https://hono.dev/) + [缤纷云](https://www.bitiful.com/)
 - [Native](./packages/native/): [Tauri](https://v2.tauri.app/)
