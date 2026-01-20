@@ -10,7 +10,6 @@ import AddButton from '@/components/AddButton.vue';
 import ImageCell from '@/components/ImageCell.vue';
 import { useLocalStorage } from '@vueuse/core';
 import { isTauri } from '@/constants';
-
 // const albumList = reactive<{
 //   large: Album[],
 //   small: Album[]
@@ -65,7 +64,9 @@ onActivated(() => {
     lastUpdateData.lastUpdate = Date.now()
     delete (window as any).__PREFETCHED_ALBUMS__
   } else {
-    loadAlbum()
+    // 如果没有数据，则显示loading
+    const isEmpty = !albumList.large?.length && !albumList.small?.length
+    loadAlbum(isEmpty)
   }
 })
 
@@ -104,34 +105,42 @@ preventBack(showAddModal)
   <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)">
     <PageTitle title="相册" :info="false" />
     <div class="album">
-      <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
-      <!-- 大卡片 -->
-      <van-grid :column-num="1" :border="false" :gutter="16">
-        <van-grid-item v-for="album in albumList.large" :key="album._id">
-          <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
-            <ImageCell :src="album.cover" />
-            <!-- 标题和描述 -->
-            <div class="title-desc" :class="{
-              noCover: !album.cover
-            }">
-              <h2>{{ album.name }}</h2>
-              <p>{{ album.description }}</p>
+      <div v-if="loading && !albumList.large?.length && !albumList.small?.length" class="skeleton-container">
+        <div class="skeleton-large skeleton-bg"></div>
+        <div class="skeleton-grid">
+          <div class="skeleton-small skeleton-bg" v-for="i in 4" :key="i"></div>
+        </div>
+      </div>
+      <template v-else>
+        <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
+        <!-- 大卡片 -->
+        <van-grid :column-num="1" :border="false" :gutter="16">
+          <van-grid-item v-for="album in albumList.large" :key="album._id">
+            <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
+              <ImageCell :src="album.cover" />
+              <!-- 标题和描述 -->
+              <div class="title-desc" :class="{
+                noCover: !album.cover
+              }">
+                <h2>{{ album.name }}</h2>
+                <p>{{ album.description }}</p>
+              </div>
             </div>
-          </div>
-        </van-grid-item>
-      </van-grid>
-      <!-- 小卡片分类 -->
-      <van-grid :gutter="10" :column-num="2" :border="false">
-        <van-grid-item v-for="album in albumList.small" :key="album._id">
-          <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
-            <ImageCell :src="album.cover" />
-            <div class="title-desc">
-              <h2>{{ album.name }}</h2>
-              <p>{{ album.count }}</p>
+          </van-grid-item>
+        </van-grid>
+        <!-- 小卡片分类 -->
+        <van-grid :gutter="10" :column-num="2" :border="false">
+          <van-grid-item v-for="album in albumList.small" :key="album._id">
+            <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
+              <ImageCell :src="album.cover" />
+              <div class="title-desc">
+                <h2>{{ album.name }}</h2>
+                <p>{{ album.count }}</p>
+              </div>
             </div>
-          </div>
-        </van-grid-item>
-      </van-grid>
+          </van-grid-item>
+        </van-grid>
+      </template>
     </div>
   </van-pull-refresh>
 
@@ -211,6 +220,44 @@ preventBack(showAddModal)
       font-size: 10px;
       color: #666;
     }
+  }
+}
+
+.skeleton-container {
+  padding: 10px;
+}
+
+.skeleton-bg {
+  background: linear-gradient(90deg, #f2f3f5 25%, #e6e8eb 37%, #f2f3f5 63%);
+  background-size: 400% 100%;
+  border-radius: 10px;
+  animation: skeleton-loading 1.4s ease infinite;
+}
+
+.skeleton-large {
+  width: 100%;
+  height: 100vw;
+  margin-bottom: 16px;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.skeleton-small {
+  width: 100%;
+  height: 40vw;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
   }
 }
 </style>
