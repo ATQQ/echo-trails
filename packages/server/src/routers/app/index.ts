@@ -66,7 +66,7 @@ export default function appRouter(app: Hono) {
     for (const url of urls) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
 
         const response = await fetch(`${url}?t=${Date.now()}`, {
           signal: controller.signal
