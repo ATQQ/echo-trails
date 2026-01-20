@@ -18,9 +18,7 @@
 
 _“echo” 可以象征着记忆的回响，过去的经历像回声一样在这些 “trails” 上徘徊，每当走过，就能听到记忆的声音。_
 
-## 🌰 Examples
-
-<!-- TODO：截图 -->
+![cover](./snapshot/cover.png)
 
 ## 🎯 Roadmap
 

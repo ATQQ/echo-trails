@@ -77,8 +77,8 @@ const mediaApps = ref<AppItem[]>([
 ]);
 
 const otherApps = ref<AppItem[]>([
-  { text: '日历', icon: 'calendar-o', color: '#7232dd' },
-  { text: '计算器', icon: 'balance-o', color: '#f2826a' },
+  { text: '交流', icon: 'chat-o', color: '#07c160' },
+  { text: '纪念日', icon: 'calendar-o', color: '#f2826a' },
   { text: '待办事项', icon: 'todo-list-o', color: '#6739b6' },
   { text: '更多', icon: 'ellipsis', color: '#969799' },
 ]);
