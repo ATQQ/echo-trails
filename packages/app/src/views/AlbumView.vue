@@ -145,9 +145,7 @@ preventBack(showAddModal)
   </van-pull-refresh>
 
   <!-- 添加相册 -->
-  <AddButton :style="{
-    bottom: isTauri ? '90px' : '60px'
-  }" @click="showAddModal = true" v-show="!showAddModal" />
+  <AddButton class="add-position" @click="showAddModal = true" v-show="!showAddModal" />
   <van-popup @close="showAddModal = false" v-model:show="showAddModal" round position="bottom"
     :style="{ height: '50%' }" @closed="reset">
     <EditAlbumCard @submit="onSubmit" :data="addData" btn-type="primary" />
@@ -157,6 +155,10 @@ preventBack(showAddModal)
 <style scoped lang="scss">
 .album {
   padding-bottom: var(--footer-area-height);
+}
+
+.add-position {
+  bottom: var(--footer-area-height);
 }
 
 .large-card {
