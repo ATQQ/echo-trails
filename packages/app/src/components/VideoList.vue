@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import ExifReader from 'exifreader'
 import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
 import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../service';
 import { generateFileKey, getFileMd5Hash } from '../lib/file';
 import { isTauri, UploadStatus } from '../constants/index'
 import { useEventListener } from '@vueuse/core'
-import PreviewImage from '@/components/PreviewImage.vue';
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { providePhotoListStore } from '@/composables/photoList';
-import ImageCell from './ImageCell.vue';
 import pLimit from 'p-limit';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
@@ -18,6 +15,7 @@ import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
 import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
+import VideoCell from './VideoCell.vue';
 
 const isActive = ref(true)
 onActivated(() => {
@@ -51,7 +49,7 @@ const pageInfo = reactive({
 
 // 缓存相关逻辑
 const getCacheKey = () => {
-  return `photo_list_cache_${album?._id || 'all'}_${likedMode}_${isDelete ? 'deleted' : 'normal'}`
+  return `video_list_cache_${album?._id || 'all'}_${likedMode}_${isDelete ? 'deleted' : 'normal'}`
 }
 
 const saveCache = () => {
@@ -147,7 +145,8 @@ const loadNext = async (index = 0, pageSize = 0) => {
   return getPhotos(index || pageInfo.pageIndex, pageSize || pageInfo.pageSize, {
     likedMode,
     albumId: album?._id,
-    isDelete
+    isDelete,
+    type: 'video'
   }).then(res => {
     let addCount = 0
     // 数据去重
@@ -315,29 +314,6 @@ const showPhotoList = computed(() => {
   }, [])
 })
 
-const getImageDimensions = (file: File | Blob): Promise<{ width: number, height: number }> => {
-  return new Promise((resolve) => {
-    const imgUrl = URL.createObjectURL(file)
-    const img = new Image()
-    img.src = imgUrl
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight })
-      URL.revokeObjectURL(imgUrl)
-    }
-    img.onerror = () => {
-      resolve({ width: 0, height: 0 })
-      URL.revokeObjectURL(imgUrl)
-    }
-  })
-}
-
-function getImageExif(file: any) {
-  try {
-    return ExifReader.load(file)
-  } catch {
-    return {}
-  }
-}
 const uploadInfoMap = new Map<FileInfoItem, UploadInfo>()
 const generateUploadInfo = (value: FileInfoItem) => {
   if (uploadInfoMap.has(value)) {
@@ -377,7 +353,7 @@ const addWaitUploadList = (fileInfo: FileInfoItem) => {
   }
 }
 
-const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forceUpload = false) => {
+const uploadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forceUpload = false) => {
   const key = uploadInfo.key
   const { file } = fileInfo
 
@@ -458,7 +434,7 @@ const startUpload = async (values: FileInfoItem[]) => {
     // 记录开始上传的文件原始信息，重传使用
     uploadValueMap.set(info.key, value)
 
-    limit(() => uloadOneFile(value, info))
+    limit(() => uploadOneFile(value, info))
   }
 }
 
@@ -467,7 +443,7 @@ const reUpload = (item: { key: string, url: string, status: UploadStatus, progre
   item.progress = 0
   const fileInfo = uploadValueMap.get(item.key)
   if (fileInfo) {
-    uloadOneFile(fileInfo, generateUploadInfo(fileInfo))
+    uploadOneFile(fileInfo, generateUploadInfo(fileInfo))
   }
 }
 
@@ -500,7 +476,7 @@ const forceUpload = (item: { key: string, url: string, status: UploadStatus, pro
   if (fileInfo) {
     // 重新生成上传信息，跳过重复检测
     const info = generateUploadInfo(fileInfo)
-    limit(() => uloadOneFile(fileInfo, info, true)) // 添加强制上传标志
+    limit(() => uploadOneFile(fileInfo, info, true)) // 添加强制上传标志
   }
 }
 
@@ -509,32 +485,26 @@ const afterRead = async (files: any) => {
   const fileInfoList = await Promise.all(
     [files].flat().map(async value => {
       const { file, objectUrl } = value
-      const exif = value?.exif || await getImageExif(file)
-      // 1. 尝试使用传递的 width/height (from Native handleOpenFile)
       let width = value.width || 0
       let height = value.height || 0
 
-      // 2. 如果没有，尝试从 EXIF 获取
+      // 如果没有宽高（Web上传或Native未获取到），尝试使用Web方法获取
       if (width === 0 || height === 0) {
-        if (exif && exif['Image Width'] && exif['Image Height']) {
-          width = exif['Image Width'].value
-          height = exif['Image Height'].value
-        }
+        const dimensions = await getVideoDimensions(file)
+        width = dimensions.width
+        height = dimensions.height
       }
 
-      // 3. 如果还是没有，使用 Web Image fallback
-      if (width === 0 || height === 0) {
-        const dim = await getImageDimensions(file)
-        width = dim.width
-        height = dim.height
+      const exif: any = value.exif || {
+        'Image Width': { value: width },
+        'Image Height': { value: height }
       }
-
-      // 4. 确保 EXIF 有宽高
+      // 确保 exif 中有宽高
       if (!exif['Image Width']) exif['Image Width'] = { value: width }
-      else exif['Image Width'].value = width
       if (!exif['Image Height']) exif['Image Height'] = { value: height }
-      else exif['Image Height'].value = height
+
       const md5 = await getFileMd5Hash(file)
+
       return {
         file,
         objectUrl,
@@ -770,12 +740,28 @@ providePhotoListStore({
   restorePhotos: handleRestorePhotos
 })
 
+const getVideoDimensions = (file: File | Blob): Promise<{ width: number, height: number }> => {
+  return new Promise((resolve) => {
+    const videoUrl = URL.createObjectURL(file)
+    const video = document.createElement('video')
+    video.src = videoUrl
+    video.onloadedmetadata = () => {
+      resolve({ width: video.videoWidth, height: video.videoHeight })
+      URL.revokeObjectURL(videoUrl)
+    }
+    video.onerror = () => {
+      resolve({ width: 0, height: 0 })
+      URL.revokeObjectURL(videoUrl)
+    }
+  })
+}
+
 const handleOpenFile = async () => {
   const selected = await open({
     multiple: true,
     filters: [{
-      name: 'Image',
-      extensions: ['png', 'jpeg', 'webp', 'gif']
+      name: 'Video',
+      extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm']
     }]
   });
 
@@ -807,48 +793,18 @@ const handleOpenFile = async () => {
         fileTime = fileInfo.mtime
       }
     }
-
     // Uint8Array 转 blob
-    const file = new Blob([_file.buffer], { type: 'image/jpeg' })
-    const exif: any = await getImageExif(_file.buffer)
+    const file = new Blob([_file.buffer], { type: 'video/mp4' })
 
-    // 如果 Native 没获取到，尝试从 EXIF 获取
-    if (width === 0 || height === 0) {
-      if (exif && exif['Image Width'] && exif['Image Height']) {
-        width = exif['Image Width'].value
-        height = exif['Image Height'].value
-      }
+    // 构造 exif 对象
+    const exif: any = {
+      'FileType': { value: fileType },
+      'Image Width': { value: width },
+      'Image Height': { value: height },
     }
 
-    // 填充回 EXIF 对象，以便后续逻辑使用
-    if (!exif['Image Width']) exif['Image Width'] = { value: width }
-    else exif['Image Width'].value = width
-    if (!exif['Image Height']) exif['Image Height'] = { value: height }
-    else exif['Image Height'].value = height
-
-    // 尝试从 EXIF 获取拍摄时间
-    let exifDate: Date | null = null
-    if (exif && exif['DateTimeOriginal']) {
-      // DateTimeOriginal 格式通常是 "YYYY:MM:DD HH:MM:SS"
-      const dateStr = exif['DateTimeOriginal'].description
-      if (dateStr) {
-        // 替换冒号为连字符以兼容 Date 解析 (部分浏览器可能不支持 YYYY:MM:DD)
-        // 格式化为 "YYYY-MM-DDTHH:MM:SS" 或直接尝试解析
-        const parts = dateStr.split(' ');
-        if (parts.length >= 2) {
-          const dateParts = parts[0].split(':');
-          if (dateParts.length === 3) {
-            const timeStr = parts[1];
-            exifDate = new Date(`${dateParts.join('-')}T${timeStr}`);
-          }
-        }
-      }
-    }
-
-    if(!exif['FileType']?.value) exif['FileType'] = { value: fileType }
-
-    // 优先级：EXIF 时间 > Native获取的时间 > 当前时间
-    const finalDate = exifDate || fileTime;
+    // 优先级：Native获取的时间 > 当前时间
+    const finalDate = fileTime;
 
     const name = decodeURIComponent(v).split('/').pop()
     Object.assign(file, {
@@ -861,8 +817,8 @@ const handleOpenFile = async () => {
         file,
         objectUrl: URL.createObjectURL(file),
         exif,
-        width,
-        height,
+        width,  // 传递 width 给 afterRead
+        height, // 传递 height 给 afterRead
       })
     })
   }))
@@ -880,7 +836,7 @@ const handleOpenFile = async () => {
         <!-- 待上传列表 -->
         <van-grid :border="false" square>
           <van-grid-item v-for="item in showUploadList" :key="item.key" class="img-border">
-            <ImageCell :src="item.url">
+            <VideoCell :src="item.url" :cover="item.url">
               <!-- 等待中 -->
               <div v-if="item.status === UploadStatus.PENDING" class="upload-mask">等待上传</div>
               <!-- 上传中 -->
@@ -903,7 +859,7 @@ const handleOpenFile = async () => {
               <div @click="reUpload(item)" v-else-if="item.status === UploadStatus.ERROR" class="error-mask">上传失败
                 <van-icon name="replay" />
               </div>
-            </ImageCell>
+            </VideoCell>
           </van-grid-item>
         </van-grid>
         <!-- 正常列表 -->
@@ -912,8 +868,8 @@ const handleOpenFile = async () => {
             <h2>{{ title }}<span class="week-day"> - {{ weekDay }}</span></h2>
             <van-grid :border="false" square>
               <van-grid-item v-for="item in photos" :key="item.key" class="img-border">
-                <ImageCell @click="previewImage(item.idx)" :src="item.cover" :is-repeat="item.isRepeat"
-                  @longpress="handleLongPress(item.idx)" />
+                <VideoCell @click="previewImage(item.idx)" :src="item.url" :cover="item.cover"
+                  :is-repeat="item.isRepeat" @longpress="handleLongPress(item.idx)" />
                 <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[item.idx] = el" :name="item._id"
                   class="editSelected" />
               </van-grid-item>
@@ -942,12 +898,12 @@ const handleOpenFile = async () => {
         <van-icon name="plus" size="16" />
       </van-button>
       <!-- 上传 -->
-      <van-uploader v-else class="upload-container" :after-read="afterRead" multiple>
+      <van-uploader v-else class="upload-container" :after-read="afterRead" multiple accept="video/*">
         <van-icon name="plus" size="16" />
       </van-uploader>
     </template>
-    <!-- 图片预览 -->
-    <PreviewImage :is-delete="isDelete" :album="album" v-model:show="showPreview" :images="photoList"
+    <!-- 视频预览 -->
+    <PreviewVideo :is-delete="isDelete" :album="album" v-model:show="showPreview" :images="photoList"
       :start="startPosition" />
     <!-- 底部操作栏 -->
     <transition name="van-slide-up">

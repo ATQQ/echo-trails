@@ -46,7 +46,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
   router.post('add/info', async (ctx) => {
     const { key, exif = {}, size, name, lastModified, type, albumId, likedMode, md5 } = await ctx.req.json()
-    const fileType = exif['FileType']?.value || 'unknown'
+    const fileType = exif['FileType']?.value
     const width = exif['Image Width']?.value || 0
     const height = exif['Image Height']?.value || 0
     const username = ctx.get('username')
@@ -104,15 +104,23 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       })
     }
 
-    const { pageSize = 20, page = 1, likedMode, albumId, isDelete } = ctx.req.query()
+    const { pageSize = 20, page = 1, likedMode, albumId, isDelete, type } = ctx.req.query()
     const isLiked = likedMode === 'true'
     const skip = (+page - 1) * +pageSize;
-    const photos = await Photo.find({
+    const query: any = {
       username,
       deleted: !!isDelete,
       ...(isLiked ? { isLiked } : {}),
       ...(albumId ? { albumId } : {}),
-    }).skip(skip)
+    }
+
+    if (type) {
+      query.type = { $regex: new RegExp(`^${type}/`) }
+    }else{
+      query.type = { $regex: new RegExp('^image/') }
+    }
+
+    const photos = await Photo.find(query).skip(skip)
       .limit(+pageSize)
       .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId', 'md5'])
       .sort({
@@ -365,14 +373,20 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
   router.get('photo/listInfo', async (ctx) => {
     const username = ctx.get('username')
-    const { likedMode, albumId, isDelete } = ctx.req.query()
+    const { likedMode, albumId, isDelete, type } = ctx.req.query()
     const isLiked = likedMode === 'true'
-    const photos = await Photo.find({
+    const query: any = {
       username,
       deleted: !!isDelete,
       ...(isLiked ? { isLiked } : {}),
       ...(albumId ? { albumId } : {})
-    })
+    }
+
+    if (type) {
+      query.type = { $regex: new RegExp(`^${type}/`) }
+    }
+
+    const photos = await Photo.find(query)
       .select(['size'])
       .exec()
     if (!photos) {

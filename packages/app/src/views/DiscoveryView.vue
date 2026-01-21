@@ -72,7 +72,7 @@ const healthApps = ref<AppItem[]>([
 ]);
 
 const mediaApps = ref<AppItem[]>([
-  { text: '视频', icon: 'video-o', color: '#07c160' },
+  { text: '视频', icon: 'video-o', color: '#07c160', url: '/video' },
   { text: '音频', icon: 'music-o', color: '#ff976a' },
 ]);
 

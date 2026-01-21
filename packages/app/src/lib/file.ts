@@ -16,8 +16,16 @@ export function generateFileKey(fileInfo: FileInfoItem) {
   const second = fileInfo.date.getSeconds().toString().padStart(2, '0');
   const uploadTime = new Date().getTime()
   const { operator = 'unknow', username = 'unknow' } = JSON.parse(localStorage.getItem('userInfo') || '{}')
+
+  const typeSplit = fileInfo.file.type.split('/')[0]
+  const keySuffix = `${username}/${operator}/${year}-${month}-${day}/${hour}-${minute}-${second}-${uploadTime}-${fileInfo.name}`
+
+  // 视频类型 前缀/video/原视频时间年-月-日/时分秒-上传时间戳-原文件名
+  if (typeSplit === 'video') {
+    return `${import.meta.env.VITE_S3_PREFIX}/video/${keySuffix}`
+  }
   // 前缀/原图时间年-月-日/时分秒-上传时间戳-原文件名
-  return `${import.meta.env.VITE_S3_PREFIX}/${username}/${operator}/${year}-${month}-${day}/${hour}-${minute}-${second}-${uploadTime}-${fileInfo.name}`
+  return `${import.meta.env.VITE_S3_PREFIX}/${keySuffix}`
 }
 
 

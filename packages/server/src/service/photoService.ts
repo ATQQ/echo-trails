@@ -21,12 +21,13 @@ async function parsePhoto(photo: Document<unknown, any, Photo>) {
   // }
 
   // console.log('isRepeat', isRepeat)
+  const isImage = parseData.type.startsWith('image/')
   return {
     ...parseData,
     // 生成链接
     url: await createFileLink(parseData.key),
-    cover: await createCoverLink(parseData.key),
-    preview: await createPreviewLink(parseData.key),
+    cover: await createCoverLink(parseData.key, isImage),
+    preview: await createPreviewLink(parseData.key, isImage),
     category: formatDateTitle(parseData.lastModified),
     // isRepeat,
   }

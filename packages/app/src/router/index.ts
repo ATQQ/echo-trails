@@ -114,6 +114,16 @@ const router = createRouter({
         componentName: 'AccountListView',
         nav: false
       }
+    },
+    {
+      path: '/video',
+      name: 'video',
+      component: () => import('../views/VideoView.vue'),
+      meta: {
+        keepAlive: true,
+        nav: false,
+        componentName: 'VideoView'
+      }
     }
   ],
 })

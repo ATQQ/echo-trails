@@ -26,12 +26,13 @@ import { useRouter } from 'vue-router';
 import { preventBack } from '@/lib/router'
 import InfoCard from './InfoCard.vue';
 import { getPhotoListInfo } from '@/service';
-const { title = '', exit = false, info = true, likedMode = false, setMode = false } = defineProps<{
+const { title = '', exit = false, info = true, likedMode = false, setMode = false, type = '' } = defineProps<{
   title: string
   exit?: boolean
   info?: boolean
   likedMode?: boolean
   setMode?: boolean
+  type?: string
 }>()
 
 const router = useRouter();
@@ -70,7 +71,8 @@ const listData = ref<InfoItem[]>([])
 const handleShowInfoPanel = async () => {
   // 调接口拉数据
   listData.value = await getPhotoListInfo({
-    likedMode
+    likedMode,
+    type
   })
   showInfoPanel.value = true
 }

@@ -109,7 +109,8 @@ export function uploadFile(file: File, url: string, onProgress?: (progress: numb
 export function getPhotos(page: number, pageSize: number, options: {
   likedMode?: boolean,
   albumId?: string,
-  isDelete?: boolean
+  isDelete?: boolean,
+  type?: string
 }) {
   return api.get<ServerResponse<Photo[]>>('file/photo/list', {
     searchParams: {
@@ -117,7 +118,8 @@ export function getPhotos(page: number, pageSize: number, options: {
       pageSize,
       ...(options.likedMode ? { likedMode: true } : {}),
       ...(options.albumId ? { albumId: options.albumId } : {}),
-      ...(options.isDelete ? { isDelete: true } : {})
+      ...(options.isDelete ? { isDelete: true } : {}),
+      ...(options.type ? { type: options.type } : {})
     }
   }).json()
     .then((v) => {
@@ -236,13 +238,15 @@ export function restorePhotos(ids: string[]) {
 export function getPhotoListInfo(options: {
   likedMode?: boolean,
   albumId?: string,
-  isDelete?: boolean
+  isDelete?: boolean,
+  type?: string
 }) {
   return api.get<ServerResponse<InfoItem[]>>('file/photo/listInfo', {
     searchParams: {
       ...(options.likedMode ? { likedMode: true } : {}),
       ...(options.albumId ? { albumId: options.albumId } : {}),
-      ...(options.isDelete ? { isDelete: true } : {})
+      ...(options.isDelete ? { isDelete: true } : {}),
+      ...(options.type ? { type: options.type } : {})
     }
   }).json()
     .then((v) => {

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "tauri": "tauri",
-    "dev": "tauri dev",
+    "dev": "npm run pre:build && tauri dev",
     "dev:android": "npm run pre:build && tauri android dev",
     "build:android": "npm run pre:build && tauri android build && bun run ../../scripts/rename-android-apk.ts",
     "pre:build": "node scripts/preset-build.js"

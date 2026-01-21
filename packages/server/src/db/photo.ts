@@ -8,7 +8,7 @@ const photoSchema = new mongoose.Schema({
   size: { type: Number, required: true },
   width: { type: Number, required: true },
   height: { type: Number, required: true },
-  fileType: { type: String, required: true },
+  fileType: { type: String, required: false, default: '' },
   type: { type: String, required: true },
   bucket: { type: String, required: false },
   deleted: { type: Boolean, required: false, default: false },
@@ -19,7 +19,7 @@ const photoSchema = new mongoose.Schema({
   deleteS3At: { type: Date, required: false, default: null },
   exif: {
     type: mongoose.Schema.Types.Mixed,
-    required: true,
+    required: false,
   },
   md5: { type: String, required: false, default: '' },
   createdBy: { type: String, required: false, default: '' },

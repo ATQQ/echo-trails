@@ -20,6 +20,7 @@ declare module 'vue' {
     PageTitle: typeof import('./src/components/PageTitle.vue')['default']
     PhotoList: typeof import('./src/components/PhotoList.vue')['default']
     PreviewImage: typeof import('./src/components/PreviewImage.vue')['default']
+    PreviewVideo: typeof import('./src/components/PreviewVideo.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SelectAlbumModal: typeof import('./src/components/SelectAlbumModal.vue')['default']
@@ -58,10 +59,14 @@ declare module 'vue' {
     VanPullRefresh: typeof import('vant/es')['PullRefresh']
     VanRow: typeof import('vant/es')['Row']
     VanSearch: typeof import('vant/es')['Search']
+    VanSwipe: typeof import('vant/es')['Swipe']
     VanSwipeCell: typeof import('vant/es')['SwipeCell']
+    VanSwipeItem: typeof import('vant/es')['SwipeItem']
     VanSwitch: typeof import('vant/es')['Switch']
     VanTag: typeof import('vant/es')['Tag']
     VanTimePicker: typeof import('vant/es')['TimePicker']
     VanUploader: typeof import('vant/es')['Uploader']
+    VideoCell: typeof import('./src/components/VideoCell.vue')['default']
+    VideoList: typeof import('./src/components/VideoList.vue')['default']
   }
 }

@@ -202,6 +202,9 @@ struct FileInfo {
     last_modified: i64,
     creation_time: i64,
     size: u64,
+    width: u32,
+    height: u32,
+    file_type: Option<String>,
 }
 
 #[tauri::command]
@@ -248,10 +251,36 @@ async fn get_file_info(file_path: String) -> Result<FileInfo, String> {
             .j()
             .map_err(|e| e.to_string())?;
 
+        let width = env.get_field(&file_info_obj, "width", "I")
+            .map_err(|e| e.to_string())?
+            .i()
+            .map_err(|e| e.to_string())?;
+
+        let height = env.get_field(&file_info_obj, "height", "I")
+            .map_err(|e| e.to_string())?
+            .i()
+            .map_err(|e| e.to_string())?;
+
+        let file_type_obj = env.get_field(&file_info_obj, "fileType", "Ljava/lang/String;")
+            .map_err(|e| e.to_string())?
+            .l()
+            .map_err(|e| e.to_string())?;
+        
+        let file_type: Option<String> = if !file_type_obj.is_null() {
+            Some(env.get_string(&file_type_obj.into())
+                .map_err(|e| e.to_string())?
+                .into())
+        } else {
+            None
+        };
+
         Ok(FileInfo {
             last_modified,
             creation_time,
-            size: size as u64
+            size: size as u64,
+            width: width as u32,
+            height: height as u32,
+            file_type
         })
     }
 
@@ -266,10 +295,30 @@ async fn get_file_info(file_path: String) -> Result<FileInfo, String> {
              .duration_since(std::time::UNIX_EPOCH).map_err(|e| e.to_string())?
              .as_millis() as i64;
 
+        let path = std::path::Path::new(&file_path);
+        let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+        let file_type = match extension.as_str() {
+            "jpg" | "jpeg" => Some("image/jpeg".to_string()),
+            "png" => Some("image/png".to_string()),
+            "gif" => Some("image/gif".to_string()),
+            "webp" => Some("image/webp".to_string()),
+            "mp4" => Some("video/mp4".to_string()),
+            "mov" => Some("video/quicktime".to_string()),
+            "avi" => Some("video/x-msvideo".to_string()),
+            "mkv" => Some("video/x-matroska".to_string()),
+            "webm" => Some("video/webm".to_string()),
+            _ => None,
+        };
+
+        // Desktop platform width/height fetching logic can be added here if needed
+        // For now returning 0
         Ok(FileInfo {
             last_modified: modified,
             creation_time: created,
-            size: metadata.len()
+            size: metadata.len(),
+            width: 0,
+            height: 0,
+            file_type
         })
     }
 }

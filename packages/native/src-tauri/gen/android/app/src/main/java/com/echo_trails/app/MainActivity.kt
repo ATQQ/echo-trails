@@ -13,13 +13,19 @@ import android.database.Cursor
 import android.util.Log
 import android.os.ParcelFileDescriptor
 import android.system.Os
+import android.system.OsConstants
 import android.system.StructStat
 import android.provider.OpenableColumns
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class FileInfo(val lastModified: Long, val creationTime: Long, val size: Long)
+import android.media.MediaMetadataRetriever
+import android.media.ExifInterface
+import android.graphics.BitmapFactory
+import android.webkit.MimeTypeMap
+
+class FileInfo(val lastModified: Long, val creationTime: Long, val size: Long, val width: Int, val height: Int, val fileType: String?)
 
 class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +53,8 @@ class MainActivity : TauriActivity() {
         var lastModified = file.lastModified()
         var creationTime = lastModified
         val size = file.length()
+        var width = 0
+        var height = 0
 
         // 尝试从 BasicFileAttributes 获取更精确的时间 (需要 Android O 以上)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -58,8 +66,47 @@ class MainActivity : TauriActivity() {
                  e.printStackTrace()
              }
         }
+
+        // 获取图片或视频的宽高
+        try {
+            val extension = file.extension.lowercase(Locale.getDefault())
+            val imageExtensions = setOf("jpg", "jpeg", "png", "webp", "gif", "bmp")
+            val videoExtensions = setOf("mp4", "mov", "avi", "mkv", "webm")
+
+            if (imageExtensions.contains(extension)) {
+                val options = BitmapFactory.Options()
+                options.inJustDecodeBounds = true
+                BitmapFactory.decodeFile(filePath, options)
+                width = options.outWidth
+                height = options.outHeight
+            } else if (videoExtensions.contains(extension)) {
+                val retriever = MediaMetadataRetriever()
+                retriever.setDataSource(filePath)
+                val widthStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                val heightStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                // 注意：这里可能需要处理视频旋转角度 (METADATA_KEY_VIDEO_ROTATION)
+                val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                
+                var w = widthStr?.toIntOrNull() ?: 0
+                var h = heightStr?.toIntOrNull() ?: 0
+                
+                if (rotation == "90" || rotation == "270") {
+                    width = h
+                    height = w
+                } else {
+                    width = w
+                    height = h
+                }
+                retriever.release()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         
-        return FileInfo(lastModified, creationTime, size)
+        val extension = file.extension.lowercase(Locale.getDefault())
+        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+
+        return FileInfo(lastModified, creationTime, size, width, height, mimeType)
       } catch (e: Exception) {
         e.printStackTrace()
         return null
@@ -130,8 +177,118 @@ class MainActivity : TauriActivity() {
                         
                         Log.d(TAG, "Got info via PFD + Cursor: mtime=$dateStr, size=$sizeStr")
                         
+                        // 获取媒体宽高
+                        var width = 0
+                        var height = 0
+                        var orientation = 0
+
+                        // 1. 尝试使用 ExifInterface (针对图片，速度快且支持方向)
+                        try {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                                val exif = ExifInterface(fd)
+                                val w = exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH, 0)
+                                val h = exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, 0)
+                                orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+
+                                if (w > 0 && h > 0) {
+                                    if (orientation == ExifInterface.ORIENTATION_ROTATE_90 || 
+                                        orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
+                                        orientation == ExifInterface.ORIENTATION_TRANSPOSE || 
+                                        orientation == ExifInterface.ORIENTATION_TRANSVERSE) {
+                                        width = h
+                                        height = w
+                                    } else {
+                                        width = w
+                                        height = h
+                                    }
+                                    Log.d(TAG, "Got dimensions via ExifInterface: ${width}x${height}")
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "ExifInterface failed: ${e.message}")
+                        }
+
+                        // 重置 FD 指针
+                        try {
+                            Os.lseek(fd, 0L, OsConstants.SEEK_SET)
+                        } catch (e: Exception) {
+                            // ignore
+                        }
+
+                        // 2. 如果还没获取到，尝试 MediaMetadataRetriever (视频 + 图片备选)
+                        if (width == 0 || height == 0) {
+                            try {
+                                val retriever = MediaMetadataRetriever()
+                                retriever.setDataSource(context, uri)
+                                
+                                val wStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH) 
+                                    ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_IMAGE_WIDTH)
+                                val hStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                                    ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_IMAGE_HEIGHT)
+                                val rotStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                                
+                                var w = wStr?.toIntOrNull() ?: 0
+                                var h = hStr?.toIntOrNull() ?: 0
+                                
+                                if (w > 0 && h > 0) {
+                                    if (rotStr == "90" || rotStr == "270") {
+                                        width = h
+                                        height = w
+                                    } else {
+                                        width = w
+                                        height = h
+                                    }
+                                    Log.d(TAG, "Got dimensions via MediaMetadataRetriever: ${width}x${height}")
+                                }
+                                retriever.release()
+                            } catch (e: Exception) {
+                                Log.w(TAG, "MediaMetadataRetriever failed: ${e.message}")
+                            }
+                        }
+
+                        // 3. 最后尝试 BitmapFactory (图片兜底)
+                        if (width == 0 || height == 0) {
+                             try {
+                                val options = BitmapFactory.Options()
+                                options.inJustDecodeBounds = true
+                                BitmapFactory.decodeFileDescriptor(fd, null, options)
+                                width = options.outWidth
+                                height = options.outHeight
+                             } catch (e: Exception) {
+                                Log.w(TAG, "BitmapFactory FD failed: ${e.message}")
+                             }
+
+                             if (width <= 0 || height <= 0) {
+                                 try {
+                                     context.contentResolver.openInputStream(uri)?.use { stream ->
+                                         val options = BitmapFactory.Options()
+                                         options.inJustDecodeBounds = true
+                                         BitmapFactory.decodeStream(stream, null, options)
+                                         width = options.outWidth
+                                         height = options.outHeight
+                                     }
+                                 } catch (e: Exception) {
+                                     Log.w(TAG, "BitmapFactory Stream failed: ${e.message}")
+                                 }
+                             }
+                             
+                             if (width > 0 && height > 0) {
+                                if (orientation == ExifInterface.ORIENTATION_ROTATE_90 || 
+                                    orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
+                                    orientation == ExifInterface.ORIENTATION_TRANSPOSE || 
+                                    orientation == ExifInterface.ORIENTATION_TRANSVERSE) {
+                                    val temp = width
+                                    width = height
+                                    height = temp
+                                }
+                                Log.d(TAG, "Got dimensions via BitmapFactory: ${width}x${height}")
+                             }
+                        }
+
                         // 对于 content uri，creationTime 通常不可用，使用 lastModified
-                        return FileInfo(lastModified, lastModified, size)
+                        val mimeType = context.contentResolver.getType(uri)
+                        Log.d(TAG, "Got info via PFD + Cursor: width=$width, height=$height, mimeType=$mimeType")
+                        return FileInfo(lastModified, lastModified, size, width, height, mimeType)
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to get info via ParcelFileDescriptor: ${e.message}")
@@ -172,7 +329,9 @@ class MainActivity : TauriActivity() {
                              // 如果没有时间但有大小，使用当前时间作为修改时间? 或者 0?
                              // 最好还是尽量返回有效数据
                              val effectiveTime = if (lastModified > 0) lastModified else System.currentTimeMillis()
-                             return FileInfo(effectiveTime, effectiveTime, size)
+                             // Cursor 方式暂时无法高效获取宽高，除非再次打开流
+                             val mimeType = context.contentResolver.getType(uri)
+                             return FileInfo(effectiveTime, effectiveTime, size, 0, 0, mimeType)
                         }
                     }
                 }

@@ -135,10 +135,11 @@ export const bitifulS3Manager = new BitifulS3Manager();
 
 const urlStore = new Store()
 
-export async function createFileLink(key: string, style?: string) {
+export async function createFileLink(key: string, style?: string, queryParams?: string) {
   const Key = style ? `${key}!style:${style}` : key
-  if (urlStore.has(Key)) {
-    return urlStore.get(Key)
+  const cacheKey = queryParams ? `${Key}?${queryParams}` : Key
+  if (urlStore.has(cacheKey)) {
+    return urlStore.get(cacheKey)
   }
 
   const command = new GetObjectCommand({
@@ -150,17 +151,27 @@ export async function createFileLink(key: string, style?: string) {
   if (bitifulConfig.domain.startsWith('http') && bitifulConfig.cdnToken) {
     url = createLink(key, bitifulConfig.domain, bitifulConfig.cdnToken, style)
   }
+
+  if (queryParams) {
+    const separator = url.includes('?') ? '&' : '?'
+    url = `${url}${separator}${queryParams}`
+  }
+
   // 添加缓存，避免频繁构造请求，缓存失效
-  urlStore.set(Key, url, 1000 * 60 * 20 /*20分钟*/)
+  urlStore.set(cacheKey, url, 1000 * 60 * 20 /*20分钟*/)
   return url
 }
 
-export async function createCoverLink(key: string) {
-  return createFileLink(key, bitifulConfig.coverStyle)
+export async function createCoverLink(key: string, isImage = true) {
+  const params = !isImage ? 'frame=0' : undefined
+  const style = isImage ? bitifulConfig.coverStyle : undefined
+  return createFileLink(key, style, params)
 }
 
-export async function createPreviewLink(key: string) {
-  return createFileLink(key, bitifulConfig.previewStyle)
+export async function createPreviewLink(key: string, isImage = true) {
+  const params = !isImage ? 'frame=0' : undefined
+  const style = isImage ? bitifulConfig.previewStyle : undefined
+  return createFileLink(key, style, params)
 }
 
 export async function createAlbumLink(key: string) {
@@ -169,7 +180,7 @@ export async function createAlbumLink(key: string) {
 
 function createLink(key: string, domain: string, token: string, style?: string) {
   const deadLine = Math.floor(Date.now() / 1000) + 60 * 30; // 链接在未来的 60秒 内有效
-  const fileName = `/${key}` + (style ? `!style:${style}` : '')
+  const fileName = `/${key.split('/').map(p => encodeURIComponent(p)).join('/')}` + (style ? `!style:${style}` : '')
   const rawString = token + fileName + deadLine;
   const md5Result = crypto.createHash('md5').update(rawString).digest('hex');
   const tokenLink = domain + fileName + "?_btf_tk=" + md5Result + "&_ts=" + deadLine;

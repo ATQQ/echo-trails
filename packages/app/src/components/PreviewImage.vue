@@ -138,6 +138,7 @@ const fileWH = computed(() => {
 
 const fileType = computed(() => {
   const { type, fileType } = activeImage.value
+  if(!fileType) return type
   return `${type} (${fileType})`
 })
 

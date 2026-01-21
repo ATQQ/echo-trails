@@ -51,6 +51,8 @@ interface FileInfoItem {
   exif: any
   md5?: string
   repeat?: boolean
+  width?: number
+  height?: number
 }
 
 interface UploadInfo {
