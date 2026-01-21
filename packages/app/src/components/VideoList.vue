@@ -582,13 +582,13 @@ const cancelEditMode = () => {
 
 const handleDeletePhotos = async () => {
   if (!editData.selectIds.length) {
-    showNotify({ type: 'warning', message: '请选择要删除的照片' });
+    showNotify({ type: 'warning', message: '请选择要删除的视频' });
     return
   }
   const confirmed = await showConfirmDialog({
     title: '删除确认',
     message:
-      `确定要删除这${editData.selectIds.length}张照片吗？`,
+      `确定要删除这${editData.selectIds.length}个视频吗？`,
   })
     .then(() => {
       return true;
@@ -608,6 +608,7 @@ const handleDeletePhotos = async () => {
   })
   showNotify({ type: 'success', message: '删除成功' });
   cancelEditMode()
+  saveCache()
 }
 
 const handleRestorePhotos = async (ids: string[] = []) => {
@@ -615,7 +616,7 @@ const handleRestorePhotos = async (ids: string[] = []) => {
     editData.selectIds = ids
   }
   if (!editData.selectIds.length) {
-    showNotify({ type: 'warning', message: '请选择要恢复的照片' });
+    showNotify({ type: 'warning', message: '请选择要恢复的视频' });
     return
   }
 
@@ -660,11 +661,11 @@ const menus = computed(() => {
   }
 
   return [
-    {
-      icon: 'star-o',
-      text: '添加相册',
-      handleClick: handleAddAlbum
-    },
+    // {
+    //   icon: 'star-o',
+    //   text: '添加相册',
+    //   handleClick: handleAddAlbum
+    // },
     {
       icon: 'delete-o',
       text: '删除',
