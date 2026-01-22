@@ -26,5 +26,9 @@ const photoSchema = new mongoose.Schema({
   updatedBy: { type: String, required: false, default: '' },
 });
 
+// Add compound index for common list queries
+// Supports: username + deleted + sorting by time + filtering by type
+photoSchema.index({ username: 1, deleted: 1, lastModified: -1, type: 1 });
+
 export type Photo = mongoose.InferSchemaType<typeof photoSchema>;
 export const Photo = mongoose.model('Photo', photoSchema);

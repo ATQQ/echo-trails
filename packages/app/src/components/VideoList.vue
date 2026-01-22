@@ -542,14 +542,6 @@ const editData = reactive({
 
 const showAlbumSelect = ref(false)
 const selectedAlbums = ref<string[]>([])
-const handleAddAlbum = async () => {
-  if (!editData.selectIds.length) {
-    showNotify({ type: 'warning', message: '请选择要添加的照片' });
-    return
-  }
-  showAlbumSelect.value = true
-  selectedAlbums.value = []
-}
 
 // TODO：相册中的照片删除逻辑？
 const handleSaveAlbumSelect = async (albumIds: string[]) => {
@@ -617,7 +609,7 @@ const handleRestorePhotos = async (ids: string[] = []) => {
   const confirmed = await showConfirmDialog({
     title: '恢复确认',
     message:
-      `确定要恢复这${editData.selectIds.length}张照片吗？`,
+      `确定要恢复这${editData.selectIds.length}个视频吗？`,
   })
     .then(() => {
       return true;

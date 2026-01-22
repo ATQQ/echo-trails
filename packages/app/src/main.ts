@@ -39,10 +39,9 @@ async function presetTauriMode() {
               padding-bottom: constant(safe-area-inset-bottom); /* 兼容 iOS < 11.2 */
               padding-bottom: env(safe-area-inset-bottom); /* 兼容 iOS >= 11.2 */
             }
-            .van-popup{
+            .van-popup.van-notify{
               padding-top: calc(8px + constant(safe-area-inset-top));
               padding-top: calc(8px + env(safe-area-inset-top));
-              padding-bottom: 8px;
             }
             .van-dialog {
               padding: 0;
@@ -54,6 +53,10 @@ async function presetTauriMode() {
             body {
               --footer-area-height: calc(60px + constant(safe-area-inset-top));
               --footer-area-height: calc(60px + env(safe-area-inset-top));
+              --safe-area-top: constant(safe-area-inset-top);
+              --safe-area-top: env(safe-area-inset-top);
+              --safe-area-bottom: constant(safe-area-inset-bottom);
+              --safe-area-bottom: env(safe-area-inset-bottom);
             }
           `
   } else {
@@ -64,7 +67,7 @@ async function presetTauriMode() {
             .safe-padding-bottom {
               padding-bottom: 16px;
             }
-            .van-popup{
+            .van-popup.van-notify{
               padding-top: 38px;
             }
             .van-dialog {
@@ -76,6 +79,8 @@ async function presetTauriMode() {
             }
             body {
               --footer-area-height: 86px;
+              --safe-area-top: 30px;
+              --safe-area-bottom: 16px;
             }
           `
   }

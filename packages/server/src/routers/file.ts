@@ -116,7 +116,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
     if (type) {
       query.type = { $regex: new RegExp(`^${type}/`) }
-    }else{
+    } else {
       query.type = { $regex: new RegExp('^image/') }
     }
 
