@@ -10,6 +10,7 @@ const tauriConfPath = path.join(rootDir, 'packages/native/src-tauri/tauri.conf.j
 const cargoTomlPath = path.join(rootDir, 'packages/native/src-tauri/Cargo.toml');
 const versionJsonPath = path.join(rootDir, 'packages/app/public/version.json');
 const updateJsonPath = path.join(rootDir, 'packages/app/public/update.json');
+const serverPackagePath = path.join(rootDir, 'packages/server/package.json');
 
 async function main() {
   // 1. Read current version from packages/app/package.json
@@ -84,6 +85,16 @@ async function main() {
   appPkg.version = newVersion;
   fs.writeFileSync(appPackagePath, JSON.stringify(appPkg, null, 2) + '\n');
   console.log(`Updated ${path.relative(rootDir, appPackagePath)}`);
+
+  // Update packages/server/package.json
+  if (fs.existsSync(serverPackagePath)) {
+    const serverPkg = JSON.parse(fs.readFileSync(serverPackagePath, 'utf-8'));
+    serverPkg.version = newVersion;
+    fs.writeFileSync(serverPackagePath, JSON.stringify(serverPkg, null, 2) + '\n');
+    console.log(`Updated ${path.relative(rootDir, serverPackagePath)}`);
+  } else {
+    console.warn(`Warning: ${serverPackagePath} not found.`);
+  }
 
   // Update packages/native/src-tauri/tauri.conf.json
   if (fs.existsSync(tauriConfPath)) {

@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.3.1",
-    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.3.1.apk",
+    "version": "0.3.2",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.3.2.apk",
     "forceUpdate": false,
-    "description": "修复图片时间获取异常问题;优化版本升级逻辑",
-    "md5": "7e27774e2ec8b73a97c4e45b40fe3768"
+    "description": "支持上传视频",
+    "md5": "d33c8bf7ae0a46f57cd9cf81f44c2d8f"
   },
   "ios": {
     "version": "0.1.2",
