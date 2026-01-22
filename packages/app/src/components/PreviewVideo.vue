@@ -90,10 +90,10 @@
 <script lang="ts" setup>
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { usePhotoListStore } from '@/composables/photoList';
-import { downloadFile, formatSize } from '@/lib/file';
+import { downloadFile, formatSize, generateDownloadFileName } from '@/lib/file';
 import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
 import dayjs from 'dayjs';
-import { showConfirmDialog, showNotify } from 'vant';
+import { showConfirmDialog, showNotify, showLoadingToast, closeToast } from 'vant';
 import { computed, ref, watch } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from './SelectAlbumModal.vue';
@@ -261,7 +261,16 @@ const restorePhotos = () => {
 }
 
 const downloadImage = () => {
-  downloadFile(activeItem.value.preview || activeItem.value.url, activeItem.value.name)
+  const toast = showLoadingToast({
+    message: '下载中...',
+    forbidClick: true,
+    duration: 0,
+  });
+
+  downloadFile(activeItem.value.url, generateDownloadFileName(activeItem.value.name, activeItem.value.type), false)
+    .finally(() => {
+      closeToast();
+    })
 }
 
 const close = () => {

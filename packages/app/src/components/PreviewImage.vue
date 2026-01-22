@@ -62,11 +62,11 @@
 <script lang="ts" setup>
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { usePhotoListStore } from '@/composables/photoList';
-import { downloadFile, formatSize } from '@/lib/file';
+import { downloadFile, formatSize, generateDownloadFileName } from '@/lib/file';
 import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
-import { showConfirmDialog, showNotify } from 'vant';
+import { showConfirmDialog, showNotify, showLoadingToast, closeToast } from 'vant';
 import { computed, ref } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from './SelectAlbumModal.vue';
@@ -272,7 +272,16 @@ const restorePhotos = () => {
 }
 
 const downloadImage = () => {
-  downloadFile(activeImage.value.preview, activeImage.value.name)
+  const toast = showLoadingToast({
+    message: '下载中...',
+    forbidClick: true,
+    duration: 0,
+  });
+
+  downloadFile(activeImage.value.preview, generateDownloadFileName(activeImage.value.name, activeImage.value.type))
+    .finally(() => {
+      closeToast();
+    })
 }
 const menus = computed(() => {
   if (isDelete) {
