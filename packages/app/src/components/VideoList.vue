@@ -16,6 +16,7 @@ import { preventBack } from '@/lib/router'
 import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import VideoCell from './VideoCell.vue';
+import { useTTLStorage } from '@/composables/useTTLStorage';
 
 const isActive = ref(true)
 onActivated(() => {
@@ -52,55 +53,42 @@ const getCacheKey = () => {
   return `video_list_cache_${album?._id || 'all'}_${likedMode}_${isDelete ? 'deleted' : 'normal'}`
 }
 
+const { data: cacheData, load: loadStorage, save: saveStorage } = useTTLStorage<{
+  list: Photo[],
+  pageIndex: number
+}>({
+  key: getCacheKey, // Pass function for dynamic key
+  initialValue: { list: [], pageIndex: 1 },
+  ttl: 15 * 60 * 1000
+})
+
 const saveCache = () => {
-  try {
-    const key = getCacheKey()
-    const data = {
-      list: photoList,
-      pageIndex: pageInfo.pageIndex,
-      lastUpdate: Date.now()
-    }
-    localStorage.setItem(key, JSON.stringify(data))
-  } catch (e) {
-    console.error('Save cache failed:', e)
+  cacheData.value = {
+    list: photoList,
+    pageIndex: pageInfo.pageIndex
   }
+  saveStorage()
 }
 
 const loadCache = () => {
-  try {
-    const key = getCacheKey()
-    const cacheStr = localStorage.getItem(key)
-    if (!cacheStr) return false
+  const success = loadStorage()
+  if (success && cacheData.value.list.length > 0) {
+    const { list, pageIndex } = cacheData.value
+    photoList.length = 0
+    existPhotoMap.clear()
+    repeatPhotoMap.clear()
 
-    const cache = JSON.parse(cacheStr)
-    // 缓存过期时间：20分钟
-    if (Date.now() - cache.lastUpdate > 20 * 60 * 1000) {
-      localStorage.removeItem(key)
-      return false
-    }
+    list.forEach((p: Photo) => {
+      photoList.push(p)
+      existPhotoMap.set(p._id, p)
+      if (p.isRepeat) {
+        // wrapperRepeat logic if needed
+      }
+    })
 
-    if (Array.isArray(cache.list) && cache.list.length > 0) {
-      photoList.length = 0
-      existPhotoMap.clear()
-      repeatPhotoMap.clear()
-
-      cache.list.forEach((p: Photo) => {
-        photoList.push(p)
-        existPhotoMap.set(p._id, p)
-        // 恢复去重 map (如果有必要，或者等待下次 wrapperRepeat)
-        if (p.isRepeat) {
-          // 这里简化处理，不完全恢复 repeatPhotoMap 可能影响不大，
-          // 因为 repeatPhotoMap 主要用于 wrapperRepeat 函数，
-          // 而缓存的数据应该是已经 wrapper 过的。
-        }
-      })
-
-      pageInfo.pageIndex = cache.pageIndex || 1
-      showEmpty.value = photoList.length === 0
-      return true
-    }
-  } catch (e) {
-    console.error('Load cache failed:', e)
+    pageInfo.pageIndex = pageIndex || 1
+    showEmpty.value = photoList.length === 0
+    return true
   }
   return false
 }
@@ -404,12 +392,13 @@ const uploadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, for
         albumPhotoStore?.refreshAlbum?.()
       }
 
-      // 优先展示临时资源链接，避免闪烁
-      result.cover = wrapperItem.url
+      // 优先展示临时资源链接，避免闪烁（会导致缓存数据异常）
+      // result.cover = wrapperItem.url
       // 正式列表数据更新
       if (addPhoto2List(result)) {
         photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
       }
+      saveCache()
       wrapperItem.status = UploadStatus.SUCCESS
 
       // 移除map中的数据
@@ -570,6 +559,7 @@ const handleSaveAlbumSelect = async (albumIds: string[]) => {
       }
     })
   })
+  saveCache()
 
   showAlbumSelect.value = false
   showNotify({ type: 'success', message: '更改成功' });
@@ -732,6 +722,7 @@ const deletePhoto = (id: string) => {
       showEmpty.value = true
     }
   }
+  saveCache()
 }
 const isEmpty = computed(() => !photoList.length)
 providePhotoListStore({

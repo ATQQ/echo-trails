@@ -8,65 +8,54 @@ import EditAlbumCard from '@/components/EditAlbumCard.vue';
 import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton.vue';
 import ImageCell from '@/components/ImageCell.vue';
-import { useLocalStorage } from '@vueuse/core';
-import { isTauri } from '@/constants';
-// const albumList = reactive<{
-//   large: Album[],
-//   small: Album[]
-// }>({
-//   large: [],
-//   small: []
-// })
+import { useTTLStorage } from '@/composables/useTTLStorage';
 
 // 添加本地存储
-const { value: albumList } = useLocalStorage<{
+const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
   large: Album[],
   small: Album[]
-}>('albumList', {
-  large: [],
-  small: []
+}>({
+  key: 'albumList',
+  initialValue: {
+    large: [],
+    small: []
+  },
+  ttl: 15 * 60 * 1000
 })
 
-const clearAlbumList = () => {
-  albumList.large = []
-  albumList.small = []
-}
-
-const { value: lastUpdateData } = useLocalStorage<{
-  lastUpdate: number
-}>('lastUpdate', {
-  lastUpdate: 0
-})
 const showEmpty = ref(false)
 const loading = ref(false)
 const loadAlbum = (_loading = false) => {
   loading.value = _loading
   return getAlbums().then((res) => {
     loading.value = false
-    albumList.large = res.large || []
-    albumList.small = res.small || []
-    showEmpty.value = !albumList.large?.length && !albumList.small?.length
-    lastUpdateData.lastUpdate = Date.now()
+    albumList.value.large = res.large || []
+    albumList.value.small = res.small || []
+    showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
+    saveCache()
   })
 }
 
 onActivated(() => {
-  // 20分钟刷新一次
-  if (Date.now() - lastUpdateData.lastUpdate > 1000 * 60 * 20) {
-    clearAlbumList()
-  }
   // 在这里如果有预请求数据直接回填，不用再发起请求
   if ((window as any).__PREFETCHED_ALBUMS__) {
     const data = (window as any).__PREFETCHED_ALBUMS__
-    albumList.large = data.large || []
-    albumList.small = data.small || []
-    showEmpty.value = !albumList.large?.length && !albumList.small?.length
-    lastUpdateData.lastUpdate = Date.now()
+    albumList.value.large = data.large || []
+    albumList.value.small = data.small || []
+    showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
+    saveCache()
     delete (window as any).__PREFETCHED_ALBUMS__
   } else {
-    // 如果没有数据，则显示loading
-    const isEmpty = !albumList.large?.length && !albumList.small?.length
-    loadAlbum(isEmpty)
+    // 尝试加载缓存
+    const loaded = loadCache()
+    if (!loaded) {
+      // 缓存失效或不存在
+      const isEmpty = !albumList.value.large?.length && !albumList.value.small?.length
+      loadAlbum(isEmpty)
+    } else {
+       // 缓存加载成功，更新empty状态
+       showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
+    }
   }
 })
 

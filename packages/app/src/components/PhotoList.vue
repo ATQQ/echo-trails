@@ -18,6 +18,7 @@ import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
 import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
+import { useTTLStorage } from '@/composables/useTTLStorage';
 
 const isActive = ref(true)
 onActivated(() => {
@@ -54,55 +55,42 @@ const getCacheKey = () => {
   return `photo_list_cache_${album?._id || 'all'}_${likedMode}_${isDelete ? 'deleted' : 'normal'}`
 }
 
+const { data: cacheData, load: loadStorage, save: saveStorage } = useTTLStorage<{
+  list: Photo[],
+  pageIndex: number
+}>({
+  key: getCacheKey, // Pass function for dynamic key
+  initialValue: { list: [], pageIndex: 1 },
+  ttl: 15 * 60 * 1000
+})
+
 const saveCache = () => {
-  try {
-    const key = getCacheKey()
-    const data = {
-      list: photoList,
-      pageIndex: pageInfo.pageIndex,
-      lastUpdate: Date.now()
-    }
-    localStorage.setItem(key, JSON.stringify(data))
-  } catch (e) {
-    console.error('Save cache failed:', e)
+  cacheData.value = {
+    list: photoList,
+    pageIndex: pageInfo.pageIndex
   }
+  saveStorage()
 }
 
 const loadCache = () => {
-  try {
-    const key = getCacheKey()
-    const cacheStr = localStorage.getItem(key)
-    if (!cacheStr) return false
+  const success = loadStorage()
+  if (success && cacheData.value.list.length > 0) {
+    const { list, pageIndex } = cacheData.value
+    photoList.length = 0
+    existPhotoMap.clear()
+    repeatPhotoMap.clear()
 
-    const cache = JSON.parse(cacheStr)
-    // 缓存过期时间：20分钟
-    if (Date.now() - cache.lastUpdate > 20 * 60 * 1000) {
-      localStorage.removeItem(key)
-      return false
-    }
+    list.forEach((p: Photo) => {
+      photoList.push(p)
+      existPhotoMap.set(p._id, p)
+      if (p.isRepeat) {
+        // wrapperRepeat logic if needed
+      }
+    })
 
-    if (Array.isArray(cache.list) && cache.list.length > 0) {
-      photoList.length = 0
-      existPhotoMap.clear()
-      repeatPhotoMap.clear()
-
-      cache.list.forEach((p: Photo) => {
-        photoList.push(p)
-        existPhotoMap.set(p._id, p)
-        // 恢复去重 map (如果有必要，或者等待下次 wrapperRepeat)
-        if (p.isRepeat) {
-          // 这里简化处理，不完全恢复 repeatPhotoMap 可能影响不大，
-          // 因为 repeatPhotoMap 主要用于 wrapperRepeat 函数，
-          // 而缓存的数据应该是已经 wrapper 过的。
-        }
-      })
-
-      pageInfo.pageIndex = cache.pageIndex || 1
-      showEmpty.value = photoList.length === 0
-      return true
-    }
-  } catch (e) {
-    console.error('Load cache failed:', e)
+    pageInfo.pageIndex = pageIndex || 1
+    showEmpty.value = photoList.length === 0
+    return true
   }
   return false
 }
@@ -224,64 +212,11 @@ const unregisterScrollListener = () => {
 // 监听页面活动状态
 watch(isActive, (active) => {
   if (active) {
-    // 如果列表为空，尝试加载缓存
-    if (photoList.length === 0) {
-      const restored = loadCache()
-      if (!restored) {
-        loadNext()
-      }
-    } else {
-      // 已有数据（可能是从详情页返回），不重新加载，但可能需要检查更新？
-      // 这里保持原有逻辑，原有逻辑是直接 loadNext() 吗？
-      // 原有逻辑：
-      // loadNext()
-      // registerScrollListener()
-
-      // 如果我们保留了数据，再次激活时是否需要 loadNext?
-      // 通常 keep-alive 激活时不需要重新加载第一页，除非为了刷新数据。
-      // 原有逻辑在 active 为 true 时调用了 loadNext()，这可能会导致重复请求第一页（如果 pageIndex 没变）或者请求下一页？
-      // 让我们看下 loadNext 实现：如果 index/pageSize 未传，使用 pageInfo.pageIndex。
-      // 如果之前加载到了第 3 页，再次激活时会请求第 3 页。这可能不是想要的行为（可能是想刷新或者保持不动）。
-
-      // 假设原有逻辑是合理的（虽然看起来有点怪），我们尽量保持兼容。
-      // 但为了利用缓存且避免闪烁，如果已经有数据，我们就不自动 loadNext 了？
-      // 或者，如果已经有数据，我们静默刷新？
-
-      // 鉴于用户需求是“首次快速加载，不用重复发起请求”，
-      // 我们可以认为：如果 photoList 有数据（无论是缓存恢复的还是内存中保留的），就不必立即 loadNext。
-      // 但为了数据新鲜度，可能需要后台静默更新。
-
-      // 让我们修改逻辑：
-      // 1. 如果没数据 -> loadCache -> 成功则显示缓存 -> 失败则 loadNext
-      // 2. 如果有数据 -> 可能是内存中的 -> 不做操作（或者根据需求刷新）
-
-      // 原有逻辑是：
-      // loadNext()
-      // 这意味着每次 activated 都会请求一次数据。
-      // 结合 loadNext 内部逻辑：
-      // getPhotos(index || pageInfo.pageIndex, ...)
-      // 如果 pageIndex 已经增加了，这会请求“当前页”。
-
-      // 我们调整为：只有当没有数据时，或者缓存失效时，才发起请求。
-      // 如果从缓存恢复了，就不请求了（除非用户手动下拉刷新）。
-      // 如果内存里有数据，也不请求了。
-
-      // 但是，如果用户在其他设备删除了照片，这里不刷新就看不到了。
-      // AlbumView 的逻辑是 20 分钟过期。
-      // 这里我们已经加了 loadCache 的 20 分钟过期检查。
-      // 所以如果 loadCache 成功，或者是内存数据，我们可以暂不刷新，或者静默刷新。
-
-      // 为了严格遵循“不用重复发起请求”，我们仅在数据为空时尝试加载。
-    }
-
-    // 修正：如果原有逻辑是每次都 loadNext，那可能是为了自动加载更多？
-    // 或者是因为 keep-alive 的行为？
-
-    // 如果我们只在 photoList 为空时加载：
-    if (photoList.length === 0) {
+    // 尝试加载缓存
+    const restored = loadCache()
+    if (!restored) {
       loadNext()
     }
-
     registerScrollListener()
   } else {
     unregisterScrollListener()
@@ -428,12 +363,13 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
         albumPhotoStore?.refreshAlbum?.()
       }
 
-      // 优先展示临时资源链接，避免闪烁
-      result.cover = wrapperItem.url
+      // 优先展示临时资源链接，避免闪烁（会导致缓存数据异常）
+      // result.cover = wrapperItem.url
       // 正式列表数据更新
       if (addPhoto2List(result)) {
         photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
       }
+      saveCache()
       wrapperItem.status = UploadStatus.SUCCESS
 
       // 移除map中的数据
@@ -600,6 +536,7 @@ const handleSaveAlbumSelect = async (albumIds: string[]) => {
       }
     })
   })
+  saveCache()
 
   showAlbumSelect.value = false
   showNotify({ type: 'success', message: '更改成功' });
@@ -638,6 +575,7 @@ const handleDeletePhotos = async () => {
   })
   showNotify({ type: 'success', message: '删除成功' });
   cancelEditMode()
+  saveCache()
 }
 
 const handleRestorePhotos = async (ids: string[] = []) => {
@@ -761,6 +699,7 @@ const deletePhoto = (id: string) => {
       showEmpty.value = true
     }
   }
+  saveCache()
 }
 const isEmpty = computed(() => !photoList.length)
 providePhotoListStore({
