@@ -2,7 +2,9 @@
   <div class="video-cell-wrapper" @click="emit('click')" @mousedown="start" @mouseup="cancel" @mouseleave="cancel"
     @touchstart="start" @touchend="cancel" @touchmove="cancel">
     <!-- 如果有封面则显示封面，否则显示默认背景 -->
-    <van-image v-if="cover" fit="cover" position="center" width="100%" height="100%" lazy-load :src="cover">
+    <van-image v-if="cover" fit="cover" position="center" width="100%" height="100%" :lazy-load="!isBase64"
+      :src="cover">
+      <slot />
       <template v-slot:loading>
         <van-loading type="spinner" size="20" />
       </template>
@@ -29,6 +31,8 @@ const props = defineProps<{
   cover?: string
   isRepeat?: boolean
 }>()
+
+const isBase64 = computed(() => props.cover?.startsWith('data:'))
 
 const emit = defineEmits<{
   (e: 'click'): void,

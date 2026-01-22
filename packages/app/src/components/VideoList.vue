@@ -38,7 +38,7 @@ const { likedMode = false, album, isDelete = false } = defineProps<{
 }>()
 
 
-const waitUploadList = reactive<{ key: string, url: string, status: UploadStatus, progress?: number }[]>([])
+const waitUploadList = reactive<{ key: string, url: string, cover?: string, status: UploadStatus, progress?: number }[]>([])
 
 const showUploadList = computed(() => waitUploadList.filter(v => v.status !== UploadStatus.SUCCESS))
 
@@ -332,12 +332,15 @@ const addWaitUploadList = (fileInfo: FileInfoItem) => {
   const temp = {
     key,
     url: fileInfo.objectUrl,
+    cover: (fileInfo as any).cover,
     status: fileInfo.repeat ? UploadStatus.DUPLICATE : UploadStatus.PENDING,
     progress: 0,
   }
+
   const existItem = waitUploadList.find(v => v.key === key)
   if (!existItem) {
     waitUploadList.push(temp)
+    console.log(temp);
   }
 }
 
@@ -427,7 +430,7 @@ const startUpload = async (values: FileInfoItem[]) => {
   }
 }
 
-const reUpload = (item: { key: string, url: string, status: UploadStatus, progress?: number }) => {
+const reUpload = (item: { key: string, url: string, cover?: string, status: UploadStatus, progress?: number }) => {
   item.status = UploadStatus.PENDING
   item.progress = 0
   const fileInfo = uploadValueMap.get(item.key)
@@ -437,7 +440,7 @@ const reUpload = (item: { key: string, url: string, status: UploadStatus, progre
 }
 
 // 删除重复文件
-const removeDuplicateFile = (item: { key: string, url: string, status: UploadStatus, progress?: number }) => {
+const removeDuplicateFile = (item: { key: string, url: string, cover?: string, status: UploadStatus, progress?: number }) => {
   // 从待上传列表中移除
   const index = waitUploadList.findIndex(upload => upload.key === item.key)
   if (index !== -1) {
@@ -457,7 +460,7 @@ const removeDuplicateFile = (item: { key: string, url: string, status: UploadSta
 }
 
 // 强制上传重复文件
-const forceUpload = (item: { key: string, url: string, status: UploadStatus, progress?: number }) => {
+const forceUpload = (item: { key: string, url: string, cover?: string, status: UploadStatus, progress?: number }) => {
   item.status = UploadStatus.PENDING
   item.progress = 0
 
@@ -478,8 +481,8 @@ const afterRead = async (files: any) => {
       let height = value.height || 0
 
       // 如果没有宽高（Web上传或Native未获取到），尝试使用Web方法获取
+      const dimensions = await getVideoInfo(file)
       if (width === 0 || height === 0) {
-        const dimensions = await getVideoDimensions(file)
         width = dimensions.width
         height = dimensions.height
       }
@@ -502,6 +505,7 @@ const afterRead = async (files: any) => {
         date: file.lastModifiedDate,
         exif,
         md5,
+        cover: dimensions.cover
       } as FileInfoItem
     }),
   )
@@ -732,18 +736,47 @@ providePhotoListStore({
   restorePhotos: handleRestorePhotos
 })
 
-const getVideoDimensions = (file: File | Blob): Promise<{ width: number, height: number }> => {
+const getVideoInfo = (file: File | Blob): Promise<{ width: number, height: number, cover: string }> => {
   return new Promise((resolve) => {
     const videoUrl = URL.createObjectURL(file)
     const video = document.createElement('video')
     video.src = videoUrl
-    video.onloadedmetadata = () => {
-      resolve({ width: video.videoWidth, height: video.videoHeight })
+    video.muted = true
+    video.currentTime = 0.1 // Seek to capture frame
+    video.preload = 'auto'
+
+    // Helper to cleanup
+    const cleanup = () => {
       URL.revokeObjectURL(videoUrl)
+      video.remove()
     }
+
+    video.onloadeddata = () => {
+      // Ensure we have dimensions
+    }
+
+    video.onseeked = () => {
+      try {
+        const width = video.videoWidth
+        const height = video.videoHeight
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(video, 0, 0, width, height)
+        const cover = canvas.toDataURL('image/jpeg', 0.7)
+        resolve({ width, height, cover })
+      } catch (e) {
+        console.error('Failed to generate video cover', e)
+        resolve({ width: 0, height: 0, cover: '' })
+      } finally {
+        cleanup()
+      }
+    }
+
     video.onerror = () => {
-      resolve({ width: 0, height: 0 })
-      URL.revokeObjectURL(videoUrl)
+      resolve({ width: 0, height: 0, cover: '' })
+      cleanup()
     }
   })
 }
@@ -828,7 +861,7 @@ const handleOpenFile = async () => {
         <!-- 待上传列表 -->
         <van-grid :border="false" square>
           <van-grid-item v-for="item in showUploadList" :key="item.key" class="img-border">
-            <VideoCell :src="item.url" :cover="item.url">
+            <VideoCell :src="item.url" :cover="item.cover">
               <!-- 等待中 -->
               <div v-if="item.status === UploadStatus.PENDING" class="upload-mask">等待上传</div>
               <!-- 上传中 -->

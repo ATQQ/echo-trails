@@ -53,6 +53,7 @@ interface FileInfoItem {
   repeat?: boolean
   width?: number
   height?: number
+  cover?: string
 }
 
 interface UploadInfo {
