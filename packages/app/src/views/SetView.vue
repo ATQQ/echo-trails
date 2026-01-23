@@ -55,7 +55,10 @@ const onSubmit = async () => {
   try {
     // 校验数据合理性
     await checkServiceHealth(config.serverUrl)
-    showNotify({ type: 'success', message: '服务地址校验通过' })
+    showNotify({ type: 'success', message: '服务地址校验通过，页面即将重载' })
+    setTimeout(() => {
+      window.location.reload()
+    }, 2000)
   } catch (err: any) {
     // 清空用户信息
     userInfo.operator = ''
@@ -183,14 +186,7 @@ const onSaveBitifulConfig = async () => {
 </script>
 
 <template>
-  <van-nav-bar
-    title="服务配置"
-    left-text="返回"
-    left-arrow
-    @click-left="onClickLeft"
-    placeholder
-    class="safe-padding-top"
-  />
+  <van-nav-bar title="服务配置" left-text="返回" left-arrow @click-left="onClickLeft" placeholder class="safe-padding-top" />
   <van-form @submit="onSubmit">
     <van-cell-group inset>
       <!-- 模式选择 -->

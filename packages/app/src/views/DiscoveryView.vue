@@ -47,11 +47,22 @@
 </template>
 
 <script setup lang="ts">
+import { checkLogin } from '@/service';
 import { showToast } from 'vant';
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
+
+onMounted(() => {
+  checkLogin().then((res) => {
+    if (res.code !== 0) {
+      throw new Error('未登录');
+    }
+  }).catch(() => {
+    router.replace('/login');
+  });
+});
 
 const handleGoManagePage = () => {
   router.push({

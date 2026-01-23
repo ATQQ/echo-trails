@@ -86,29 +86,30 @@
       } else {
         window.location.href = `${location.origin}/login`
       }
-    } else {
-      // 数据提前请求
-      // 使用xmlHttpRequest 提前请求相册数据，并挂载在window 上
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', '/api/album/list');
-      var token = localStorage.getItem('token');
-      if (token) {
-        xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-      }
-      xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-          try {
-            var res = JSON.parse(xhr.responseText);
-            if (res.code === 0) {
-              window.__PREFETCHED_ALBUMS__ = res.data;
-            }
-          } catch (e) {
-            console.error('Prefetch parse error', e);
-          }
-        }
-      };
-      xhr.send();
     }
+    // } else {
+    //   // 数据提前请求
+    //   // 使用xmlHttpRequest 提前请求相册数据，并挂载在window 上
+    //   var xhr = new XMLHttpRequest();
+    //   xhr.open('GET', '/api/album/list');
+    //   var token = localStorage.getItem('token');
+    //   if (token) {
+    //     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    //   }
+    //   xhr.onreadystatechange = function() {
+    //     if (xhr.readyState === 4 && xhr.status === 200) {
+    //       try {
+    //         var res = JSON.parse(xhr.responseText);
+    //         if (res.code === 0) {
+    //           window.__PREFETCHED_ALBUMS__ = res.data;
+    //         }
+    //       } catch (e) {
+    //         console.error('Prefetch parse error', e);
+    //       }
+    //     }
+    //   };
+    //   xhr.send();
+    // }
   </script>
   <div id="loading-screen">
     <div class="loader"></div>

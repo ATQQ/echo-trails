@@ -1,11 +1,11 @@
-import { isTauri } from "@/constants";
 import { api } from "@/lib/request";
-import { invoke } from '@tauri-apps/api/core';
 
 import ky from "ky";
 
 export function checkServiceHealth(baseUrl: string) {
-  return ky.get(`${baseUrl}/api/ping`).json()
+  return ky.get(`${baseUrl}/api/ping`,{
+    timeout: 5000,
+  }).json()
 }
 
 export function login() {

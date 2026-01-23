@@ -37,6 +37,10 @@ onMounted(async () => {
       isLogin.value = true;
     }
   } catch (e) {
+    userInfo.username = '';
+    userInfo.operator = '';
+    isLogin.value = false;
+    isAdmin.value = false;
     console.error(e);
   }
 });
@@ -255,7 +259,8 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
         <van-cell title="用户" :value="userInfo.operator || '-'" />
         <!-- 账号管理菜单 -->
         <!-- 在这里新增一个账号管理tab -->
-        <van-cell title="退出登录" is-link @click="handleLogout" class="logout-cell" />
+        <van-cell v-if="isLogin" title="退出登录" is-link @click="handleLogout" class="logout-cell" />
+        <van-cell v-else title="登录" is-link replace to="/login" />
       </van-cell-group>
 
       <!-- 服务配置 -->

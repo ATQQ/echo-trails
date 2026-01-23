@@ -125,7 +125,7 @@ const addPhoto2List = (photo: Photo) => {
 }
 const showEmpty = ref(false)
 const hasMoreData = ref(true)
-const loadNext = async (index = 0, pageSize = 0) => {
+const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
   if (!isActive.value) return
   if (pageInfo.lock) return
   pageInfo.lock = true
@@ -136,6 +136,14 @@ const loadNext = async (index = 0, pageSize = 0) => {
     isDelete,
     type: 'video'
   }).then(res => {
+    // 如果是刷新操作，清空现有列表
+    if (isRefresh) {
+      photoList.length = 0
+      existPhotoMap.clear()
+      repeatPhotoMap.clear()
+      pageInfo.pageIndex = 1
+    }
+
     let addCount = 0
     // 数据去重
     res.forEach(v => {
@@ -154,15 +162,29 @@ const loadNext = async (index = 0, pageSize = 0) => {
     saveCache()
     // 指定页码时不做额外操作
     if (index || pageSize) {
+      // 检查是否已经没有更多数据了（当前页数据不满pageSize）
+      if (res.length < (pageSize || pageInfo.pageSize)) {
+        hasMoreData.value = false
+      } else {
+        // 如果重新加载了第一页，且数据满了，说明可能还有更多数据
+        hasMoreData.value = true
+        // 修正页码：如果是重置加载（如下拉刷新），重置为下一页
+        if (index === 1 || isRefresh) {
+           pageInfo.pageIndex = 2
+        }
+      }
       return
     }
 
-    if (addCount === pageInfo.pageSize) {
-      // 数据不够时，不新增页码
-      pageInfo.pageIndex += 1
-    } else {
-      // 没有更多数据了
+    if (res.length < pageInfo.pageSize) {
+      // 返回数据少于 pageSize，说明没有更多数据了
       hasMoreData.value = false
+      // 仍然增加页码，避免重复请求当前页（虽然没有更多了，但逻辑上当前页已加载）
+      pageInfo.pageIndex += 1 
+    } else {
+      // 数据够了，增加页码以便下次加载下一页
+      pageInfo.pageIndex += 1
+      hasMoreData.value = true
     }
   }).finally(() => {
     pageInfo.lock = false

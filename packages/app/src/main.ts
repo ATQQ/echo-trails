@@ -11,6 +11,7 @@ import { goLogin, login } from './lib/login';
 import { isTauri } from './constants';
 import { PromiseWithResolver } from './lib/util';
 import { attachConsole } from '@tauri-apps/plugin-log'
+import { getConfig, refreshService } from './lib/configStorage';
 
 const app = createApp(App)
 
@@ -109,7 +110,7 @@ async function presetTauriMode() {
 
   // log
   // 启用 TargetKind::Webview 后，这个函数将把日志打印到浏览器控制台
-  if(isTauri && import.meta.env.DEV){
+  if (isTauri && import.meta.env.DEV) {
     await attachConsole();
   }
 
@@ -117,10 +118,14 @@ async function presetTauriMode() {
 }
 
 presetTauriMode().then(() => {
-  login().then(() => {
-    app.mount('#app')
-  }).catch(() => {
-    goLogin()
+  getConfig().then(cfg => {
+    refreshService(cfg)
+  }).finally(() => {
+    login().then(() => {
+      app.mount('#app')
+    }).catch(() => {
+      goLogin()
+    })
   })
 })
 
