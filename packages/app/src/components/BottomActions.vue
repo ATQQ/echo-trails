@@ -6,6 +6,7 @@ const { menus } = defineProps<{
     icon: string;
     text: string;
     to?: string;
+    path?: string;
     activeIcon?: string;
     activeColor?: string;
     handleClick?: () => void
@@ -16,12 +17,14 @@ const { menus } = defineProps<{
 }>()
 
 const route = useRoute();
+
+const isMatch = (menu: any) => route.path === (menu.to || menu.path)
 </script>
 <template>
   <footer class="footer-nav safe-padding-bottom">
     <van-grid :column-num="menus.length" :border="false">
-      <van-grid-item v-for="menu in menus" :key="menu.icon" :icon="route.path === menu.to ? menu.activeIcon : menu.icon"
-        :text="menu.text" :to="menu.to" :replace="menu.replace" :icon-color="(route.path === menu.to || menu.active) ? menu.activeColor : menu.color"
+      <van-grid-item v-for="menu in menus" :key="menu.icon" :icon="isMatch(menu) ? menu.activeIcon : menu.icon"
+        :text="menu.text" :to="menu.to" :replace="menu.replace" :icon-color="(isMatch(menu) || menu.active) ? menu.activeColor : menu.color"
         @click="menu.handleClick" />
     </van-grid>
   </footer>
@@ -42,6 +45,7 @@ const route = useRoute();
   --van-grid-item-icon-size: 20px;
   --van-grid-item-text-font-size: 12px;
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+
   :deep(.van-grid-item__content) {
     padding: 6px 0 2px 0;
   }

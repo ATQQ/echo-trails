@@ -53,8 +53,8 @@ onActivated(() => {
       const isEmpty = !albumList.value.large?.length && !albumList.value.small?.length
       loadAlbum(isEmpty)
     } else {
-       // 缓存加载成功，更新empty状态
-       showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
+      // 缓存加载成功，更新empty状态
+      showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
     }
   }
 })
@@ -132,7 +132,11 @@ preventBack(showAddModal)
       </template>
     </div>
   </van-pull-refresh>
-
+  <!-- 回到顶部 -->
+  <van-back-top :bottom="'calc(var(--footer-area-height) + 48px)'" :right="20" :style="{
+    '--van-back-top-icon-size': '16px',
+    '--van-back-top-size': '36px',
+  }" />
   <!-- 添加相册 -->
   <AddButton class="add-position" @click="showAddModal = true" v-show="!showAddModal" />
   <van-popup @close="showAddModal = false" v-model:show="showAddModal" round position="bottom"
