@@ -21,6 +21,43 @@ import java.util.Locale
 object FileHelper {
     private const val TAG = "EchoTrails"
 
+    private fun calculateMD5(context: Context, uri: Uri): String? {
+        try {
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                val digest = java.security.MessageDigest.getInstance("MD5")
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    digest.update(buffer, 0, bytesRead)
+                }
+                val md5Bytes = digest.digest()
+                return md5Bytes.joinToString("") { "%02x".format(it) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
+    private fun calculateMD5(file: File): String? {
+        try {
+            if (!file.exists()) return null
+            file.inputStream().use { inputStream ->
+                val digest = java.security.MessageDigest.getInstance("MD5")
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    digest.update(buffer, 0, bytesRead)
+                }
+                val md5Bytes = digest.digest()
+                return md5Bytes.joinToString("") { "%02x".format(it) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
     @JvmStatic
     fun getFileInfo(filePath: String): FileInfo? {
         try {
@@ -40,6 +77,8 @@ object FileHelper {
             val size = file.length()
             var width = 0
             var height = 0
+            
+            val md5 = calculateMD5(file)
 
             // 尝试从 BasicFileAttributes 获取更精确的时间 (需要 Android O 以上)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -91,7 +130,7 @@ object FileHelper {
             val extension = file.extension.lowercase(Locale.getDefault())
             val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
 
-            return FileInfo(lastModified, creationTime, size, width, height, mimeType)
+            return FileInfo(lastModified, creationTime, size, width, height, mimeType, md5)
         } catch (e: Exception) {
             e.printStackTrace()
             return null
@@ -105,6 +144,7 @@ object FileHelper {
             
             if (filePath.startsWith("content://")) {
                 val uri = Uri.parse(filePath)
+                val md5 = calculateMD5(context, uri)
                 
                 // 1. 尝试使用 ParcelFileDescriptor 获取 (最可靠的方式获取 mtime 和 size)
                 try {
@@ -272,8 +312,8 @@ object FileHelper {
 
                         // 对于 content uri，creationTime 通常不可用，使用 lastModified
                         val mimeType = context.contentResolver.getType(uri)
-                        Log.d(TAG, "Got info via PFD + Cursor: width=$width, height=$height, mimeType=$mimeType")
-                        return FileInfo(lastModified, lastModified, size, width, height, mimeType)
+                        Log.d(TAG, "Got info via PFD + Cursor: width=$width, height=$height, mimeType=$mimeType, md5=$md5")
+                        return FileInfo(lastModified, lastModified, size, width, height, mimeType, md5)
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to get info via ParcelFileDescriptor: ${e.message}")
@@ -316,7 +356,7 @@ object FileHelper {
                             val effectiveTime = if (lastModified > 0) lastModified else System.currentTimeMillis()
                             // Cursor 方式暂时无法高效获取宽高，除非再次打开流
                             val mimeType = context.contentResolver.getType(uri)
-                            return FileInfo(effectiveTime, effectiveTime, size, 0, 0, mimeType)
+                            return FileInfo(effectiveTime, effectiveTime, size, 0, 0, mimeType, md5)
                         }
                     }
                 }

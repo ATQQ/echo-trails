@@ -170,7 +170,7 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
         hasMoreData.value = true
         // 修正页码：如果是重置加载（如下拉刷新），重置为下一页
         if (index === 1 || isRefresh) {
-           pageInfo.pageIndex = 2
+          pageInfo.pageIndex = 2
         }
       }
       return
@@ -180,7 +180,7 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
       // 返回数据少于 pageSize，说明没有更多数据了
       hasMoreData.value = false
       // 仍然增加页码，避免重复请求当前页（虽然没有更多了，但逻辑上当前页已加载）
-      pageInfo.pageIndex += 1 
+      pageInfo.pageIndex += 1
     } else {
       // 数据够了，增加页码以便下次加载下一页
       pageInfo.pageIndex += 1
@@ -430,8 +430,14 @@ const uploadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, for
       uploadInfoMap.delete(fileInfo)
       uploadValueMap.delete(key)
     })
-    .catch(() => {
+    .catch((err) => {
       wrapperItem.status = UploadStatus.ERROR
+      showNotify({
+        type: 'danger',
+        message: `上传文件 ${uploadInfo.name} 失败: ${err}`,
+        duration: 10000,
+      })
+      console.error(err)
     })
 }
 
@@ -499,6 +505,7 @@ const afterRead = async (files: any) => {
   const fileInfoList = await Promise.all(
     [files].flat().map(async value => {
       const { file, objectUrl } = value
+      let { md5 } = value
       let width = value.width || 0
       let height = value.height || 0
 
@@ -517,7 +524,10 @@ const afterRead = async (files: any) => {
       if (!exif['Image Width']) exif['Image Width'] = { value: width }
       if (!exif['Image Height']) exif['Image Height'] = { value: height }
 
-      const md5 = await getFileMd5Hash(file)
+      // 如果 Native 没有返回 MD5，则使用 Web 方法兜底
+      if (!md5) {
+        md5 = (await getFileMd5Hash(file as File)) as string
+      }
 
       return {
         file,
@@ -814,8 +824,9 @@ const handleOpenFile = async () => {
     let width = 0
     let height = 0
     let fileType = ''
+    let md5 = ''
     try {
-      const info = await invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string }>('get_file_info', { filePath: v })
+      const info = await invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string }>('get_file_info', { filePath: v })
       if (info && info.last_modified > 0) {
         fileTime = new Date(info.last_modified)
       }
@@ -824,6 +835,9 @@ const handleOpenFile = async () => {
         height = info.height
       }
       fileType = info.file_type
+      if (info.md5) {
+        md5 = info.md5
+      }
     } catch (e) {
       console.error('Failed to get file info via Rust:', e)
       // Fallback to lstat if bridge fails
@@ -851,6 +865,7 @@ const handleOpenFile = async () => {
       lastModified: +finalDate,
       lastModifiedDate: finalDate,
     })
+
     return new Promise((resolve) => {
       resolve({
         file,
@@ -858,6 +873,7 @@ const handleOpenFile = async () => {
         exif,
         width,  // 传递 width 给 afterRead
         height, // 传递 height 给 afterRead
+        md5: md5 as string,
       })
     })
   }))

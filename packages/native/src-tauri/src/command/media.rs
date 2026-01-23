@@ -14,6 +14,7 @@ pub struct FileInfo {
     width: u32,
     height: u32,
     file_type: Option<String>,
+    md5: Option<String>,
 }
 
 #[tauri::command]
@@ -117,18 +118,33 @@ pub async fn get_file_info(file_path: String) -> Result<FileInfo, String> {
             None
         };
 
+        let md5_obj = env.get_field(&file_info_obj, "md5", "Ljava/lang/String;")
+            .map_err(|e| e.to_string())?
+            .l()
+            .map_err(|e| e.to_string())?;
+
+        let md5: Option<String> = if !md5_obj.is_null() {
+            Some(env.get_string(&md5_obj.into())
+                .map_err(|e| e.to_string())?
+                .into())
+        } else {
+            None
+        };
+
         Ok(FileInfo {
             last_modified,
             creation_time,
             size: size as u64,
             width: width as u32,
             height: height as u32,
-            file_type
+            file_type,
+            md5
         })
     }
 
     #[cfg(not(target_os = "android"))]
     {
+        use crate::command::common::calculate_md5;
         let metadata = std::fs::metadata(&file_path).map_err(|e| e.to_string())?;
         let modified = metadata.modified().map_err(|e| e.to_string())?
             .duration_since(std::time::UNIX_EPOCH).map_err(|e| e.to_string())?
@@ -152,6 +168,9 @@ pub async fn get_file_info(file_path: String) -> Result<FileInfo, String> {
             "webm" => Some("video/webm".to_string()),
             _ => None,
         };
+        
+        // Calculate MD5
+        let md5 = calculate_md5(path).ok();
 
         // Desktop platform width/height fetching logic can be added here if needed
         // For now returning 0
@@ -161,7 +180,8 @@ pub async fn get_file_info(file_path: String) -> Result<FileInfo, String> {
             size: metadata.len(),
             width: 0,
             height: 0,
-            file_type
+            file_type,
+            md5
         })
     }
 }

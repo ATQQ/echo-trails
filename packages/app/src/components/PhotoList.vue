@@ -171,7 +171,7 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
         hasMoreData.value = true
         // 修正页码：如果是重置加载（如下拉刷新），重置为下一页
         if (index === 1 || isRefresh) {
-           pageInfo.pageIndex = 2
+          pageInfo.pageIndex = 2
         }
       }
       return
@@ -398,8 +398,14 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
       uploadInfoMap.delete(fileInfo)
       uploadValueMap.delete(key)
     })
-    .catch(() => {
+    .catch((err) => {
       wrapperItem.status = UploadStatus.ERROR
+      showNotify({
+        type: 'danger',
+        message: `上传文件 ${uploadInfo.name} 失败: ${err}`,
+        duration: 10000,
+      })
+      console.error(err)
     })
 }
 
@@ -467,6 +473,7 @@ const afterRead = async (files: any) => {
   const fileInfoList = await Promise.all(
     [files].flat().map(async value => {
       const { file, objectUrl } = value
+      let { md5 } = value
       const exif = value?.exif || await getImageExif(file)
       // 1. 尝试使用传递的 width/height (from Native handleOpenFile)
       let width = value.width || 0
@@ -492,7 +499,10 @@ const afterRead = async (files: any) => {
       else exif['Image Width'].value = width
       if (!exif['Image Height']) exif['Image Height'] = { value: height }
       else exif['Image Height'].value = height
-      const md5 = await getFileMd5Hash(file)
+      // 如果 Native 没有返回 MD5，则使用 Web 方法兜底
+      if (!md5) {
+        md5 = (await getFileMd5Hash(file as File)) as string
+      }
       return {
         file,
         objectUrl,
@@ -771,8 +781,9 @@ const handleOpenFile = async () => {
     let width = 0
     let height = 0
     let fileType = ''
+    let md5 = ''
     try {
-      const info = await invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string }>('get_file_info', { filePath: v })
+      const info = await invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string }>('get_file_info', { filePath: v })
       if (info && info.last_modified > 0) {
         fileTime = new Date(info.last_modified)
       }
@@ -781,6 +792,9 @@ const handleOpenFile = async () => {
         height = info.height
       }
       fileType = info.file_type
+      if (info.md5) {
+        md5 = info.md5
+      }
     } catch (e) {
       console.error('Failed to get file info via Rust:', e)
       // Fallback to lstat if bridge fails
@@ -827,7 +841,7 @@ const handleOpenFile = async () => {
       }
     }
 
-    if(!exif['FileType']?.value) exif['FileType'] = { value: fileType }
+    if (!exif['FileType']?.value) exif['FileType'] = { value: fileType }
 
     // 优先级：EXIF 时间 > Native获取的时间 > 当前时间
     const finalDate = exifDate || fileTime;
@@ -845,6 +859,7 @@ const handleOpenFile = async () => {
         exif,
         width,
         height,
+        md5: md5 as string,
       })
     })
   }))

@@ -2,6 +2,7 @@ use tauri::{Emitter, Manager};
 use serde::Serialize;
 use futures_util::StreamExt;
 use std::io::Write;
+use crate::command::common::calculate_md5;
 
 #[cfg(target_os = "android")]
 use jni::objects::JValue;
@@ -11,23 +12,6 @@ pub struct ProgressPayload {
     progress: u64,
     total: u64,
     status: String,
-}
-
-fn calculate_md5(file_path: &std::path::Path) -> Result<String, String> {
-    let mut file = std::fs::File::open(file_path).map_err(|e| e.to_string())?;
-    let mut buffer = [0; 8192];
-    let mut context = md5::Context::new();
-    
-    loop {
-        let count = std::io::Read::read(&mut file, &mut buffer).map_err(|e| e.to_string())?;
-        if count == 0 {
-            break;
-        }
-        context.consume(&buffer[..count]);
-    }
-    
-    let digest = context.compute();
-    Ok(format!("{:x}", digest))
 }
 
 #[tauri::command]
