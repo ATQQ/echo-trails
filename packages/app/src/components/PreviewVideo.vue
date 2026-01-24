@@ -505,9 +505,7 @@ const menus = computed(() => {
 }
 
 .cover-info {
-    background: transparent; // 白色背景下无需额外背景
-    margin: 10px;
-    border-radius: 8px;
+    background: #fff;
     overflow: hidden;
     :deep(.van-cell) {
         background: transparent;
@@ -532,8 +530,6 @@ const menus = computed(() => {
 .edit-description {
   padding: 10px;
   background-color: #fff;
-  margin: 10px;
-  border-radius: 8px;
 }
 
 .edit-btns {
