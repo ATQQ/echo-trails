@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.3.2",
-    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.3.2.apk",
+    "version": "0.4.0",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.4.0.apk",
     "forceUpdate": false,
-    "description": "支持上传视频",
-    "md5": "d33c8bf7ae0a46f57cd9cf81f44c2d8f"
+    "description": "1. 上传功能优化 2. 缓存优化 3. 相册支持排序和标签功能",
+    "md5": "57bb4f89619ccd9e4f0f537432aacf37"
   },
   "ios": {
     "version": "0.1.2",
