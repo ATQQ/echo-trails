@@ -508,7 +508,6 @@ const menus = computed(() => {
     background: #fff;
     overflow: hidden;
     :deep(.van-cell) {
-        background: transparent;
         color: #333;
         .van-cell__title, .van-cell__value, .van-cell__label {
             color: #333;
@@ -523,7 +522,7 @@ const menus = computed(() => {
   color: #333;
   font-size: 14px;
   line-height: 1.5;
-  background: transparent;
+  background: #fff;
   margin-top: auto;
 }
 
