@@ -442,16 +442,155 @@ const uploadValueMap = new Map<string, FileInfoItem>()
 const limit = pLimit(2);
 const startUpload = async (values: FileInfoItem[]) => {
   for (const value of values) {
-    // 加入待上传列表，同时支持列表里展示
-    addWaitUploadList(value)
+    limit(async () => {
+      try {
+        // Tauri 环境下，如果有 filePath 且没有实际文件内容 (size为0或undefined的占位符)，则进行读取
+        if (isTauri && value.filePath && (!value.file || !value.file.size)) {
+          try {
+            // 1. 获取准确的文件信息
+            let fileTime = new Date()
+            let width = 0
+            let height = 0
+            let fileType = ''
+            let md5 = ''
 
-    // 生成上传信息
-    const info = generateUploadInfo(value)
+            try {
+              const info = await invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string }>('get_file_info', { filePath: value.filePath })
+              if (info && info.last_modified > 0) {
+                fileTime = new Date(info.last_modified)
+              }
+              if (info && info.width > 0 && info.height > 0) {
+                width = info.width
+                height = info.height
+              }
+              fileType = info.file_type
+              if (info.md5) {
+                md5 = info.md5
+              }
+            } catch (e) {
+              console.error('Failed to get file info via Rust:', e)
+              // Fallback to lstat if bridge fails
+              const fileInfo = await lstat(value.filePath, { baseDir: BaseDirectory.Resource })
+              if (fileInfo.mtime) {
+                fileTime = fileInfo.mtime
+              }
+            }
 
-    // 记录开始上传的文件原始信息，重传使用
-    uploadValueMap.set(info.key, value)
+            // 2. 读取文件内容
+            const _file = await readFile(value.filePath, { baseDir: BaseDirectory.Resource })
+            const file = new Blob([_file.buffer], { type: fileType || 'image/jpeg' })
+            const exif: any = await getImageExif(_file.buffer)
 
-    limit(() => uloadOneFile(value, info))
+            // 3. 更新 value 对象
+            const originalName = value.name || value.file.name
+
+            // 尝试从 EXIF 获取拍摄时间
+            let exifDate: Date | null = null
+            if (exif && exif['DateTimeOriginal']) {
+              const dateStr = exif['DateTimeOriginal'].description
+              if (dateStr) {
+                const parts = dateStr.split(' ');
+                if (parts.length >= 2) {
+                  const dateParts = parts[0].split(':');
+                  if (dateParts.length === 3) {
+                    const timeStr = parts[1];
+                    exifDate = new Date(`${dateParts.join('-')}T${timeStr}`);
+                  }
+                }
+              }
+            }
+
+            // 优先级：EXIF 时间 > Native获取的时间 > 当前时间
+            const lastModified = +(exifDate || fileTime || new Date());
+
+            Object.assign(file, {
+              name: originalName,
+              lastModified: lastModified,
+              lastModifiedDate: new Date(lastModified),
+            })
+
+            // @ts-ignore
+            value.file = file
+
+            // Update objectUrl for preview if needed
+            value.objectUrl = URL.createObjectURL(file)
+
+            // 更新 MD5 和 Exif 信息
+            value.md5 = md5
+            if (!value.exif) value.exif = {}
+            Object.assign(value.exif, exif) // 合并新读取的 EXIF
+
+            // 如果 value.exif 中已经存在有效的值则不覆盖 (Native 侧优先使用 EXIF 原值)
+            if (width > 0 && !value.exif['Image Width']) value.exif['Image Width'] = { value: width }
+            if (height > 0 && !value.exif['Image Height']) value.exif['Image Height'] = { value: height }
+            if (fileType && !value.exif['FileType']) value.exif['FileType'] = { value: fileType }
+
+            // 更新 lastModified
+            value.lastModified = lastModified
+            value.date = new Date(lastModified)
+          } catch (e) {
+            console.error('Failed to read file content before upload:', e)
+            return // 失败则跳过上传
+          }
+        }
+
+        // 通用处理逻辑 (Web & Tauri)：确保信息完整
+        const { file } = value
+        let { md5 } = value
+        const exif = value.exif || await getImageExif(file)
+        value.exif = exif
+
+        // 1. 尝试使用传递的 width/height (from Native or previous step)
+        let width = 0
+        if (value.exif && value.exif['Image Width']) width = value.exif['Image Width'].value
+
+        let height = 0
+        if (value.exif && value.exif['Image Height']) height = value.exif['Image Height'].value
+
+        // 2. 如果没有，使用 Web Image fallback
+        if (width === 0 || height === 0) {
+          const dim = await getImageDimensions(file)
+          width = dim.width
+          height = dim.height
+        }
+
+        // 3. 确保 EXIF 有宽高
+        if (!value.exif['Image Width']) value.exif['Image Width'] = { value: width }
+        else value.exif['Image Width'].value = width
+        if (!value.exif['Image Height']) value.exif['Image Height'] = { value: height }
+        else value.exif['Image Height'].value = height
+
+        // 4. 如果没有 MD5，则计算
+        if (!md5) {
+          md5 = (await getFileMd5Hash(file as File)) as string
+          value.md5 = md5
+        }
+
+        // 5. 本地MD5重复检测
+        const existingUploadInfo = Array.from(uploadInfoMap.values()).find(info => info.md5 === value.md5)
+        if (existingUploadInfo) {
+          value.repeat = true
+          showNotify({
+            type: 'warning',
+            message: `检测到重复文件 ${value.name}，已标记`
+          })
+        }
+
+        // 加入待上传列表，同时支持列表里展示
+        addWaitUploadList(value)
+
+        // 生成上传信息
+        const info = generateUploadInfo(value)
+
+        // 记录开始上传的文件原始信息，重传使用
+        uploadValueMap.set(info.key, value)
+
+        await uloadOneFile(value, info)
+
+      } catch (error) {
+        console.error('Error processing file:', value, error)
+      }
+    })
   }
 }
 
@@ -502,68 +641,18 @@ const afterRead = async (files: any) => {
   const fileInfoList = await Promise.all(
     [files].flat().map(async value => {
       const { file, objectUrl, filePath } = value
-      let { md5 } = value
-      const exif = value?.exif || await getImageExif(file)
-      // 1. 尝试使用传递的 width/height (from Native handleOpenFile)
-      let width = value.width || 0
-      let height = value.height || 0
-
-      // 2. 如果没有，尝试从 EXIF 获取
-      if (width === 0 || height === 0) {
-        if (exif && exif['Image Width'] && exif['Image Height']) {
-          width = exif['Image Width'].value
-          height = exif['Image Height'].value
-        }
-      }
-
-      // 3. 如果还是没有，使用 Web Image fallback
-      if (width === 0 || height === 0) {
-        const dim = await getImageDimensions(file)
-        width = dim.width
-        height = dim.height
-      }
-
-      // 4. 确保 EXIF 有宽高
-      if (!exif['Image Width']) exif['Image Width'] = { value: width }
-      else exif['Image Width'].value = width
-      if (!exif['Image Height']) exif['Image Height'] = { value: height }
-      else exif['Image Height'].value = height
-      // 如果 Native 没有返回 MD5，则使用 Web 方法兜底
-      if (!md5) {
-        md5 = (await getFileMd5Hash(file as File)) as string
-      }
       return {
         file,
         objectUrl,
         name: file.name,
         lastModified: file.lastModified,
         date: file.lastModifiedDate,
-        exif,
-        md5,
+        exif: null, // 如果有EXIF则保留，否则为空对象，后续startUpload会处理
+        md5: value.md5 || '',
         filePath
       } as FileInfoItem
     }),
   )
-
-  // 本地MD5重复检测
-  const duplicateFiles: string[] = []
-
-  for (const fileInfo of fileInfoList) {
-    // 检查是否与已有的待上传列表中的文件MD5重复
-    const existingUploadInfo = Array.from(uploadInfoMap.values()).find(info => info.md5 === fileInfo.md5)
-    if (existingUploadInfo) {
-      fileInfo.repeat = true
-      duplicateFiles.push(fileInfo.name)
-    }
-  }
-
-  // 提示重复文件
-  if (duplicateFiles.length > 0) {
-    showNotify({
-      type: 'warning',
-      message: `检测到重复文件${duplicateFiles.length}个，已跳过上传`
-    })
-  }
 
   startUpload(fileInfoList)
 }
@@ -804,98 +893,29 @@ const handleOpenFile = async () => {
   if (!selected) return
 
   const files = await Promise.all(selected.map(async filePath => {
-    const _file = await readFile(filePath, { baseDir: BaseDirectory.Resource })
-
-    // 获取准确的文件时间
-    let fileTime = new Date()
-    let width = 0
-    let height = 0
-    let fileType = ''
-    let md5 = ''
-    try {
-      const info = await invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string }>('get_file_info', { filePath: filePath })
-      if (info && info.last_modified > 0) {
-        fileTime = new Date(info.last_modified)
-      }
-      if (info && info.width > 0 && info.height > 0) {
-        width = info.width
-        height = info.height
-      }
-      fileType = info.file_type
-      if (info.md5) {
-        md5 = info.md5
-      }
-    } catch (e) {
-      console.error('Failed to get file info via Rust:', e)
-      // Fallback to lstat if bridge fails
-      const fileInfo = await lstat(filePath, { baseDir: BaseDirectory.Resource })
-      if (fileInfo.mtime) {
-        fileTime = fileInfo.mtime
-      }
-    }
-
-    // Uint8Array 转 blob
-    const file = new Blob([_file.buffer], { type: 'image/jpeg' })
-    const exif: any = await getImageExif(_file.buffer)
-
-    // 如果 Native 没获取到，尝试从 EXIF 获取
-    if (width === 0 || height === 0) {
-      if (exif && exif['Image Width'] && exif['Image Height']) {
-        width = exif['Image Width'].value
-        height = exif['Image Height'].value
-      }
-    }
-
-    // 填充回 EXIF 对象，以便后续逻辑使用
-    if (!exif['Image Width']) exif['Image Width'] = { value: width }
-    else exif['Image Width'].value = width
-    if (!exif['Image Height']) exif['Image Height'] = { value: height }
-    else exif['Image Height'].value = height
-
-    // 尝试从 EXIF 获取拍摄时间
-    let exifDate: Date | null = null
-    if (exif && exif['DateTimeOriginal']) {
-      // DateTimeOriginal 格式通常是 "YYYY:MM:DD HH:MM:SS"
-      const dateStr = exif['DateTimeOriginal'].description
-      if (dateStr) {
-        // 替换冒号为连字符以兼容 Date 解析 (部分浏览器可能不支持 YYYY:MM:DD)
-        // 格式化为 "YYYY-MM-DDTHH:MM:SS" 或直接尝试解析
-        const parts = dateStr.split(' ');
-        if (parts.length >= 2) {
-          const dateParts = parts[0].split(':');
-          if (dateParts.length === 3) {
-            const timeStr = parts[1];
-            exifDate = new Date(`${dateParts.join('-')}T${timeStr}`);
-          }
-        }
-      }
-    }
-
-    if (!exif['FileType']?.value) exif['FileType'] = { value: fileType }
-
-    // 优先级：EXIF 时间 > Native获取的时间 > 当前时间
-    const finalDate = exifDate || fileTime;
-
     const name = decodeURIComponent(filePath).split('/').pop()
-    Object.assign(file, {
+    const file = {
       name,
-      lastModified: +finalDate,
-      lastModifiedDate: finalDate,
-    })
+      lastModified: Date.now(),
+      lastModifiedDate: new Date(),
+      type: 'image/jpeg' // Placeholder, will be updated if needed or used from native info
+    }
+
     return new Promise((resolve) => {
       resolve({
         file,
-        objectUrl: URL.createObjectURL(file),
-        exif,
-        width,
-        height,
-        md5: md5 as string,
+        name,
+        objectUrl: '', // Will be generated when needed or use placeholder
+        exif: {},
+        width: 0,
+        height: 0,
+        md5: '',
         filePath: filePath
       })
     })
   }))
 
-  afterRead(files)
+  startUpload(files as any)
 }
 </script>
 
@@ -968,10 +988,18 @@ const handleOpenFile = async () => {
     <template v-if="!isDelete">
       <van-button v-if="isTauri" @click="handleOpenFile" class="upload-container tauri-mode">
         <van-icon name="plus" size="16" />
+        <div v-if="waitUploadList.length > 0 && waitUploadList.some(v => v.status !== UploadStatus.SUCCESS)"
+          class="upload-count-badge">
+          {{waitUploadList.filter(v => v.status !== UploadStatus.SUCCESS).length}}
+        </div>
       </van-button>
       <!-- 上传 -->
       <van-uploader v-else class="upload-container" :after-read="afterRead" multiple>
         <van-icon name="plus" size="16" />
+        <div v-if="waitUploadList.length > 0 && waitUploadList.some(v => v.status !== UploadStatus.SUCCESS)"
+          class="upload-count-badge">
+          {{waitUploadList.filter(v => v.status !== UploadStatus.SUCCESS).length}}
+        </div>
       </van-uploader>
     </template>
     <!-- 图片预览 -->
@@ -1064,6 +1092,22 @@ main {
   :deep(.van-uploader__wrapper) {
     width: 100%;
     height: 100%;
+  }
+
+  .upload-count-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #ee0a24;
+    color: #fff;
+    font-size: 10px;
+    padding: 0 4px;
+    min-width: 14px;
+    height: 14px;
+    line-height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    border: 1px solid #fff;
   }
 }
 
