@@ -18,19 +18,35 @@ import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
 import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 
 const isActive = ref(true)
-onActivated(() => {
+let unlistenProgress: UnlistenFn | null = null
+
+onActivated(async () => {
   // 调用时机为首次挂载
   // 以及每次从缓存中被重新插入时
   isActive.value = true
+  if (isTauri) {
+    unlistenProgress = await listen<{ key: string, progress: number, total: number }>('upload://progress', (event) => {
+      const { key, progress, total } = event.payload
+      const item = waitUploadList.find(v => v.key === key)
+      if (item) {
+        item.progress = Math.floor((progress / total) * 100)
+      }
+    })
+  }
 })
 
 onDeactivated(() => {
   // 在从 DOM 上移除、进入缓存
   // 以及组件卸载时调用
   isActive.value = false
+  if (unlistenProgress) {
+    unlistenProgress()
+    unlistenProgress = null
+  }
 })
 
 const { likedMode = false, album, isDelete = false } = defineProps<{
@@ -307,7 +323,11 @@ const generateUploadInfo = (value: FileInfoItem) => {
     key,
     name,
     lastModified,
-    exif,
+    exif: {
+      'FileType': exif['FileType'],
+      'Image Width': exif['Image Width'],
+      'Image Height': exif['Image Height'],
+    },
     size: file.size,
     type: file.type,
     likedMode,
@@ -373,44 +393,53 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
   const uploadUrl = await getUploadUrl(key)
 
   // 触发上传
-  await uploadFile(file, uploadUrl, (progress) => {
-    wrapperItem.progress = progress
-  })
-    .then(async () => {
-      // 数据落库
-      const result = await addFileInfo(uploadInfo)
-
-      // 空相册首次上传
-      if (!photoList.length) {
-        albumPhotoStore?.refreshAlbum?.()
-      }
-
-      // 优先展示临时资源链接，避免闪烁（会导致缓存数据异常）
-      // result.cover = wrapperItem.url
-      // 正式列表数据更新
-      if (addPhoto2List(result)) {
-        photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
-      }
-      saveCache()
-      wrapperItem.status = UploadStatus.SUCCESS
-
-      // 移除map中的数据
-      uploadInfoMap.delete(fileInfo)
-      uploadValueMap.delete(key)
-    })
-    .catch((err) => {
-      wrapperItem.status = UploadStatus.ERROR
-      showNotify({
-        type: 'danger',
-        message: `上传文件 ${uploadInfo.name} 失败: ${err}`,
-        duration: 10000,
+  try {
+    if (fileInfo.filePath && isTauri) {
+      await invoke('upload_file', {
+        key: uploadInfo.key,
+        path: fileInfo.filePath,
+        url: uploadUrl
       })
-      console.error(err)
+    } else {
+      // Web 方法
+      await uploadFile(file, uploadUrl, (progress) => {
+        wrapperItem.progress = progress
+      })
+    }
+
+    // 数据落库
+    const result = await addFileInfo(uploadInfo)
+
+    // 空相册首次上传
+    if (!photoList.length) {
+      albumPhotoStore?.refreshAlbum?.()
+    }
+
+    // 优先展示临时资源链接，避免闪烁（会导致缓存数据异常）
+    // result.cover = wrapperItem.url
+    // 正式列表数据更新
+    if (addPhoto2List(result)) {
+      photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
+    }
+    saveCache()
+    wrapperItem.status = UploadStatus.SUCCESS
+
+    // 移除map中的数据
+    uploadInfoMap.delete(fileInfo)
+    uploadValueMap.delete(key)
+  } catch (err) {
+    wrapperItem.status = UploadStatus.ERROR
+    showNotify({
+      type: 'danger',
+      message: `上传文件 ${uploadInfo.name} 失败: ${err}`,
+      duration: 10000,
     })
+    console.error(err)
+  }
 }
 
 const uploadValueMap = new Map<string, FileInfoItem>()
-const limit = pLimit(5);
+const limit = pLimit(2);
 const startUpload = async (values: FileInfoItem[]) => {
   for (const value of values) {
     // 加入待上传列表，同时支持列表里展示
@@ -472,7 +501,7 @@ const afterRead = async (files: any) => {
   // 解析获取图片信息
   const fileInfoList = await Promise.all(
     [files].flat().map(async value => {
-      const { file, objectUrl } = value
+      const { file, objectUrl, filePath } = value
       let { md5 } = value
       const exif = value?.exif || await getImageExif(file)
       // 1. 尝试使用传递的 width/height (from Native handleOpenFile)
@@ -511,6 +540,7 @@ const afterRead = async (files: any) => {
         date: file.lastModifiedDate,
         exif,
         md5,
+        filePath
       } as FileInfoItem
     }),
   )
@@ -773,8 +803,8 @@ const handleOpenFile = async () => {
 
   if (!selected) return
 
-  const files = await Promise.all(selected.map(async v => {
-    const _file = await readFile(v, { baseDir: BaseDirectory.Resource })
+  const files = await Promise.all(selected.map(async filePath => {
+    const _file = await readFile(filePath, { baseDir: BaseDirectory.Resource })
 
     // 获取准确的文件时间
     let fileTime = new Date()
@@ -783,7 +813,7 @@ const handleOpenFile = async () => {
     let fileType = ''
     let md5 = ''
     try {
-      const info = await invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string }>('get_file_info', { filePath: v })
+      const info = await invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string }>('get_file_info', { filePath: filePath })
       if (info && info.last_modified > 0) {
         fileTime = new Date(info.last_modified)
       }
@@ -798,7 +828,7 @@ const handleOpenFile = async () => {
     } catch (e) {
       console.error('Failed to get file info via Rust:', e)
       // Fallback to lstat if bridge fails
-      const fileInfo = await lstat(v, { baseDir: BaseDirectory.Resource })
+      const fileInfo = await lstat(filePath, { baseDir: BaseDirectory.Resource })
       if (fileInfo.mtime) {
         fileTime = fileInfo.mtime
       }
@@ -846,7 +876,7 @@ const handleOpenFile = async () => {
     // 优先级：EXIF 时间 > Native获取的时间 > 当前时间
     const finalDate = exifDate || fileTime;
 
-    const name = decodeURIComponent(v).split('/').pop()
+    const name = decodeURIComponent(filePath).split('/').pop()
     Object.assign(file, {
       name,
       lastModified: +finalDate,
@@ -860,6 +890,7 @@ const handleOpenFile = async () => {
         width,
         height,
         md5: md5 as string,
+        filePath: filePath
       })
     })
   }))

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isTauri } from '@/constants';
 import { login } from '@/service';
 import { useLocalStorage } from '@vueuse/core';
 import { showNotify } from 'vant';
@@ -15,6 +16,9 @@ const { value: userInfo } = useLocalStorage('userInfo', {
 });
 
 const handleLogin = (silent = false) => {
+  if (isTauri) {
+    localStorage.clear();
+  }
   localStorage.setItem('token', password.value);
   login().then((res) => {
     userInfo.username = res.data.username;
@@ -40,7 +44,7 @@ const goToSettings = () => {
 
 onMounted(() => {
   if (localStorage.getItem('token')) {
-      handleLogin(true);
+    handleLogin(true);
   }
 });
 </script>
@@ -81,24 +85,11 @@ onMounted(() => {
       </div>
 
       <div class="form-section">
-        <van-field
-          v-model="password"
-          :type="isPasswordVisible ? 'text' : 'password'"
-          placeholder="请输入访问秘钥"
-          left-icon="lock"
-          :right-icon="isPasswordVisible ? 'eye-o' : 'closed-eye'"
-          @click-right-icon="isPasswordVisible = !isPasswordVisible"
-          class="password-field"
-          @keyup.enter="checkLogin"
-        />
+        <van-field v-model="password" :type="isPasswordVisible ? 'text' : 'password'" placeholder="请输入访问秘钥"
+          left-icon="lock" :right-icon="isPasswordVisible ? 'eye-o' : 'closed-eye'"
+          @click-right-icon="isPasswordVisible = !isPasswordVisible" class="password-field" @keyup.enter="checkLogin" />
 
-        <van-button
-          type="primary"
-          block
-          round
-          class="login-btn"
-          @click="checkLogin"
-        >
+        <van-button type="primary" block round class="login-btn" @click="checkLogin">
           确定
         </van-button>
       </div>
@@ -148,7 +139,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  margin-top: -60px; /* Offset to center visually better */
+  margin-top: -60px;
+  /* Offset to center visually better */
 }
 
 .brand-section {

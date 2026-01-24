@@ -1,4 +1,13 @@
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter, Manager};
+use std::path::{Path, PathBuf};
+use tokio::fs::File;
+use tokio_util::codec::{BytesCodec, FramedRead};
+use reqwest::{Body, Url};
+use futures_util::StreamExt;
+use tauri_plugin_fs::FsExt;
+use tauri_plugin_fs::OpenOptions;
+use tauri_plugin_fs::FilePath;
 
 #[derive(Serialize, Deserialize)]
 pub struct UploadTokenResponse {
@@ -7,98 +16,85 @@ pub struct UploadTokenResponse {
     message: Option<String>,
 }
 
+#[derive(Clone, Serialize)]
+struct ProgressPayload {
+    key: String,
+    progress: u64,
+    total: u64,
+}
+
 #[tauri::command]
-pub async fn upload_token(key: String) -> Result<UploadTokenResponse, String> {
-    // 打印环境变量加载状态，用于调试
-    // let s3_bucket = env::var("S3_BUCKET").unwrap_or_else(|_| "未设置".to_string());
-    // let aws_region = env::var("AWS_REGION").unwrap_or_else(|_| "未设置".to_string());
-    // let aws_access_key = env::var("AWS_ACCESS_KEY_ID").unwrap_or_else(|_| "未设置".to_string());
-    // let aws_secret_key = env::var("AWS_SECRET_ACCESS_KEY").unwrap_or_else(|_| "未设置".to_string());
-
-    // println!("S3_BUCKET: {}", s3_bucket);
-    // println!("AWS_REGION: {}", aws_region);
-    // println!(
-    //     "AWS_ACCESS_KEY_ID: {}",
-    //     if !aws_access_key.is_empty() && aws_access_key != "未设置" {
-    //         "已设置"
-    //     } else {
-    //         "未设置"
-    //     }
-    // );
-    // println!(
-    //     "AWS_SECRET_ACCESS_KEY: {}",
-    //     if !aws_secret_key.is_empty() && aws_secret_key != "未设置" {
-    //         "已设置"
-    //     } else {
-    //         "未设置"
-    //     }
-    // );
-
-    // // 检查key是否存在
-    // if key.is_empty() {
-    //     return Ok(UploadTokenResponse {
-    //         url: String::new(),
-    //         code: 1,
-    //         message: Some("key is required".to_string()),
-    //     });
-    // }
-
-    // // 获取S3桶名
-    // let bucket = match env::var("S3_BUCKET") {
-    //     Ok(bucket) => bucket,
-    //     Err(_) => {
-    //         return Ok(UploadTokenResponse {
-    //             url: String::new(),
-    //             code: 1,
-    //             message: Some("S3_BUCKET 环境变量未设置".to_string()),
-    //         });
-    //     }
-    // };
-
-    // // 创建AWS配置
-    // let config = aws_config::load_from_env().await;
-
-    // // 创建S3客户端
-    // let s3_client = Client::new(&config);
-
-    // // 创建预签名URL的配置，过期时间为1小时
-    // let presigning_config = match PresigningConfig::builder()
-    //     .expires_in(Duration::from_secs(3600))
-    //     .build()
-    // {
-    //     Ok(config) => config,
-    //     Err(e) => {
-    //         return Ok(UploadTokenResponse {
-    //             url: String::new(),
-    //             code: 1,
-    //             message: Some(format!("创建预签名配置失败: {}", e)),
-    //         });
-    //     }
-    // };
-
-    // // 生成预签名URL
-    // match s3_client
-    //     .put_object()
-    //     .bucket(bucket)
-    //     .key(key)
-    //     .presigned(presigning_config)
-    //     .await
-    // {
-    //     Ok(presigned_request) => Ok(UploadTokenResponse {
-    //         url: presigned_request.uri().to_string(),
-    //         code: 0,
-    //         message: None,
-    //     }),
-    //     Err(e) => Ok(UploadTokenResponse {
-    //         url: String::new(),
-    //         code: 1,
-    //         message: Some(format!("生成预签名URL失败: {}", e)),
-    //     }),
-    // }
-
-    return Ok(UploadTokenResponse {
+pub async fn upload_token(_key: String) -> Result<UploadTokenResponse, String> {
+    // Legacy / Placeholder
+     Ok(UploadTokenResponse {
         url: String::new(),
         code: 1,
         message: Some("key is required".to_string()),
+    })
+}
+
+#[tauri::command]
+pub async fn upload_file(app: AppHandle, key: String, path: String, url: String) -> Result<(), String> {
+    let file_path = PathBuf::from(&path);
+
+    // 尝试直接打开，如果失败则尝试通过 tauri_plugin_fs::FsExt 打开（利用其 Scope 能力处理 Resource/Content URI）
+    let file = match File::open(&file_path).await {
+        Ok(f) => f,
+        Err(_) => {
+             // 尝试通过 fs 插件打开文件（支持 scope 和 resource 协议）
+             let mut opts = OpenOptions::new();
+             opts.read(true);
+             
+             // 尝试解析为 URL (处理 content:// 等)，否则作为普通路径
+             let file_path_wrapper: FilePath = match Url::parse(&path) {
+                 Ok(url) if url.scheme() != "file" => url.into(),
+                 _ => PathBuf::from(path.clone()).into(),
+             };
+
+             let fs_file = app.fs().open(file_path_wrapper, opts)
+                .map_err(|e| format!("Failed to open file via fs plugin: {}", e))?;
+             
+             // 将 std::fs::File 转换为 tokio::fs::File
+             File::from_std(fs_file)
+        }
+    };
+
+    let file_size = file.metadata().await.map_err(|e| format!("Failed to get metadata: {}", e))?.len();
+
+    let stream = FramedRead::new(file, BytesCodec::new());
+    
+    let mut uploaded = 0;
+    let app_handle = app.clone();
+    let key_clone = key.clone();
+    
+    let stream = stream.map(move |chunk| {
+        let chunk = chunk.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let len = chunk.len() as u64;
+        uploaded += len;
+        
+        // Emit progress
+        let _ = app_handle.emit("upload://progress", ProgressPayload {
+            key: key_clone.clone(),
+            progress: uploaded,
+            total: file_size,
+        });
+        
+        Ok::<_, std::io::Error>(chunk.freeze())
     });
+
+    let body = Body::wrap_stream(stream);
+
+    let client = reqwest::Client::new();
+    let res = client.put(&url)
+        .header("Content-Length", file_size)
+        .body(body)
+        .send()
+        .await
+        .map_err(|e| format!("Upload request failed: {}", e))?;
+
+    if !res.status().is_success() {
+        return Err(format!("Upload failed with status: {}", res.status()));
+    }
+
+    Ok(())
 }

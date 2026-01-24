@@ -15,20 +15,36 @@ import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
 import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import VideoCell from './VideoCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 
 const isActive = ref(true)
-onActivated(() => {
+let unlistenProgress: UnlistenFn | null = null
+
+onActivated(async () => {
   // 调用时机为首次挂载
   // 以及每次从缓存中被重新插入时
   isActive.value = true
+  if (isTauri) {
+    unlistenProgress = await listen<{ key: string, progress: number, total: number }>('upload://progress', (event) => {
+      const { key, progress, total } = event.payload
+      const item = waitUploadList.find(v => v.key === key)
+      if (item) {
+        item.progress = Math.floor((progress / total) * 100)
+      }
+    })
+  }
 })
 
 onDeactivated(() => {
   // 在从 DOM 上移除、进入缓存
   // 以及组件卸载时调用
   isActive.value = false
+  if (unlistenProgress) {
+    unlistenProgress()
+    unlistenProgress = null
+  }
 })
 
 const { likedMode = false, album, isDelete = false } = defineProps<{
@@ -336,7 +352,11 @@ const generateUploadInfo = (value: FileInfoItem) => {
     key,
     name,
     lastModified,
-    exif,
+    exif: {
+      'FileType': exif['FileType'],
+      'Image Width': exif['Image Width'],
+      'Image Height': exif['Image Height'],
+    },
     size: file.size,
     type: file.type,
     likedMode,
@@ -362,7 +382,6 @@ const addWaitUploadList = (fileInfo: FileInfoItem) => {
   const existItem = waitUploadList.find(v => v.key === key)
   if (!existItem) {
     waitUploadList.push(temp)
-    console.log(temp);
   }
 }
 
@@ -405,44 +424,52 @@ const uploadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, for
   const uploadUrl = await getUploadUrl(key)
 
   // 触发上传
-  await uploadFile(file, uploadUrl, (progress) => {
-    wrapperItem.progress = progress
-  })
-    .then(async () => {
-      // 数据落库
-      const result = await addFileInfo(uploadInfo)
-
-      // 空相册首次上传
-      if (!photoList.length) {
-        albumPhotoStore?.refreshAlbum?.()
-      }
-
-      // 优先展示临时资源链接，避免闪烁（会导致缓存数据异常）
-      // result.cover = wrapperItem.url
-      // 正式列表数据更新
-      if (addPhoto2List(result)) {
-        photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
-      }
-      saveCache()
-      wrapperItem.status = UploadStatus.SUCCESS
-
-      // 移除map中的数据
-      uploadInfoMap.delete(fileInfo)
-      uploadValueMap.delete(key)
-    })
-    .catch((err) => {
-      wrapperItem.status = UploadStatus.ERROR
-      showNotify({
-        type: 'danger',
-        message: `上传文件 ${uploadInfo.name} 失败: ${err}`,
-        duration: 10000,
+  try {
+    if ((fileInfo as any).filePath && isTauri) {
+      await invoke('upload_file', {
+        key: uploadInfo.key,
+        path: (fileInfo as any).filePath,
+        url: uploadUrl
       })
-      console.error(err)
+    } else {
+      await uploadFile(file, uploadUrl, (progress) => {
+        wrapperItem.progress = progress
+      })
+    }
+
+    // 数据落库
+    const result = await addFileInfo(uploadInfo)
+
+    // 空相册首次上传
+    if (!photoList.length) {
+      albumPhotoStore?.refreshAlbum?.()
+    }
+
+    // 优先展示临时资源链接，避免闪烁（会导致缓存数据异常）
+    // result.cover = wrapperItem.url
+    // 正式列表数据更新
+    if (addPhoto2List(result)) {
+      photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
+    }
+    saveCache()
+    wrapperItem.status = UploadStatus.SUCCESS
+
+    // 移除map中的数据
+    uploadInfoMap.delete(fileInfo)
+    uploadValueMap.delete(key)
+  } catch (err) {
+    wrapperItem.status = UploadStatus.ERROR
+    showNotify({
+      type: 'danger',
+      message: `上传文件 ${uploadInfo.name} 失败: ${err}`,
+      duration: 10000,
     })
+    console.error(err)
+  }
 }
 
 const uploadValueMap = new Map<string, FileInfoItem>()
-const limit = pLimit(5);
+const limit = pLimit(2);
 const startUpload = async (values: FileInfoItem[]) => {
   for (const value of values) {
     // 加入待上传列表，同时支持列表里展示
@@ -869,11 +896,12 @@ const handleOpenFile = async () => {
     return new Promise((resolve) => {
       resolve({
         file,
-        objectUrl: URL.createObjectURL(file),
+        objectUrl: '',
         exif,
         width,  // 传递 width 给 afterRead
         height, // 传递 height 给 afterRead
         md5: md5 as string,
+        filePath: v,
       })
     })
   }))

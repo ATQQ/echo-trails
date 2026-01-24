@@ -54,6 +54,7 @@ interface FileInfoItem {
   width?: number
   height?: number
   cover?: string
+  filePath?: string
 }
 
 interface UploadInfo {
@@ -66,4 +67,5 @@ interface UploadInfo {
   likedMode: boolean
   md5?: string
   albumId?: string[]
+  filePath?: string
 }

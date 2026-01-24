@@ -30,6 +30,7 @@ pub fn run() {
             greet,
             save_to_pictures,
             upload_token,
+            upload_file,
             download_apk,
             open_apk,
             get_file_info
