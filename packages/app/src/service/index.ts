@@ -170,12 +170,13 @@ export function getAlbums() {
   }>>('album/list').json().then((v) => v.data)
 }
 
-export function createAlbum(name: string, description: string, isLarge: boolean) {
+export function createAlbum(name: string, description: string, isLarge: boolean, tags: string[]) {
   return api.post<ServerResponse<Album>>('album/create', {
     json: {
       name,
       description,
-      isLarge
+      isLarge,
+      tags
     }
   })
 }
@@ -183,7 +184,8 @@ export function createAlbum(name: string, description: string, isLarge: boolean)
 export function updateAlbum(id: string, options: {
   name: string,
   description: string,
-  isLarge: boolean
+  isLarge: boolean,
+  tags: string[]
 }) {
   return api.put<ServerResponse<Album>>('album/update', {
     json: {

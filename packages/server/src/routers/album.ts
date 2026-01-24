@@ -5,7 +5,7 @@ import albumService from "../service/albumService"
 
 export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.post('/create', async (ctx) => {
-    const { name, description, isLarge } = await ctx.req.json()
+    const { name, description, isLarge, tags } = await ctx.req.json()
     const username = ctx.get('username')
     const operator = ctx.get('operator')
 
@@ -16,6 +16,7 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       createdBy: operator,
       updatedBy: operator,
       style: isLarge ? AlbumStyle.Large : AlbumStyle.Small,
+      tags: Array.isArray(tags) ? tags : [],
     })
     await album.save()
     const newAlbum = await albumService.parseAlbum(album)
@@ -68,18 +69,23 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   })
 
   router.put('/update', async (ctx) => {
-    const { id, isLarge, ...ops } = await ctx.req.json()
+    const { id, isLarge, tags, ...ops } = await ctx.req.json()
     const username = ctx.get('username')
     const operator = ctx.get('operator')
+
+    const updateData: any = {
+      updatedBy: operator,
+      style: isLarge ? AlbumStyle.Large : AlbumStyle.Small,
+      ...ops
+    }
+    if (tags && Array.isArray(tags)) {
+      updateData.tags = tags
+    }
 
     const album = await Album.findOneAndUpdate({
       _id: id, username, deleted: false
     }, {
-      $set: {
-        updatedBy: operator,
-        style: isLarge ? AlbumStyle.Large : AlbumStyle.Small,
-        ...ops
-      }
+      $set: updateData
     }, { new: true })
     const updatedAlbum = album && await albumService.parseAlbum(album)
 

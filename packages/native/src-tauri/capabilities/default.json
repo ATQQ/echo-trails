@@ -12,7 +12,7 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "http://192.168.50.27:1420/**",
+          "url": "http://192.168.50.205:1420/**",
           "all": true,
           "request": true
         },

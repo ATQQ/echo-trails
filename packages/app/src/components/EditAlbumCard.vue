@@ -12,6 +12,8 @@
           <van-switch v-model="addData.isLarge" />
         </template>
       </van-field>
+      <!-- tags -->
+      <van-field v-model="tagsInput" name="标签" label="标签" placeholder="请输入标签，空格分隔" />
     </van-cell-group>
     <div style="margin: 16px;">
       <van-button size="small" round block :type="btnType" native-type="submit">
@@ -22,6 +24,8 @@
 </template>
 
 <script lang="ts" setup>
+import { ref, watch } from 'vue';
+
 const { btnType = 'success' } = defineProps<{
   btnType?: 'success' | 'primary'
 }>()
@@ -30,12 +34,24 @@ const addData = defineModel<{
   name: string
   description: string
   isLarge: boolean
+  tags?: string[]
 }>("data", {
   type: Object, default: {
     name: "",
     description: "",
     isLarge: false,
+    tags: []
   }
+})
+
+const tagsInput = ref('')
+
+watch(() => addData.value.tags, (newTags) => {
+  tagsInput.value = newTags?.join(' ') || ''
+}, { immediate: true })
+
+watch(tagsInput, (val) => {
+  addData.value.tags = val.trim().split(/\s+/).filter(Boolean)
 })
 
 const emit = defineEmits<{

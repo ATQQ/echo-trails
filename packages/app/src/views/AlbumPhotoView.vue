@@ -54,6 +54,10 @@ const albumInfoData = computed(() => {
       value: album.value.description
     },
     {
+      title: '标签',
+      value: album.value.tags?.join(' ') || '-'
+    },
+    {
       title: '样式',
       value: album.value.style === 'large' ? '大卡片' : '小卡片'
     }
@@ -67,6 +71,7 @@ const addData = reactive({
   name: '',
   description: '',
   isLarge: false,
+  tags: [] as string[]
 })
 
 const handleEdit = () => {
@@ -75,6 +80,7 @@ const handleEdit = () => {
   addData.name = album.value.name
   addData.description = album.value.description
   addData.isLarge = album.value.style === 'large'
+  addData.tags = album.value.tags || []
 }
 
 const onSubmit = () => {

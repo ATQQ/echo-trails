@@ -4,7 +4,7 @@ import { Photo } from "../db/photo";
 import { createAlbumLink, createCoverLink } from "../lib/bitiful";
 
 async function parseAlbum(album: Document<unknown, any, Album>) {
-  const { _id, name, description, coverKey, style, username } = album.toJSON()
+  const { _id, name, description, coverKey, style, username, createdAt, tags } = album.toJSON()
   const photos = await Photo.find({
     username,
     deleted: false,
@@ -22,6 +22,8 @@ async function parseAlbum(album: Document<unknown, any, Album>) {
     style: style === AlbumStyle.Large ? 'large' : 'small',
     cover,
     coverKey,
+    createdAt,
+    tags: tags || []
   }
 }
 export default {

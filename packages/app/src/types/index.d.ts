@@ -34,6 +34,8 @@ interface Album {
   cover: string
   coverKey: string
   style: 'large' | 'small'
+  createdAt: string
+  tags: string[]
 }
 
 interface InfoItem {

@@ -15,6 +15,7 @@ const albumSchema = new mongoose.Schema({
   deleted: { type: Boolean, default: false },
   createdBy: { type: String, required: false, default: '' },
   updatedBy: { type: String, required: false, default: '' },
+  tags: { type: [String], required: false, default: [] },
 });
 
 export type Album = mongoose.InferSchemaType<typeof albumSchema>;
