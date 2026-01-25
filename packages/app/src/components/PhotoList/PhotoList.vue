@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import ExifReader from 'exifreader'
 import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
 import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
-import { generateFileKey, getFileMd5Hash } from '../../lib/file';
+import { filePath2Name, generateFileKey, getFileInfo, getFileMd5Hash, getImageDimensions, getImageExif, parseNativeImageFileUploadInfo, ensureUploadInfo } from '../../lib/file';
 import { isTauri, UploadStatus } from '../../constants/index'
 import { useEventListener } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage/PreviewImage.vue';
@@ -288,29 +287,8 @@ const showPhotoList = computed(() => {
   }, [])
 })
 
-const getImageDimensions = (file: File | Blob): Promise<{ width: number, height: number }> => {
-  return new Promise((resolve) => {
-    const imgUrl = URL.createObjectURL(file)
-    const img = new Image()
-    img.src = imgUrl
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight })
-      URL.revokeObjectURL(imgUrl)
-    }
-    img.onerror = () => {
-      resolve({ width: 0, height: 0 })
-      URL.revokeObjectURL(imgUrl)
-    }
-  })
-}
 
-function getImageExif(file: any) {
-  try {
-    return ExifReader.load(file)
-  } catch {
-    return {}
-  }
-}
+
 const uploadInfoMap = new Map<FileInfoItem, UploadInfo>()
 const generateUploadInfo = (value: FileInfoItem) => {
   if (uploadInfoMap.has(value)) {
@@ -446,127 +424,21 @@ const startUpload = async (values: FileInfoItem[]) => {
   for (const value of values) {
     limit(async () => {
       try {
-        // Tauri 环境下，如果有 filePath 且没有实际文件内容 (size为0或undefined的占位符)，则进行读取
-        if (isTauri && value.filePath && (!value.file || !value.file.size)) {
-          try {
-            // 1. 获取准确的文件信息
-            let fileTime = new Date()
-            let width = 0
-            let height = 0
-            let fileType = ''
-            let md5 = ''
-
-            try {
-              const info = await invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string }>('get_file_info', { filePath: value.filePath })
-              if (info && info.last_modified > 0) {
-                fileTime = new Date(info.last_modified)
-              }
-              if (info && info.width > 0 && info.height > 0) {
-                width = info.width
-                height = info.height
-              }
-              fileType = info.file_type
-              if (info.md5) {
-                md5 = info.md5
-              }
-            } catch (e) {
-              console.error('Failed to get file info via Rust:', e)
-              // Fallback to lstat if bridge fails
-              const fileInfo = await lstat(value.filePath, { baseDir: BaseDirectory.Resource })
-              if (fileInfo.mtime) {
-                fileTime = fileInfo.mtime
-              }
-            }
-
-            // 2. 读取文件内容
-            const _file = await readFile(value.filePath, { baseDir: BaseDirectory.Resource })
-            const file = new Blob([_file.buffer], { type: fileType || 'image/jpeg' })
-            const exif: any = await getImageExif(_file.buffer)
-
-            // 3. 更新 value 对象
-            const originalName = value.name || value.file.name
-
-            // 尝试从 EXIF 获取拍摄时间
-            let exifDate: Date | null = null
-            if (exif && exif['DateTimeOriginal']) {
-              const dateStr = exif['DateTimeOriginal'].description
-              if (dateStr) {
-                const parts = dateStr.split(' ');
-                if (parts.length >= 2) {
-                  const dateParts = parts[0].split(':');
-                  if (dateParts.length === 3) {
-                    const timeStr = parts[1];
-                    exifDate = new Date(`${dateParts.join('-')}T${timeStr}`);
-                  }
-                }
-              }
-            }
-
-            // 优先级：EXIF 时间 > Native获取的时间 > 当前时间
-            const lastModified = +(exifDate || fileTime || new Date());
-
-            Object.assign(file, {
-              name: originalName,
-              lastModified: lastModified,
-              lastModifiedDate: new Date(lastModified),
+        // Tauri 环境下，如果有 filePath 且没有实际文件内容
+        if (isTauri && value.filePath) {
+          const uploadInfo = await parseNativeImageFileUploadInfo(value.filePath)
+          if (!uploadInfo) {
+            showNotify({
+              type: 'danger',
+              message: `解析文件 ${value.filePath} 失败`
             })
-
-            // @ts-ignore
-            value.file = file
-
-            // Update objectUrl for preview if needed
-            value.objectUrl = URL.createObjectURL(file)
-
-            // 更新 MD5 和 Exif 信息
-            value.md5 = md5
-            if (!value.exif) value.exif = {}
-            Object.assign(value.exif, exif) // 合并新读取的 EXIF
-
-            // 如果 value.exif 中已经存在有效的值则不覆盖 (Native 侧优先使用 EXIF 原值)
-            if (width > 0 && !value.exif['Image Width']) value.exif['Image Width'] = { value: width }
-            if (height > 0 && !value.exif['Image Height']) value.exif['Image Height'] = { value: height }
-            if (fileType && !value.exif['FileType']) value.exif['FileType'] = { value: fileType }
-
-            // 更新 lastModified
-            value.lastModified = lastModified
-            value.date = new Date(lastModified)
-          } catch (e) {
-            console.error('Failed to read file content before upload:', e)
-            return // 失败则跳过上传
+            return
           }
+          Object.assign(value, uploadInfo)
         }
 
         // 通用处理逻辑 (Web & Tauri)：确保信息完整
-        const { file } = value
-        let { md5 } = value
-        const exif = value.exif || await getImageExif(file)
-        value.exif = exif
-
-        // 1. 尝试使用传递的 width/height (from Native or previous step)
-        let width = 0
-        if (value.exif && value.exif['Image Width']) width = value.exif['Image Width'].value
-
-        let height = 0
-        if (value.exif && value.exif['Image Height']) height = value.exif['Image Height'].value
-
-        // 2. 如果没有，使用 Web Image fallback
-        if (width === 0 || height === 0) {
-          const dim = await getImageDimensions(file)
-          width = dim.width
-          height = dim.height
-        }
-
-        // 3. 确保 EXIF 有宽高
-        if (!value.exif['Image Width']) value.exif['Image Width'] = { value: width }
-        else value.exif['Image Width'].value = width
-        if (!value.exif['Image Height']) value.exif['Image Height'] = { value: height }
-        else value.exif['Image Height'].value = height
-
-        // 4. 如果没有 MD5，则计算
-        if (!md5) {
-          md5 = (await getFileMd5Hash(file as File)) as string
-          value.md5 = md5
-        }
+        await ensureUploadInfo(value)
 
         // 5. 本地MD5重复检测
         const existingUploadInfo = Array.from(uploadInfoMap.values()).find(info => info.md5 === value.md5)
@@ -580,13 +452,6 @@ const startUpload = async (values: FileInfoItem[]) => {
 
         // 加入待上传列表，同时支持列表里展示
         addWaitUploadList(value)
-        // 从等待总数中移除（因为已经进入了可视化的等待列表或者处理流程中？不，用户需求是总等待数）
-        // 用户需求：传入的累计，上传完成后减掉
-        // waitUploadList 是正在处理（包括等待并发锁）的列表。
-        // values 是所有选中的文件。
-        // 因为 limit 限制了并发，所以很多文件还在 limit 队列里等待执行。
-        // 此时它们还没调 addWaitUploadList。
-        // 所以 pendingCount 应该代表：还未完成（成功或失败）的所有任务数。
 
         // 生成上传信息
         const info = generateUploadInfo(value)
@@ -596,7 +461,7 @@ const startUpload = async (values: FileInfoItem[]) => {
 
         await uloadOneFile(value, info)
       } catch (error) {
-         console.error('Error processing file:', value, error)
+        console.error('Error processing file:', value, error)
       } finally {
         pendingCount.value--
       }
@@ -646,23 +511,18 @@ const forceUpload = (item: { key: string, url: string, status: UploadStatus, pro
   }
 }
 
-const afterRead = async (files: any) => {
+const afterRead = (files: any) => {
   // 解析获取图片信息
-  const fileInfoList = await Promise.all(
-    [files].flat().map(async value => {
-      const { file, objectUrl, filePath } = value
-      return {
-        file,
-        objectUrl,
-        name: file.name,
-        lastModified: file.lastModified,
-        date: file.lastModifiedDate,
-        exif: null, // 如果有EXIF则保留，否则为空对象，后续startUpload会处理
-        md5: value.md5 || '',
-        filePath
-      } as FileInfoItem
-    }),
-  )
+  const fileInfoList = [files].flat().map(value => {
+    const { file, objectUrl } = value
+    return {
+      file,
+      objectUrl,
+      name: file.name,
+      lastModified: file.lastModified,
+      date: file.lastModifiedDate,
+    } as FileInfoItem
+  })
 
   startUpload(fileInfoList)
 }
@@ -902,28 +762,16 @@ const handleOpenFile = async () => {
 
   if (!selected) return
 
-  const files = await Promise.all(selected.map(async filePath => {
-    const name = decodeURIComponent(filePath).split('/').pop()
-    const file = {
+  const files = selected.map(filePath => {
+    const name = filePath2Name(filePath)
+    return {
+      file: {
+        name
+      },
       name,
-      lastModified: Date.now(),
-      lastModifiedDate: new Date(),
-      type: 'image/jpeg' // Placeholder, will be updated if needed or used from native info
+      filePath
     }
-
-    return new Promise((resolve) => {
-      resolve({
-        file,
-        name,
-        objectUrl: '', // Will be generated when needed or use placeholder
-        exif: {},
-        width: 0,
-        height: 0,
-        md5: '',
-        filePath: filePath
-      })
-    })
-  }))
+  })
 
   startUpload(files as any)
 }
@@ -1023,187 +871,5 @@ const handleOpenFile = async () => {
   </div>
 </template>
 <style scoped lang="scss">
-h2 {
-  padding-left: 10px;
-  font-weight: normal;
-  font-size: 18px;
-  margin: 10px 0;
-
-  .week-day {
-    color: #999;
-    font-size: 12px;
-  }
-}
-
-main :deep(.van-grid-item__content) {
-  padding: 0;
-}
-
-main {
-  background-color: #fff;
-}
-
-.img-border {
-  box-sizing: border-box;
-  border-bottom: 1px solid #fff;
-  border-right: 1px solid #fff;
-  position: relative;
-}
-
-.editSelected {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-}
-
-// 4的倍数
-.img-border:nth-child(4n) {
-  border-right: none;
-}
-
-.block {
-  width: 100%;
-  height: 40vh;
-}
-
-.upload-container {
-  position: fixed;
-  right: 20px;
-  bottom: var(--footer-area-height);
-  --van-button-icon-size: 1em;
-  z-index: 1;
-  box-sizing: border-box;
-  width: 36px;
-  height: 36px;
-  background-color: var(--van-primary-color);
-  color: #fff;
-  border-radius: 50%;
-  border: none;
-
-  &.tauri-mode {
-    // bottom: 90px;
-  }
-
-  :deep(.van-uploader__input-wrapper) {
-    width: 100%;
-    height: 100%;
-    position: relative;
-
-    .van-icon {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-    }
-  }
-
-  :deep(.van-uploader__wrapper) {
-    width: 100%;
-    height: 100%;
-  }
-
-  .upload-count-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background-color: #ee0a24;
-    color: #fff;
-    font-size: 10px;
-    padding: 0 4px;
-    min-width: 14px;
-    height: 14px;
-    line-height: 14px;
-    border-radius: 7px;
-    text-align: center;
-    border: 1px solid #fff;
-  }
-}
-
-.upload-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.3);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #fff;
-  font-size: 12px;
-}
-
-.error-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #f53f3f;
-  font-size: 12px;
-}
-
-.duplicate-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 165, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #fff;
-  font-size: 12px;
-  flex-direction: column;
-  gap: 8px;
-
-  .duplicate-info {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-  }
-
-  .duplicate-actions {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-
-    :deep(.van-button) {
-      --van-button-mini-height: 24px;
-      --van-button-mini-font-size: 10px;
-      --van-button-mini-padding: 0 8px;
-    }
-  }
-}
-
-.load-more-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px 0;
-  background-color: #fff;
-
-  .load-more-btn {
-    --van-button-default-background: #f7f8fa;
-    --van-button-default-border-color: #ebedf0;
-    --van-button-default-color: #646566;
-    --van-button-small-height: 32px;
-    --van-button-small-padding: 0 16px;
-    --van-button-small-font-size: 14px;
-    border-radius: 16px;
-    min-width: 100px;
-  }
-
-  .no-more-text {
-    color: #969799;
-    font-size: 14px;
-    text-align: center;
-  }
-}
+@import url(./style.scss);
 </style>

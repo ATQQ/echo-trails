@@ -6,6 +6,8 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { invoke } from '@tauri-apps/api/core';
 import SparkMD5 from 'spark-md5';
 import { PromiseWithResolver } from "./util";
+import ExifReader from "exifreader";
+import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
 
 export function generateFileKey(fileInfo: FileInfoItem) {
   // 年-月-日/时分/上传时间-文件名
@@ -148,4 +150,184 @@ export function getFileMd5Hash(file: File) {
 
     loadNext()
   })
+}
+
+export const getImageDimensions = (file: File | Blob): Promise<{ width: number, height: number }> => {
+  return new Promise((resolve) => {
+    const imgUrl = URL.createObjectURL(file)
+    const img = new Image()
+    img.src = imgUrl
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight })
+      URL.revokeObjectURL(imgUrl)
+    }
+    img.onerror = () => {
+      resolve({ width: 0, height: 0 })
+      URL.revokeObjectURL(imgUrl)
+    }
+  })
+}
+
+export function getImageExif(file: any) {
+  try {
+    return ExifReader.load(file)
+  } catch {
+    return {}
+  }
+}
+
+export function filePath2Name(filePath: string) {
+  return decodeURIComponent(filePath).split('/').pop()
+}
+
+
+export function getFileInfo(filePath: string) {
+  return invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string }>('get_file_info', { filePath })
+}
+
+
+/**
+ * 尝试获取原生文件信息（尺寸、修改时间、MD5等）
+ * 优先使用 Rust Bridge，失败则降级到 fs.lstat
+ */
+async function getNativeFileInfo(filePath: string) {
+  const result = {
+    lastModified: 0,
+    width: 0,
+    height: 0,
+    fileType: '',
+    md5: ''
+  }
+
+  try {
+    const info = await getFileInfo(filePath)
+    if (info) {
+      if (info.last_modified > 0) result.lastModified = info.last_modified
+      if (info.width > 0 && info.height > 0) {
+        result.width = info.width
+        result.height = info.height
+      }
+      result.fileType = info.file_type
+      if (info.md5) result.md5 = info.md5
+    }
+  } catch (e) {
+    console.error('Failed to get file info via Rust:', e)
+    // Fallback to lstat if bridge fails
+    try {
+      const fileInfo = await lstat(filePath, { baseDir: BaseDirectory.Resource })
+      if (fileInfo.mtime) {
+        result.lastModified = +fileInfo.mtime
+      }
+    } catch (lstatError) {
+      console.error('Failed to lstat file:', lstatError)
+    }
+  }
+  return result
+}
+
+/**
+ * 从 EXIF 信息中解析拍摄时间
+ */
+function getExifDate(exif: any): Date | null {
+  if (!exif?.['DateTimeOriginal']?.description) return null
+
+  const dateStr = exif['DateTimeOriginal'].description
+  // 格式通常为 "YYYY:MM:DD HH:MM:SS"
+  const parts = dateStr.split(' ');
+  if (parts.length >= 2) {
+    const dateParts = parts[0].split(':');
+    if (dateParts.length === 3) {
+      const timeStr = parts[1];
+      return new Date(`${dateParts.join('-')}T${timeStr}`);
+    }
+  }
+  return null
+}
+
+export async function parseNativeImageFileUploadInfo(filePath: string) {
+  try {
+    // 1. 获取基础文件信息
+    const nativeInfo = await getNativeFileInfo(filePath)
+
+    // 2. 读取文件内容
+    const _file = await readFile(filePath, { baseDir: BaseDirectory.Resource })
+    const buffer = _file.buffer
+    const fileType = nativeInfo.fileType || 'image/jpeg'
+
+    // 3. 解析 EXIF
+    const exif = await getImageExif(buffer) as any
+    const exifDate = getExifDate(exif)
+
+    // 4. 确定最终时间: EXIF > Native/lstat > Current
+    const lastModified = +(exifDate || nativeInfo.lastModified || new Date())
+
+    // 5. 构建 File 对象
+    const originalName = filePath2Name(filePath) || 'unknown'
+    // 使用 File 构造函数代替 Blob + Object.assign
+    const file = new File([buffer], originalName, {
+      type: fileType,
+      lastModified: lastModified,
+    })
+
+    // 6. 回填 Native 获取到的宽高到 EXIF (如果 EXIF 缺失)
+    if (nativeInfo.width > 0 && !exif['Image Width']) exif['Image Width'] = { value: nativeInfo.width }
+    if (nativeInfo.height > 0 && !exif['Image Height']) exif['Image Height'] = { value: nativeInfo.height }
+    if (nativeInfo.fileType && !exif['FileType']) exif['FileType'] = { value: nativeInfo.fileType }
+
+    return {
+      file,
+      md5: nativeInfo.md5,
+      width: nativeInfo.width,
+      height: nativeInfo.height,
+      fileType: nativeInfo.fileType,
+      lastModified,
+      date: new Date(lastModified),
+      objectUrl: URL.createObjectURL(file),
+      exif,
+    }
+  } catch (e) {
+    console.error('Failed to read file content before upload:', e)
+    return undefined
+  }
+}
+
+/**
+ * 确保文件上传信息完整
+ * 1. 确保 EXIF 存在
+ * 2. 补全宽/高 (EXIF -> Web Fallback)
+ * 3. 补全 MD5
+ */
+export async function ensureUploadInfo(value: Partial<FileInfoItem> & { file: File }) {
+  const { file } = value
+
+  // 1. 确保 EXIF
+  value.exif = value.exif || await getImageExif(file) as any
+
+  // 2. 确定宽高: EXIF > Native(已在exif中) > Web Image
+  let width = 0
+  let height = 0
+
+  if (value.exif?.['Image Width']) width = value.exif['Image Width'].value
+  if (value.exif?.['Image Height']) height = value.exif['Image Height'].value
+
+  // Fallback to Web Image if missing
+  if (!width || !height) {
+    const dim = await getImageDimensions(file)
+    width = dim.width
+    height = dim.height
+  }
+
+  // 回填 EXIF
+  if (!value.exif['Image Width']) value.exif['Image Width'] = { value: width }
+  else value.exif['Image Width'].value = width
+
+  if (!value.exif['Image Height']) value.exif['Image Height'] = { value: height }
+  else value.exif['Image Height'].value = height
+
+  // 3. 确保 MD5
+  if (!value.md5) {
+    value.md5 = await getFileMd5Hash(file) as string
+  }
+
+  return value as FileInfoItem
 }
