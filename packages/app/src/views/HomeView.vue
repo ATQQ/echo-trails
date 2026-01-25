@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import PhotoList from '@/components/PhotoList.vue';
-import PageTitle from '@/components/PageTitle.vue';
+import PhotoList from '@/components/PhotoList/PhotoList.vue';
+import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import { useRouter } from 'vue-router';
 import { ref } from 'vue';
 

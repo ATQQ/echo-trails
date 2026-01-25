@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
-import FooterNav from './components/FooterNav.vue';
+import FooterNav from '@/components/FooterNav/FooterNav.vue';
 import { computed, onMounted } from 'vue';
 const route = useRoute();
 const showNav = computed(() => route.meta.nav === true)

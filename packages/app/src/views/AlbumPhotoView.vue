@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import EditAlbumCard from '@/components/EditAlbumCard.vue';
-import InfoCard from '@/components/InfoCard.vue';
-import PhotoList from '@/components/PhotoList.vue';
+import EditAlbumCard from '@/components/EditAlbumCard/EditAlbumCard.vue';
+import InfoCard from '@/components/InfoCard/InfoCard.vue';
+import PhotoList from '@/components/PhotoList/PhotoList.vue';
 import { provideAlbumPhotoStore } from '@/composables/albumphoto';
 import { getAlbumInfo, getPhotoListInfo, updateAlbum } from '@/service';
 import { showToast } from 'vant';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { preventBack } from '@/lib/router'
-import ImageCell from '@/components/ImageCell.vue';
+import ImageCell from '@/components/ImageCell/ImageCell.vue';
 
 const route = useRoute();
 const album = ref<Album>()

@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import ExifReader from 'exifreader'
 import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
-import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../service';
-import { generateFileKey, getFileMd5Hash } from '../lib/file';
-import { isTauri, UploadStatus } from '../constants/index'
+import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
+import { generateFileKey, getFileMd5Hash } from '../../lib/file';
+import { isTauri, UploadStatus } from '../../constants/index'
 import { useEventListener } from '@vueuse/core'
-import PreviewImage from '@/components/PreviewImage.vue';
+import PreviewImage from '@/components/PreviewImage/PreviewImage.vue';
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { providePhotoListStore } from '@/composables/photoList';
-import ImageCell from './ImageCell.vue';
+import ImageCell from '../ImageCell/ImageCell.vue';
 import pLimit from 'p-limit';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
-import BottomActions from './BottomActions.vue';
-import SelectAlbumModal from './SelectAlbumModal.vue';
+import BottomActions from '../BottomActions/BottomActions.vue';
+import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
 import { onBeforeRouteLeave } from 'vue-router';

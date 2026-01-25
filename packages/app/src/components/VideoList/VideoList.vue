@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
-import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../service';
-import { generateFileKey, getFileMd5Hash } from '../lib/file';
-import { isTauri, UploadStatus } from '../constants/index'
+import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
+import { generateFileKey, getFileMd5Hash } from '../../lib/file';
+import { isTauri, UploadStatus } from '../../constants/index'
 import { useEventListener } from '@vueuse/core'
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { providePhotoListStore } from '@/composables/photoList';
 import pLimit from 'p-limit';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
-import BottomActions from './BottomActions.vue';
-import SelectAlbumModal from './SelectAlbumModal.vue';
+import BottomActions from '../BottomActions/BottomActions.vue';
+import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
 import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import VideoCell from './VideoCell.vue';
+import VideoCell from '../VideoCell/VideoCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 
 const isActive = ref(true)

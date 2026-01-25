@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import PhotoList from '@/components/PhotoList.vue';
-import VideoList from '@/components/VideoList.vue';
+import PhotoList from '@/components/PhotoList/PhotoList.vue';
+import VideoList from '@/components/VideoList/VideoList.vue';
 import { useRouter } from 'vue-router';
 import { ref, computed } from 'vue';
-import InfoCard from '@/components/InfoCard.vue';
+import InfoCard from '@/components/InfoCard/InfoCard.vue';
 import { getPhotoListInfo } from '@/service';
 import { preventBack } from '@/lib/router';
 

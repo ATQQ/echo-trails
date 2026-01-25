@@ -25,7 +25,7 @@ import { showConfirmDialog } from 'vant';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { preventBack } from '@/lib/router'
-import InfoCard from './InfoCard.vue';
+import InfoCard from '../InfoCard/InfoCard.vue';
 import { getPhotoListInfo } from '@/service';
 const { title = '', exit = false, info = true, likedMode = false, setMode = false, type = '' } = defineProps<{
   title: string

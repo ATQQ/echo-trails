@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import VideoList from '@/components/VideoList.vue';
-import PageTitle from '@/components/PageTitle.vue';
+import VideoList from '@/components/VideoList/VideoList.vue';
+import PageTitle from '@/components/PageTitle/PageTitle.vue';
 </script>
 
 <template>

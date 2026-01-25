@@ -3,7 +3,7 @@
 </template>
 
 <script lang="ts" setup>
-import BottomActions from './BottomActions.vue';
+import BottomActions from '../BottomActions/BottomActions.vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();

@@ -69,8 +69,8 @@ import dayjs from 'dayjs';
 import { showConfirmDialog, showNotify, showLoadingToast, closeToast } from 'vant';
 import { computed, ref } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
-import SelectAlbumModal from './SelectAlbumModal.vue';
-import BottomActions from './BottomActions.vue';
+import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
+import BottomActions from '../BottomActions/BottomActions.vue';
 
 const { images = [], start = 0, album, isDelete = false } = defineProps<{
   images: Photo[]

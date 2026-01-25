@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 import { getWeightDiff, getTimeDiffDes } from '@/lib/weight-utils'
 import { getWeightList, addWeight, updateWeight, deleteWeight, type WeightRecord } from '@/service/weight'
 import { getFamilyList, addFamily, updateFamily, deleteFamily, type FamilyMember } from '@/service/family'
-import UnderInput from '@/components/UnderInput.vue'
+import UnderInput from '@/components/UnderInput/UnderInput.vue'
 import dayjs from 'dayjs'
 import { createChart, ColorType, LineSeries } from 'lightweight-charts'
 

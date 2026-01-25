@@ -3,11 +3,11 @@ import { createAlbum, getAlbums } from '@/service';
 import { showToast } from 'vant';
 import { ref, reactive, onActivated, computed } from 'vue'
 import { useRouter } from 'vue-router';
-import PageTitle from '@/components/PageTitle.vue';
-import EditAlbumCard from '@/components/EditAlbumCard.vue';
+import PageTitle from '@/components/PageTitle/PageTitle.vue';
+import EditAlbumCard from '@/components/EditAlbumCard/EditAlbumCard.vue';
 import { preventBack } from '@/lib/router'
-import AddButton from '@/components/AddButton.vue';
-import ImageCell from '@/components/ImageCell.vue';
+import AddButton from '@/components/AddButton/AddButton.vue';
+import ImageCell from '@/components/ImageCell/ImageCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 
 // 添加本地存储
