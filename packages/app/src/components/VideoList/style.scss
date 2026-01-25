@@ -1,0 +1,183 @@
+h2 {
+    padding-left: 10px;
+    font-weight: normal;
+    font-size: 18px;
+    margin: 10px 0;
+
+    .week-day {
+        color: #999;
+        font-size: 12px;
+    }
+}
+
+main :deep(.van-grid-item__content) {
+    padding: 0;
+}
+
+main {
+    background-color: #fff;
+}
+
+.img-border {
+    box-sizing: border-box;
+    border-bottom: 1px solid #fff;
+    border-right: 1px solid #fff;
+    position: relative;
+}
+
+.editSelected {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+}
+
+// 4的倍数
+.img-border:nth-child(4n) {
+    border-right: none;
+}
+
+.block {
+    width: 100%;
+    height: 40vh;
+}
+
+.upload-container {
+    position: fixed;
+    right: 20px;
+    bottom: var(--footer-area-height);
+    --van-button-icon-size: 1em;
+    z-index: 1;
+    box-sizing: border-box;
+    width: 36px;
+    height: 36px;
+    background-color: var(--van-primary-color);
+    color: #fff;
+    border-radius: 50%;
+    border: none;
+
+    &.tauri-mode {
+        // bottom: 90px;
+    }
+
+    :deep(.van-uploader__input-wrapper) {
+        width: 100%;
+        height: 100%;
+        position: relative;
+
+        .van-icon {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+    }
+
+    :deep(.van-uploader__wrapper) {
+        width: 100%;
+        height: 100%;
+    }
+
+    .upload-count-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background-color: #ee0a24;
+        color: #fff;
+        font-size: 10px;
+        padding: 0 4px;
+        min-width: 14px;
+        height: 14px;
+        line-height: 14px;
+        border-radius: 7px;
+        text-align: center;
+        border: 1px solid #fff;
+    }
+}
+
+.upload-mask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    font-size: 12px;
+}
+
+.error-mask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #f53f3f;
+    font-size: 12px;
+}
+
+.duplicate-mask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 165, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    font-size: 12px;
+    flex-direction: column;
+    gap: 8px;
+
+    .duplicate-info {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+    }
+
+    .duplicate-actions {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+
+        :deep(.van-button) {
+            --van-button-mini-height: 24px;
+            --van-button-mini-font-size: 10px;
+            --van-button-mini-padding: 0 8px;
+        }
+    }
+}
+
+.load-more-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 0;
+    background-color: #fff;
+
+    .load-more-btn {
+        --van-button-default-background: #f7f8fa;
+        --van-button-default-border-color: #ebedf0;
+        --van-button-default-color: #646566;
+        --van-button-small-height: 32px;
+        --van-button-small-padding: 0 16px;
+        --van-button-small-font-size: 14px;
+        border-radius: 16px;
+        min-width: 100px;
+    }
+
+    .no-more-text {
+        color: #969799;
+        font-size: 14px;
+        text-align: center;
+    }
+}

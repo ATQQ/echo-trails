@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
+import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted, onMounted } from 'vue'
 import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
-import { generateFileKey, getFileMd5Hash } from '../../lib/file';
+import { generateFileKey, ensureVideoUploadInfo, parseNativeVideoFileUploadInfo, filePath2Name } from '../../lib/file';
 import { isTauri, UploadStatus } from '../../constants/index'
 import { useEventListener } from '@vueuse/core'
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { providePhotoListStore } from '@/composables/photoList';
 import pLimit from 'p-limit';
 import { open } from '@tauri-apps/plugin-dialog';
-import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
 import BottomActions from '../BottomActions/BottomActions.vue';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';
@@ -22,11 +21,8 @@ import { useTTLStorage } from '@/composables/useTTLStorage';
 const isActive = ref(true)
 let unlistenProgress: UnlistenFn | null = null
 
-onActivated(async () => {
-  // 调用时机为首次挂载
-  // 以及每次从缓存中被重新插入时
-  isActive.value = true
-  if (isTauri) {
+const setupProgressListener = async () => {
+  if (isTauri && !unlistenProgress) {
     unlistenProgress = await listen<{ key: string, progress: number, total: number }>('upload://progress', (event) => {
       const { key, progress, total } = event.payload
       const item = waitUploadList.find(v => v.key === key)
@@ -35,16 +31,31 @@ onActivated(async () => {
       }
     })
   }
+}
+
+const cleanupProgressListener = () => {
+  if (unlistenProgress) {
+    unlistenProgress()
+    unlistenProgress = null
+  }
+}
+
+onMounted(() => {
+  setupProgressListener()
+})
+
+onActivated(async () => {
+  // 调用时机为首次挂载
+  // 以及每次从缓存中被重新插入时
+  isActive.value = true
+  setupProgressListener()
 })
 
 onDeactivated(() => {
   // 在从 DOM 上移除、进入缓存
   // 以及组件卸载时调用
   isActive.value = false
-  if (unlistenProgress) {
-    unlistenProgress()
-    unlistenProgress = null
-  }
+  cleanupProgressListener()
 })
 
 const { likedMode = false, album, isDelete = false } = defineProps<{
@@ -217,6 +228,7 @@ const handleLoadMore = async () => {
 onUnmounted(() => {
   // 组件卸载时清理事件监听器
   unregisterScrollListener()
+  cleanupProgressListener()
 })
 // 滚动事件监听
 const checkScrollBottom = () => {
@@ -469,19 +481,54 @@ const uploadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, for
 }
 
 const uploadValueMap = new Map<string, FileInfoItem>()
-const limit = pLimit(2);
+const limit = pLimit(1);
+const pendingCount = ref(0)
 const startUpload = async (values: FileInfoItem[]) => {
+  pendingCount.value += values.length
   for (const value of values) {
-    // 加入待上传列表，同时支持列表里展示
-    addWaitUploadList(value)
+    limit(async () => {
+      try {
+        // Tauri 环境下，如果有 filePath 且没有实际文件内容
+        if (isTauri && value.filePath) {
+          const uploadInfo = await parseNativeVideoFileUploadInfo(value.filePath)
+          if (!uploadInfo) {
+            showNotify({
+              type: 'danger',
+              message: `解析文件 ${value.filePath} 失败`
+            })
+            return
+          }
+          Object.assign(value, uploadInfo)
+        }
 
-    // 生成上传信息
-    const info = generateUploadInfo(value)
+        await ensureVideoUploadInfo(value)
 
-    // 记录开始上传的文件原始信息，重传使用
-    uploadValueMap.set(info.key, value)
+        // 本地MD5重复检测
+        const existingUploadInfo = Array.from(uploadInfoMap.values()).find(info => info.md5 === value.md5)
+        if (existingUploadInfo) {
+          value.repeat = true
+          showNotify({
+            type: 'warning',
+            message: `检测到重复文件 ${value.name}，已标记`
+          })
+        }
 
-    limit(() => uploadOneFile(value, info))
+        // 加入待上传列表，同时支持列表里展示
+        addWaitUploadList(value)
+
+        // 生成上传信息
+        const info = generateUploadInfo(value)
+
+        // 记录开始上传的文件原始信息，重传使用
+        uploadValueMap.set(info.key, value)
+
+        await uploadOneFile(value, info)
+      } catch (error) {
+        console.error('Error processing file:', value, error)
+      } finally {
+        pendingCount.value--
+      }
+    })
   }
 }
 
@@ -527,67 +574,18 @@ const forceUpload = (item: { key: string, url: string, cover?: string, status: U
   }
 }
 
-const afterRead = async (files: any) => {
+const afterRead = (files: any) => {
   // 解析获取图片信息
-  const fileInfoList = await Promise.all(
-    [files].flat().map(async value => {
-      const { file, objectUrl } = value
-      let { md5 } = value
-      let width = value.width || 0
-      let height = value.height || 0
-
-      // 如果没有宽高（Web上传或Native未获取到），尝试使用Web方法获取
-      const dimensions = await getVideoInfo(file)
-      if (width === 0 || height === 0) {
-        width = dimensions.width
-        height = dimensions.height
-      }
-
-      const exif: any = value.exif || {
-        'Image Width': { value: width },
-        'Image Height': { value: height }
-      }
-      // 确保 exif 中有宽高
-      if (!exif['Image Width']) exif['Image Width'] = { value: width }
-      if (!exif['Image Height']) exif['Image Height'] = { value: height }
-
-      // 如果 Native 没有返回 MD5，则使用 Web 方法兜底
-      if (!md5) {
-        md5 = (await getFileMd5Hash(file as File)) as string
-      }
-
-      return {
-        file,
-        objectUrl,
-        name: file.name,
-        lastModified: file.lastModified,
-        date: file.lastModifiedDate,
-        exif,
-        md5,
-        cover: dimensions.cover
-      } as FileInfoItem
-    }),
-  )
-
-  // 本地MD5重复检测
-  const duplicateFiles: string[] = []
-
-  for (const fileInfo of fileInfoList) {
-    // 检查是否与已有的待上传列表中的文件MD5重复
-    const existingUploadInfo = Array.from(uploadInfoMap.values()).find(info => info.md5 === fileInfo.md5)
-    if (existingUploadInfo) {
-      fileInfo.repeat = true
-      duplicateFiles.push(fileInfo.name)
-    }
-  }
-
-  // 提示重复文件
-  if (duplicateFiles.length > 0) {
-    showNotify({
-      type: 'warning',
-      message: `检测到重复文件${duplicateFiles.length}个，已跳过上传`
-    })
-  }
+  const fileInfoList = [files].flat().map(value => {
+    const { file, objectUrl } = value
+    return {
+      file,
+      objectUrl,
+      name: file.name,
+      lastModified: file.lastModified,
+      date: file.lastModifiedDate,
+    } as FileInfoItem
+  })
 
   startUpload(fileInfoList)
 }
@@ -787,50 +785,6 @@ providePhotoListStore({
   restorePhotos: handleRestorePhotos
 })
 
-const getVideoInfo = (file: File | Blob): Promise<{ width: number, height: number, cover: string }> => {
-  return new Promise((resolve) => {
-    const videoUrl = URL.createObjectURL(file)
-    const video = document.createElement('video')
-    video.src = videoUrl
-    video.muted = true
-    video.currentTime = 0.1 // Seek to capture frame
-    video.preload = 'auto'
-
-    // Helper to cleanup
-    const cleanup = () => {
-      URL.revokeObjectURL(videoUrl)
-      video.remove()
-    }
-
-    video.onloadeddata = () => {
-      // Ensure we have dimensions
-    }
-
-    video.onseeked = () => {
-      try {
-        const width = video.videoWidth
-        const height = video.videoHeight
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        ctx?.drawImage(video, 0, 0, width, height)
-        const cover = canvas.toDataURL('image/jpeg', 0.7)
-        resolve({ width, height, cover })
-      } catch (e) {
-        console.error('Failed to generate video cover', e)
-        resolve({ width: 0, height: 0, cover: '' })
-      } finally {
-        cleanup()
-      }
-    }
-
-    video.onerror = () => {
-      resolve({ width: 0, height: 0, cover: '' })
-      cleanup()
-    }
-  })
-}
 
 const handleOpenFile = async () => {
   const selected = await open({
@@ -843,70 +797,18 @@ const handleOpenFile = async () => {
 
   if (!selected) return
 
-  const files = await Promise.all(selected.map(async v => {
-    const _file = await readFile(v, { baseDir: BaseDirectory.Resource })
-
-    // 获取准确的文件时间
-    let fileTime = new Date()
-    let width = 0
-    let height = 0
-    let fileType = ''
-    let md5 = ''
-    try {
-      const info = await invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string }>('get_file_info', { filePath: v })
-      if (info && info.last_modified > 0) {
-        fileTime = new Date(info.last_modified)
-      }
-      if (info && info.width > 0 && info.height > 0) {
-        width = info.width
-        height = info.height
-      }
-      fileType = info.file_type
-      if (info.md5) {
-        md5 = info.md5
-      }
-    } catch (e) {
-      console.error('Failed to get file info via Rust:', e)
-      // Fallback to lstat if bridge fails
-      const fileInfo = await lstat(v, { baseDir: BaseDirectory.Resource })
-      if (fileInfo.mtime) {
-        fileTime = fileInfo.mtime
-      }
-    }
-    // Uint8Array 转 blob
-    const file = new Blob([_file.buffer], { type: 'video/mp4' })
-
-    // 构造 exif 对象
-    const exif: any = {
-      'FileType': { value: fileType },
-      'Image Width': { value: width },
-      'Image Height': { value: height },
-    }
-
-    // 优先级：Native获取的时间 > 当前时间
-    const finalDate = fileTime;
-
-    const name = decodeURIComponent(v).split('/').pop()
-    Object.assign(file, {
+  const files = selected.map(filePath => {
+    const name = filePath2Name(filePath)
+    return {
+      file: {
+        name
+      },
       name,
-      lastModified: +finalDate,
-      lastModifiedDate: finalDate,
-    })
+      filePath
+    }
+  })
 
-    return new Promise((resolve) => {
-      resolve({
-        file,
-        objectUrl: '',
-        exif,
-        width,  // 传递 width 给 afterRead
-        height, // 传递 height 给 afterRead
-        md5: md5 as string,
-        filePath: v,
-      })
-    })
-  }))
-
-  afterRead(files)
+  startUpload(files as any)
 }
 </script>
 
@@ -979,10 +881,16 @@ const handleOpenFile = async () => {
     <template v-if="!isDelete">
       <van-button v-if="isTauri" @click="handleOpenFile" class="upload-container tauri-mode">
         <van-icon name="plus" size="16" />
+        <div v-if="pendingCount > 0" class="upload-count-badge">
+          {{ pendingCount }}
+        </div>
       </van-button>
       <!-- 上传 -->
       <van-uploader v-else class="upload-container" :after-read="afterRead" multiple accept="video/*">
         <van-icon name="plus" size="16" />
+        <div v-if="pendingCount > 0" class="upload-count-badge">
+          {{ pendingCount }}
+        </div>
       </van-uploader>
     </template>
     <!-- 视频预览 -->
@@ -998,171 +906,5 @@ const handleOpenFile = async () => {
   </div>
 </template>
 <style scoped lang="scss">
-h2 {
-  padding-left: 10px;
-  font-weight: normal;
-  font-size: 18px;
-  margin: 10px 0;
-
-  .week-day {
-    color: #999;
-    font-size: 12px;
-  }
-}
-
-main :deep(.van-grid-item__content) {
-  padding: 0;
-}
-
-main {
-  background-color: #fff;
-}
-
-.img-border {
-  box-sizing: border-box;
-  border-bottom: 1px solid #fff;
-  border-right: 1px solid #fff;
-  position: relative;
-}
-
-.editSelected {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-}
-
-// 4的倍数
-.img-border:nth-child(4n) {
-  border-right: none;
-}
-
-.block {
-  width: 100%;
-  height: 40vh;
-}
-
-.upload-container {
-  position: fixed;
-  right: 20px;
-  bottom: var(--footer-area-height);
-  --van-button-icon-size: 1em;
-  z-index: 1;
-  box-sizing: border-box;
-  width: 36px;
-  height: 36px;
-  background-color: var(--van-primary-color);
-  color: #fff;
-  border-radius: 50%;
-  border: none;
-
-  &.tauri-mode {
-    // bottom: 90px;
-  }
-
-  :deep(.van-uploader__input-wrapper) {
-    width: 100%;
-    height: 100%;
-    position: relative;
-
-    .van-icon {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-    }
-  }
-
-  :deep(.van-uploader__wrapper) {
-    width: 100%;
-    height: 100%;
-  }
-}
-
-.upload-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.3);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #fff;
-  font-size: 12px;
-}
-
-.error-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #f53f3f;
-  font-size: 12px;
-}
-
-.duplicate-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 165, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #fff;
-  font-size: 12px;
-  flex-direction: column;
-  gap: 8px;
-
-  .duplicate-info {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-  }
-
-  .duplicate-actions {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-
-    :deep(.van-button) {
-      --van-button-mini-height: 24px;
-      --van-button-mini-font-size: 10px;
-      --van-button-mini-padding: 0 8px;
-    }
-  }
-}
-
-.load-more-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px 0;
-  background-color: #fff;
-
-  .load-more-btn {
-    --van-button-default-background: #f7f8fa;
-    --van-button-default-border-color: #ebedf0;
-    --van-button-default-color: #646566;
-    --van-button-small-height: 32px;
-    --van-button-small-padding: 0 16px;
-    --van-button-small-font-size: 14px;
-    border-radius: 16px;
-    min-width: 100px;
-  }
-
-  .no-more-text {
-    color: #969799;
-    font-size: 14px;
-    text-align: center;
-  }
-}
+@import url(./style.scss);
 </style>

@@ -3,7 +3,7 @@ import { showNotify } from "vant";
 // import { writeFile, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 // 检查是否为Android平台，因为Android需要特殊处理文件路径权限
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import SparkMD5 from 'spark-md5';
 import { PromiseWithResolver } from "./util";
 import ExifReader from "exifreader";
@@ -168,6 +168,59 @@ export const getImageDimensions = (file: File | Blob): Promise<{ width: number, 
   })
 }
 
+export const getVideoInfo = (file: File | Blob | string): Promise<{ width: number, height: number, cover: string }> => {
+  return new Promise((resolve) => {
+    let videoUrl = ''
+    if (typeof file === 'string') {
+      videoUrl = file
+    } else {
+      videoUrl = URL.createObjectURL(file)
+    }
+
+    const video = document.createElement('video')
+    video.src = videoUrl
+    video.muted = true
+    video.currentTime = 0.1 // Seek to capture frame
+    video.preload = 'auto'
+
+    // Helper to cleanup
+    const cleanup = () => {
+      if (typeof file !== 'string') {
+        URL.revokeObjectURL(videoUrl)
+      }
+      video.remove()
+    }
+
+    video.onloadeddata = () => {
+      // Ensure we have dimensions
+    }
+
+    video.onseeked = () => {
+      try {
+        const width = video.videoWidth
+        const height = video.videoHeight
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(video, 0, 0, width, height)
+        const cover = canvas.toDataURL('image/jpeg', 0.7)
+        resolve({ width, height, cover })
+      } catch (e) {
+        console.error('Failed to generate video cover', e)
+        resolve({ width: 0, height: 0, cover: '' })
+      } finally {
+        cleanup()
+      }
+    }
+
+    video.onerror = () => {
+      resolve({ width: 0, height: 0, cover: '' })
+      cleanup()
+    }
+  })
+}
+
 export function getImageExif(file: any) {
   try {
     return ExifReader.load(file)
@@ -182,7 +235,7 @@ export function filePath2Name(filePath: string) {
 
 
 export function getFileInfo(filePath: string) {
-  return invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string }>('get_file_info', { filePath })
+  return invoke<{ last_modified: number, creation_time: number, width: number, height: number, file_type: string, md5?: string, size: number }>('get_file_info', { filePath })
 }
 
 
@@ -196,7 +249,8 @@ async function getNativeFileInfo(filePath: string) {
     width: 0,
     height: 0,
     fileType: '',
-    md5: ''
+    md5: '',
+    size: 0
   }
 
   try {
@@ -209,6 +263,7 @@ async function getNativeFileInfo(filePath: string) {
       }
       result.fileType = info.file_type
       if (info.md5) result.md5 = info.md5
+      if (info.size) result.size = info.size
     }
   } catch (e) {
     console.error('Failed to get file info via Rust:', e)
@@ -217,6 +272,9 @@ async function getNativeFileInfo(filePath: string) {
       const fileInfo = await lstat(filePath, { baseDir: BaseDirectory.Resource })
       if (fileInfo.mtime) {
         result.lastModified = +fileInfo.mtime
+      }
+      if (fileInfo.size) {
+        result.size = fileInfo.size
       }
     } catch (lstatError) {
       console.error('Failed to lstat file:', lstatError)
@@ -291,6 +349,68 @@ export async function parseNativeImageFileUploadInfo(filePath: string) {
   }
 }
 
+export async function parseNativeVideoFileUploadInfo(filePath: string) {
+  try {
+    // 1. 获取基础文件信息
+    const nativeInfo = await getNativeFileInfo(filePath)
+
+    // 2. 避免读取完整文件，使用 convertFileSrc 获取流式 URL
+    // const _file = await readFile(filePath, { baseDir: BaseDirectory.Resource })
+    // const buffer = _file.buffer
+    const assetUrl = convertFileSrc(filePath)
+    const fileType = nativeInfo.fileType || 'video/mp4'
+
+    // 3. 确定时间
+    const lastModified = nativeInfo.lastModified || new Date().getTime()
+
+    // 4. 构建 File 对象 (内容为空，但修正 size)
+    const originalName = filePath2Name(filePath) || 'unknown'
+    const file = new File([], originalName, {
+      type: fileType,
+      lastModified: lastModified,
+    })
+
+    // 修正 file.size
+    if (nativeInfo.size > 0) {
+      Object.defineProperty(file, 'size', { value: nativeInfo.size, writable: false })
+    }
+
+    // 5. 获取宽高和封面 (如果 Native 没返回)
+    let width = nativeInfo.width
+    let height = nativeInfo.height
+    let cover = assetUrl
+
+    if (width === 0 || height === 0) {
+      const info = await getVideoInfo(assetUrl)
+      width = info.width
+      height = info.height
+      cover = info.cover
+    }
+
+    const exif: any = {
+      'Image Width': { value: width },
+      'Image Height': { value: height },
+      'FileType': { value: fileType },
+    }
+
+    return {
+      file,
+      md5: nativeInfo.md5,
+      width,
+      height,
+      fileType,
+      lastModified,
+      date: new Date(lastModified),
+      objectUrl: assetUrl,
+      exif,
+      cover
+    }
+  } catch (e) {
+    console.error('Failed to read video file:', e)
+    return undefined
+  }
+}
+
 /**
  * 确保文件上传信息完整
  * 1. 确保 EXIF 存在
@@ -328,6 +448,42 @@ export async function ensureUploadInfo(value: Partial<FileInfoItem> & { file: Fi
   if (!value.md5) {
     value.md5 = await getFileMd5Hash(file) as string
   }
+
+  return value as FileInfoItem
+}
+
+export async function ensureVideoUploadInfo(value: Partial<FileInfoItem> & { file: File }) {
+  const { file } = value
+  let width = value.width || 0
+  let height = value.height || 0
+  let cover = (value as any).cover
+
+  // 1. 确保获取视频宽高和封面
+  // 如果没有宽高或者没有封面，尝试获取
+  if (width === 0 || height === 0 || !cover) {
+    const info = await getVideoInfo(file)
+    if (width === 0) width = info.width
+    if (height === 0) height = info.height
+    if (!cover) cover = info.cover
+  }
+
+  // 2. 确保 EXIF 有宽高 (为了兼容后端字段)
+  value.exif = value.exif || {}
+  if (!value.exif['Image Width']) value.exif['Image Width'] = { value: width }
+  else value.exif['Image Width'].value = width
+
+  if (!value.exif['Image Height']) value.exif['Image Height'] = { value: height }
+  else value.exif['Image Height'].value = height
+
+  // 3. 确保 MD5
+  if (!value.md5) {
+    value.md5 = (await getFileMd5Hash(file)) as string
+  }
+
+  // 4. 更新 value 中的属性
+  value.width = width
+  value.height = height
+  ;(value as any).cover = cover
 
   return value as FileInfoItem
 }
