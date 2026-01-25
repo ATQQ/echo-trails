@@ -440,7 +440,9 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
 
 const uploadValueMap = new Map<string, FileInfoItem>()
 const limit = pLimit(2);
+const pendingCount = ref(0)
 const startUpload = async (values: FileInfoItem[]) => {
+  pendingCount.value += values.length
   for (const value of values) {
     limit(async () => {
       try {
@@ -578,6 +580,13 @@ const startUpload = async (values: FileInfoItem[]) => {
 
         // 加入待上传列表，同时支持列表里展示
         addWaitUploadList(value)
+        // 从等待总数中移除（因为已经进入了可视化的等待列表或者处理流程中？不，用户需求是总等待数）
+        // 用户需求：传入的累计，上传完成后减掉
+        // waitUploadList 是正在处理（包括等待并发锁）的列表。
+        // values 是所有选中的文件。
+        // 因为 limit 限制了并发，所以很多文件还在 limit 队列里等待执行。
+        // 此时它们还没调 addWaitUploadList。
+        // 所以 pendingCount 应该代表：还未完成（成功或失败）的所有任务数。
 
         // 生成上传信息
         const info = generateUploadInfo(value)
@@ -586,9 +595,10 @@ const startUpload = async (values: FileInfoItem[]) => {
         uploadValueMap.set(info.key, value)
 
         await uloadOneFile(value, info)
-
       } catch (error) {
-        console.error('Error processing file:', value, error)
+         console.error('Error processing file:', value, error)
+      } finally {
+        pendingCount.value--
       }
     })
   }
@@ -988,17 +998,15 @@ const handleOpenFile = async () => {
     <template v-if="!isDelete">
       <van-button v-if="isTauri" @click="handleOpenFile" class="upload-container tauri-mode">
         <van-icon name="plus" size="16" />
-        <div v-if="waitUploadList.length > 0 && waitUploadList.some(v => v.status !== UploadStatus.SUCCESS)"
-          class="upload-count-badge">
-          {{waitUploadList.filter(v => v.status !== UploadStatus.SUCCESS).length}}
+        <div v-if="pendingCount > 0" class="upload-count-badge">
+          {{ pendingCount }}
         </div>
       </van-button>
       <!-- 上传 -->
       <van-uploader v-else class="upload-container" :after-read="afterRead" multiple>
         <van-icon name="plus" size="16" />
-        <div v-if="waitUploadList.length > 0 && waitUploadList.some(v => v.status !== UploadStatus.SUCCESS)"
-          class="upload-count-badge">
-          {{waitUploadList.filter(v => v.status !== UploadStatus.SUCCESS).length}}
+        <div v-if="pendingCount > 0" class="upload-count-badge">
+          {{ pendingCount }}
         </div>
       </van-uploader>
     </template>
