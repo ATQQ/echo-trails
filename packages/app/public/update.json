@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.4.1",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.4.1.apk",
+      "forceUpdate": false,
+      "description": "上传功能优化",
+      "md5": "666395536fff8082f51a79acff22bd43"
+    },
+    {
       "version": "0.4.0",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.4.0.apk",
       "forceUpdate": false,
