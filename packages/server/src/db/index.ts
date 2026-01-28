@@ -31,7 +31,7 @@ function startDisconnectTimer() {
     } catch (e) {
       console.error('DB disconnect error:', e);
     }
-  }, 1000 * 120);
+  }, 1000 * 60 * 30); // 30分钟无操作断开
 }
 
 export async function dbMiddleware(c: Context, next: Next) {
