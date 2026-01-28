@@ -79,7 +79,7 @@ interface AppItem {
 
 const healthApps = ref<AppItem[]>([
   { text: '体重记录', icon: 'chart-trending-o', color: '#1989fa', url: '/weight-record' },
-  { text: '血压监测', icon: 'like-o', color: '#ee0a24' },
+  { text: '血压监测', icon: 'like-o', color: '#ee0a24', url: '/blood-pressure' },
 ]);
 
 const mediaApps = ref<AppItem[]>([

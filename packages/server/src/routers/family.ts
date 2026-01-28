@@ -1,5 +1,7 @@
 import { Hono } from 'hono'
 import { Family } from '../db/family'
+import { Weight } from '../db/weight'
+import { BloodPressure } from '../db/bloodPressure'
 import { getUniqueKey } from '../lib/string'
 
 export default function familyRouter(router: Hono) {
@@ -16,8 +18,18 @@ export default function familyRouter(router: Hono) {
   // List families
   router.get('/list', async (c) => {
     const username = c.get('username' as any)
-    const list = await Family.find({ username, isDelete: { $ne: true } }).sort({ createdAt: 1 })
-    return c.json({ code: 0, data: list })
+    const list = await Family.find({ username, isDelete: { $ne: true } }).sort({ createdAt: 1 }).lean()
+
+    const result = await Promise.all(list.map(async (f) => {
+      const weightCount = await Weight.countDocuments({ familyId: f.familyId, isDelete: { $ne: true } })
+      const bpCount = await BloodPressure.countDocuments({ familyId: f.familyId, isDelete: { $ne: true } })
+      return {
+        ...f,
+        canDelete: weightCount === 0 && bpCount === 0
+      }
+    }))
+
+    return c.json({ code: 0, data: result })
   })
 
   // Add family member

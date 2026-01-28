@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { showConfirmDialog, showFailToast, showSuccessToast } from 'vant'
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watchEffect } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watchEffect, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getWeightDiff, getTimeDiffDes } from '@/lib/weight-utils'
 import { getWeightList, addWeight, updateWeight, deleteWeight, type WeightRecord } from '@/service/weight'
-import { getFamilyList, addFamily, updateFamily, deleteFamily, type FamilyMember } from '@/service/family'
-import UnderInput from '@/components/UnderInput/UnderInput.vue'
+import { useFamily } from '@/composables/useFamily'
+import FamilySelector from '@/components/FamilySelector/FamilySelector.vue'
 import dayjs from 'dayjs'
 import { createChart, ColorType, LineSeries } from 'lightweight-charts'
 
@@ -33,8 +33,16 @@ function handleBack() {
   router.go(-1) // Changed from /dashboard to /home or similar
 }
 
+const { handleAddFamily, currentFamilyId, refreshFamilies } = useFamily()
+
+// Watch for family changes to refresh records
+watch(currentFamilyId, (val) => {
+  refreshRecord(val)
+  // localStorage persistence is handled by store/hook now
+})
+
 const state = reactive({
-  people: localStorage.getItem('currentPerson') || 'default',
+  // people: localStorage.getItem('currentPerson') || 'default', // Removed, use currentFamilyId
   showTime: false,
   time: '',
   timeValue: [] as string[],
@@ -47,9 +55,6 @@ const state = reactive({
 
 // 体重数据
 const weights = ref<WeightRecord[]>([])
-const peopleOption = ref<{ text: string, value: string }[]>([
-  { text: '默认', value: 'default' }
-])
 
 // 搜索关键字
 const searchWeight = ref('')
@@ -70,16 +75,7 @@ const showWeights = computed(() =>
 )
 
 function onLoad() {
-  // If we are searching locally, we might not want to load more from server?
-  // Or we just load more to find matches?
-  // For now, let's assume search doesn't stop loading, but usually search should probably be server side if data is large.
-  // Given the instruction, I will just implement the loading logic.
-
-  if (state.people === 'default' && peopleOption.value.length > 1 && !peopleOption.value.find(v => v.value === 'default')) {
-    // Edge case handling similar to existing code, but maybe unnecessary here if handled in watchEffect
-  }
-
-  getWeightList(state.people, page.value, pageSize.value).then(res => {
+  getWeightList(currentFamilyId.value, page.value, pageSize.value).then(res => {
     if (res.code === 0) {
       const newData = res.data
       if (page.value === 1) {
@@ -109,71 +105,8 @@ function refreshRecord(familyId: string) {
   page.value = 1
   finished.value = false
   loading.value = true
-  weights.value = [] // Clear existing to trigger clean load or just let onLoad handle it
-  // onLoad will be triggered by van-list if immediate-check is true (default) and content is not enough
-  // But since we clear weights, it should trigger.
+  weights.value = []
   onLoad()
-}
-function refreshFamilies() {
-  // store.dispatch('weight/getFamilyList')
-  getFamilyList().then(res => {
-    if (res.code === 0) {
-      const list = res.data.map(m => ({ text: m.name, value: m.familyId }))
-      if (!list.find(v => v.value === 'default')) {
-        list.unshift({ text: '默认', value: 'default' })
-      }
-      peopleOption.value = list
-    }
-  })
-}
-
-// 切换成员
-function handleSelectPeople(value: string) {
-  refreshRecord(value)
-  localStorage.setItem('currentPerson', value)
-}
-
-watchEffect(() => {
-  const isExist = !!peopleOption.value.find(v => v.value === state.people)
-  if (!isExist && peopleOption.value.length > 1) {
-    // If current person not in list (and list loaded), switch to default
-    // Note: peopleOption init with 1 item ('default'), so length > 1 means we loaded families
-    // However, if 'default' is the only one, isExist is true if state.people is 'default'.
-    // If state.people is some ID that was deleted, switch to default.
-    state.people = 'default'
-    handleSelectPeople('default')
-  }
-})
-
-// 添加家人相关
-const newPeopleName = ref('')
-const showAddPeople = ref(false)
-function handleAddPeople() {
-  showAddPeople.value = true
-}
-function onOpenPeoplDialog() {
-  newPeopleName.value = ''
-}
-function handleSurePeople() {
-  if (!newPeopleName.value) {
-    return
-  }
-  // 去重
-  if (peopleOption.value.find(v => v.text === newPeopleName.value)) {
-    showFailToast('名称已存在')
-    return
-  }
-  showAddPeople.value = false
-  addFamily(newPeopleName.value).then((res) => {
-    showSuccessToast('添加成功')
-    const { familyId } = res.data
-    // Refresh list instead of push to keep consistent
-    refreshFamilies()
-
-    // 刷新选择
-    state.people = familyId
-    handleSelectPeople(familyId)
-  })
 }
 
 // 添加记录相关
@@ -226,7 +159,7 @@ function handleSureRecord() {
     }).then(() => {
       showSuccessToast('修改成功')
       // 刷新列表
-      refreshRecord(state.people)
+      refreshRecord(currentFamilyId.value)
     })
     return
   }
@@ -234,14 +167,14 @@ function handleSureRecord() {
   const { tips } = state
   state.tips = ''
   addWeight({
-    familyId: state.people === 'default' ? 'default' : state.people,
+    familyId: currentFamilyId.value === 'default' ? 'default' : currentFamilyId.value,
     weight,
     date,
     tips,
     operator: 'self'
   }).then((res) => {
     showSuccessToast('记录成功')
-    refreshRecord(state.people)
+    refreshRecord(currentFamilyId.value)
   })
 
   showAddRecord.value = false
@@ -354,13 +287,6 @@ watchEffect(async () => {
     const dataMap = new Map();
     weights.value.forEach(item => {
       const time = Math.floor(new Date(item.date).getTime() / 1000); // Lightweight charts uses seconds
-      // Keep the last record for the same timestamp (or handle duplicates as needed)
-      // Since weights are sorted by date desc in weights.value (usually),
-      // if we iterate and set map, the last one set will be from the beginning of weights array
-      // if we iterate forwards? No, Map preserves insertion order but keys are unique.
-      // If we want the latest record for a timestamp, and weights is desc,
-      // the first one we see is the latest.
-      // So if map doesn't have it, set it.
       if (!dataMap.has(time)) {
         dataMap.set(time, item.weight);
       }
@@ -424,71 +350,19 @@ watchEffect(async () => {
   }
 })
 
-const showEditFamilyName = ref(false)
-const newFamilyName = ref('')
-function handleUpdateName() {
-  showEditFamilyName.value = true
-}
-async function handleSubmitEditInfo() {
-  if (!newFamilyName.value) {
-    return
-  }
-  updateFamily(state.people, newFamilyName.value).then(() => {
-    showSuccessToast('修改成功')
-    // 刷新列表
-    refreshFamilies()
-  })
-  showEditFamilyName.value = false
-  newFamilyName.value = ''
-}
-
-function handleDeleteFamily() {
-  showConfirmDialog({
-    title: '操作提示',
-    message: '确认移除此人员？'
-  })
-    .then(() => {
-      deleteFamily(state.people).then(() => {
-        showSuccessToast('删除成功')
-        // 刷新列表
-        refreshFamilies()
-        // 刷新选择
-        state.people = 'default'
-        handleSelectPeople('default')
-      })
-    })
-}
 onMounted(() => {
   refreshFamilies()
-  refreshRecord(state.people)
+  refreshRecord(currentFamilyId.value)
 })
 </script>
 
 <template>
   <div>
-    <van-nav-bar class="safe-padding-top" fixed title="体重记录" left-text="返回" left-arrow @click-left="handleBack"
-      @click-right="handleAddPeople">
-      <template #right>
-        <van-icon name="plus" size="18" />
-      </template>
-    </van-nav-bar>
+    <van-nav-bar class="safe-padding-top" fixed title="体重记录" left-text="返回" left-arrow @click-left="handleBack" />
     <!-- 选人 -->
     <header class="family-select-wrapper safe-padding-top">
-      <van-dropdown-menu :active-color="themeColor">
-        <van-dropdown-item v-model="state.people" :options="peopleOption" @change="handleSelectPeople" />
-      </van-dropdown-menu>
-      <span class="edit-family-name" @click="handleUpdateName">
-        <van-icon name="edit" />
-      </span>
-      <span v-if="!loading && weights.length === 0 && state.people !== 'default'" class="delete-family-name"
-        @click="handleDeleteFamily">
-        <van-icon name="delete" />
-      </span>
+      <FamilySelector :active-color="themeColor" />
     </header>
-    <!-- 修改名字 -->
-    <van-dialog v-model:show="showEditFamilyName" title="信息修改" show-cancel-button @confirm="handleSubmitEditInfo">
-      <van-field v-model="newFamilyName" autofocus label="名称" placeholder="请输入新的名称" />
-    </van-dialog>
 
     <van-empty v-if="weights.length === 0" description="没有记录，点击右下角 + 添加" />
     <main v-else>
@@ -535,13 +409,6 @@ onMounted(() => {
     <div class="add-record" @click="handleAddRecord">
       <van-icon name="plus" size="20" />
     </div>
-    <!-- 添加家人弹窗 -->
-    <van-dialog v-model:show="showAddPeople" title="添加家人" :confirm-button-color="themeColor" show-cancel-button
-      @open="onOpenPeoplDialog" @confirm="handleSurePeople">
-      <div class="people-dialog">
-        <UnderInput v-model="newPeopleName" placeholder="昵称" tips="输入要记录的家人昵称" icon="manager-o" />
-      </div>
-    </van-dialog>
     <!-- 添加记录弹窗 -->
     <van-dialog v-model:show="showAddRecord" :title="editMode ? '修改记录' : '录入记录'" confirm-button-color="#1989fa"
       show-cancel-button @confirm="handleSureRecord">
@@ -566,10 +433,6 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
-.people-dialog {
-  padding: 1rem;
-}
-
 .record-dialog {
   padding: 1rem 0;
 }
@@ -666,18 +529,6 @@ onMounted(() => {
 .family-select-wrapper {
   position: relative;
   margin-top: 46px;
-
-  .edit-family-name {
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-  }
-
-  .delete-family-name {
-    position: absolute;
-    left: 1rem;
-    top: 50%;
-  }
 }
 </style>
 <style>

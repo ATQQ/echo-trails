@@ -4,6 +4,7 @@ export interface FamilyMember {
   _id?: string;
   familyId: string;
   name: string;
+  canDelete?: boolean;
 }
 
 export const getFamilyList = () => {
