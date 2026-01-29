@@ -197,10 +197,24 @@
     </div>
 
     <!-- Add Record Popup -->
-    <van-popup v-model:show="showAddPopup" position="bottom" round :style="{ height: '550px' }" closeable>
+    <van-popup v-model:show="showAddPopup" position="bottom" class="safe-padding-top" round :style="{ height: '100%' }"
+      closeable>
       <div class="popup-content">
         <h2 class="popup-title">添加数据</h2>
         <van-cell title="测量时间" is-link :value="addForm.timeStr" @click="showDatePicker = true" />
+
+        <!-- 快捷输入框 -->
+        <div class="form-section">
+          <div class="section-label">快捷输入 (智能解析)</div>
+          <van-field ref="quickInputRef" v-model="quickInput" rows="2" autosize type="textarea" inputmode="decimal"
+            placeholder="粘贴或输入：120 80 75 98 (分别对应高压、低压、脉搏、血氧)" class="quick-input-field">
+            <template #button>
+              <van-button size="small" type="success" :disabled="!isValidForm" @click="handleSubmit">
+                保存
+              </van-button>
+            </template>
+          </van-field>
+        </div>
 
         <div class="form-section">
           <div class="section-label">血压 (必填)</div>
@@ -208,7 +222,7 @@
             <div class="input-box">
               <div class="label">收缩压 (高压)</div>
               <div class="input-wrapper">
-                <input ref="sbpInputRef" type="number" v-model="addForm.sbp" placeholder="0" />
+                <input type="number" v-model="addForm.sbp" placeholder="0" />
                 <span class="unit">mmHg</span>
               </div>
             </div>
@@ -311,6 +325,7 @@ import dayjs from 'dayjs';
 import { createChart, ColorType, LineSeries } from 'lightweight-charts';
 import { showToast, showConfirmDialog } from 'vant';
 import TimeRangePicker from '@/components/TimeRangePicker/TimeRangePicker.vue';
+import { preventBack } from '@/lib/router';
 
 const router = useRouter();
 const store = useBloodPressureStore();
@@ -330,7 +345,33 @@ const showTimeRangePicker = ref(false);
 const showDetailPopup = ref(false);
 const currentRecord = ref<BloodPressureRecord | null>(null);
 
-const sbpInputRef = ref<HTMLInputElement | null>(null);
+const quickInputRef = ref<HTMLInputElement | null>(null);
+
+const quickInput = ref('');
+
+watch(quickInput, (val) => {
+  if (!val) {
+    addForm.value.sbp = '';
+    addForm.value.dbp = '';
+    addForm.value.heartRate = '';
+    addForm.value.bloodOxygen = '';
+    return
+  };
+
+  // Extract all number sequences
+  const numbers = val.match(/\d+/g);
+
+  if (numbers && numbers.length > 0) {
+    if (numbers[0]) addForm.value.sbp = numbers[0];
+    else addForm.value.sbp = '';
+    if (numbers[1]) addForm.value.dbp = numbers[1];
+    else addForm.value.dbp = '';
+    if (numbers[2]) addForm.value.heartRate = numbers[2];
+    else addForm.value.heartRate = '';
+    if (numbers[3]) addForm.value.bloodOxygen = numbers[3];
+    else addForm.value.bloodOxygen = '';
+  }
+});
 
 watch(showAddPopup, async (val) => {
   if (val) {
@@ -341,12 +382,16 @@ watch(showAddPopup, async (val) => {
     addForm.value.dbp = '';
     addForm.value.heartRate = '';
     addForm.value.bloodOxygen = '';
+    quickInput.value = '';
 
     await nextTick();
-    sbpInputRef.value?.focus();
+    setTimeout(() => {
+      quickInputRef.value?.focus();
+    }, 500)
   }
 });
 
+preventBack(showAddPopup);
 // Date State (Independent for each tab)
 const dateStates = reactive({
   day: dayjs().valueOf(),
@@ -782,7 +827,7 @@ onMounted(async () => {
 @import url('./style.scss');
 </style>
 <style>
-#tv-attr-logo{
+#tv-attr-logo {
   display: none;
 }
 </style>

@@ -1,4 +1,4 @@
-.van-nav-bar__placeholder>:deep(.van-nav-bar--fixed) {
+.van-nav-bar__placeholder > :deep(.van-nav-bar--fixed) {
   padding-top: var(--safe-area-top);
 }
 
@@ -102,7 +102,7 @@
     .bp-value {
       font-size: 32px;
       font-weight: bold;
-      font-family: 'DIN Alternate', sans-serif;
+      font-family: "DIN Alternate", sans-serif;
     }
 
     .unit {
@@ -213,7 +213,7 @@
     .value {
       font-size: 24px;
       font-weight: bold;
-      font-family: 'DIN Alternate', sans-serif;
+      font-family: "DIN Alternate", sans-serif;
       margin-bottom: 2px;
 
       .unit {
@@ -293,7 +293,7 @@
   .count {
     font-size: 20px;
     font-weight: bold;
-    font-family: 'DIN Alternate', sans-serif;
+    font-family: "DIN Alternate", sans-serif;
     margin-bottom: 4px;
 
     .unit {
@@ -327,22 +327,30 @@
 }
 
 .popup-content {
-  padding: 24px;
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+  padding-bottom: 80px;
 
   .popup-title {
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 24px;
     text-align: center;
+    margin: 0 0 16px;
+    font-size: 18px;
   }
 
   .form-section {
-    margin-top: 24px;
+    margin-bottom: 24px;
 
     .section-label {
       font-size: 14px;
       color: #999;
       margin-bottom: 12px;
+    }
+
+    .quick-input-field {
+      background: #f7f8fa;
+      border-radius: 8px;
+      padding: 10px;
     }
   }
 
@@ -370,9 +378,9 @@
           width: 100%;
           border: none;
           background: transparent;
-          font-size: 24px;
+          font-size: 16px;
           font-weight: bold;
-          font-family: 'DIN Alternate', sans-serif;
+          font-family: "DIN Alternate", sans-serif;
           color: #333;
           padding: 0;
 
@@ -433,7 +441,7 @@
           .bp-value {
             font-size: 18px;
             font-weight: bold;
-            font-family: 'DIN Alternate', sans-serif;
+            font-family: "DIN Alternate", sans-serif;
 
             .unit {
               font-size: 12px;
@@ -485,4 +493,8 @@
       }
     }
   }
+}
+
+:deep(.van-popup__close-icon) {
+  padding-top: var(--safe-area-top);
 }
