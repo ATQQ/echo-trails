@@ -197,7 +197,7 @@
     </div>
 
     <!-- Add Record Popup -->
-    <van-popup v-model:show="showAddPopup" position="bottom" round :style="{ height: '500px' }" closeable>
+    <van-popup v-model:show="showAddPopup" position="bottom" round :style="{ height: '550px' }" closeable>
       <div class="popup-content">
         <h2 class="popup-title">添加数据</h2>
         <van-cell title="测量时间" is-link :value="addForm.timeStr" @click="showDatePicker = true" />
@@ -301,14 +301,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick, reactive } from 'vue';
+import { ref, computed, onMounted, watch, nextTick, reactive, onUnmounted, watchEffect } from 'vue';
 import { useRouter } from 'vue-router';
 import { useBloodPressureStore, type BloodPressureRecord } from '@/stores/bloodPressure';
 import { useBloodPressureStats } from '@/composables/useBloodPressureStats';
 import { useFamily } from '@/composables/useFamily';
 import FamilySelector from '@/components/FamilySelector/FamilySelector.vue';
 import dayjs from 'dayjs';
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, LineSeries } from 'lightweight-charts';
 import { showToast, showConfirmDialog } from 'vant';
 import TimeRangePicker from '@/components/TimeRangePicker/TimeRangePicker.vue';
 
@@ -612,52 +612,131 @@ let chart: any = null;
 let sbpSeries: any = null;
 let dbpSeries: any = null;
 
-const initChart = () => {
-  if (!chartContainer.value) return;
+onUnmounted(() => {
+  if (chart) {
+    chart.remove();
+    chart = null;
+  }
+  window.removeEventListener('resize', handleResize);
+});
 
-  chart = createChart(chartContainer.value, {
-    layout: {
-      background: { type: ColorType.Solid, color: 'transparent' },
-      textColor: '#333',
-    },
-    grid: {
-      vertLines: { color: '#f0f0f0' },
-      horzLines: { color: '#f0f0f0' },
-    },
-    width: chartContainer.value.clientWidth,
-    height: 200,
-    timeScale: {
-      timeVisible: true,
-      secondsVisible: false,
+const handleResize = () => {
+  if (chart && chartContainer.value) {
+    chart.applyOptions({ width: chartContainer.value.clientWidth });
+  }
+};
+
+watchEffect(async () => {
+  if (filteredRecords.value.length !== 0 && chartContainer.value) {
+    await nextTick();
+    if (!chartContainer.value) return;
+
+    // If chart exists, destroy it first
+    if (chart) {
+      chart.remove();
+      chart = null;
     }
-  });
 
-  sbpSeries = chart.addLineSeries({ color: '#ee0a24', title: '收缩压' });
-  dbpSeries = chart.addLineSeries({ color: '#1989fa', title: '舒张压' });
+    // Sort records by time ascending for chart
+    const data = [...filteredRecords.value]
+      .sort((a, b) => a.timestamp - b.timestamp)
+      // Filter out invalid timestamps or duplicates if necessary (lightweight-charts requires unique increasing time)
+      .map(r => ({ ...r, time: Math.floor(r.timestamp / 1000) as any })); // Cast to any to satisfy type temporarily
 
-  refreshChart();
+    // Deduplicate timestamps
+    const uniqueData: typeof data = [];
+    const seenTimes = new Set<number>();
 
-  new ResizeObserver(entries => {
-    if (entries.length === 0 || entries[0].target !== chartContainer.value) { return; }
-    const newRect = entries[0].contentRect;
-    chart.applyOptions({ width: newRect.width });
-  }).observe(chartContainer.value);
-};
+    data.forEach(r => {
+      if (!seenTimes.has(r.time)) {
+        seenTimes.add(r.time);
+        uniqueData.push(r);
+      }
+    });
 
-const refreshChart = () => {
-  if (!sbpSeries || !dbpSeries) return;
+    const sbpData = uniqueData.map(r => ({ time: r.time, value: r.sbp }));
+    const dbpData = uniqueData.map(r => ({ time: r.time, value: r.dbp }));
 
-  // Sort records by time ascending for chart
-  const data = [...filteredRecords.value].sort((a, b) => a.timestamp - b.timestamp);
+    chart = createChart(chartContainer.value, {
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: '#969799', // Matched WeightView
+      },
+      grid: {
+        vertLines: { visible: false }, // Matched WeightView
+        horzLines: { color: '#f0f0f0' },
+      },
+      width: chartContainer.value.clientWidth,
+      height: 200,
+      rightPriceScale: {
+        borderVisible: false,
+        scaleMargins: {
+          top: 0.2,
+          bottom: 0.2,
+        },
+      },
+      timeScale: {
+        borderVisible: false,
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: (time: number) => {
+          const date = dayjs(time * 1000);
+          if (activeTab.value === 'day') {
+            return date.format('HH:mm');
+          }
+          return date.format('MM-DD');
+        },
+      },
+      localization: {
+        dateFormat: 'yyyy-MM-dd',
+        timeFormatter: (time: number) => {
+          return dayjs(time * 1000).format('YYYY-MM-DD HH:mm');
+        }
+      },
+      handleScroll: {
+        vertTouchDrag: false,
+      },
+    });
 
-  const sbpData = data.map(r => ({ time: r.timestamp / 1000, value: r.sbp }));
-  const dbpData = data.map(r => ({ time: r.timestamp / 1000, value: r.dbp }));
+    // Set Fixed Scale for Y (0-180)
+    chart.priceScale('right').applyOptions({
+      autoScale: false,
+      minValue: 0,
+      maxValue: 180,
+    });
 
-  sbpSeries.setData(sbpData);
-  dbpSeries.setData(dbpData);
+    // SBP Series (High) - Line
+    sbpSeries = chart.addSeries(LineSeries, {
+      color: '#ff4d4f',
+      lineWidth: 2,
+      crosshairMarkerVisible: true,
+      pointMarkersVisible: true, // WeightView uses lastValueVisible: true, priceLineVisible: false
+      pointMarkersRadius: 4, // WeightView doesn't explicitly set this, but kept from previous
+      title: '收缩压',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
 
-  chart.timeScale().fitContent();
-};
+    // DBP Series (Low) - Line
+    dbpSeries = chart.addSeries(LineSeries, {
+      color: '#1989fa', // Use Blue for DBP to distinguish from SBP (Red)
+      lineWidth: 2,
+      crosshairMarkerVisible: true,
+      pointMarkersVisible: true,
+      pointMarkersRadius: 4,
+      title: '舒张压',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+
+    sbpSeries.setData(sbpData);
+    dbpSeries.setData(dbpData);
+
+    chart.timeScale().fitContent();
+
+    window.addEventListener('resize', handleResize);
+  }
+});
 
 watch(activeTab, (val) => {
   if (val === 'custom') {
@@ -672,20 +751,21 @@ watch(activeTab, (val) => {
   fetchData();
 });
 
-watch(filteredRecords, () => {
-  refreshChart();
-}, { deep: true });
+// Removed watch(filteredRecords) since watchEffect handles it
 
 onMounted(async () => {
   await refreshFamilies();
   fetchData();
-  nextTick(() => {
-    initChart();
-  });
+  // Removed explicit initChart call
 });
 
 </script>
 
 <style lang="scss" scoped>
-@import './style.scss';
+@import url('./style.scss');
+</style>
+<style>
+#tv-attr-logo{
+  display: none;
+}
 </style>

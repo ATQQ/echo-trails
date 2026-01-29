@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { showConfirmDialog, showFailToast, showSuccessToast } from 'vant'
+import { showConfirmDialog, showSuccessToast } from 'vant'
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watchEffect, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getWeightDiff, getTimeDiffDes } from '@/lib/weight-utils'
