@@ -98,7 +98,7 @@ const router = createRouter({
     {
       path: '/blood-pressure',
       name: 'blood-pressure',
-      component: () => import('../views/BloodPressureView.vue'),
+      component: () => import('../views/BloodPressureView/BloodPressureView.vue'),
       meta: {
         keepAlive: false,
         nav: false,
