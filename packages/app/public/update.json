@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.5.0",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.0.apk",
+      "forceUpdate": false,
+      "description": "支持血压记录功能",
+      "md5": "b38aa89e2f6cdb55928129e88a34978d"
+    },
+    {
       "version": "0.4.1",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.4.1.apk",
       "forceUpdate": false,
