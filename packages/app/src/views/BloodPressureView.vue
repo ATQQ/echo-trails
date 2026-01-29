@@ -1,9 +1,9 @@
 <template>
   <div class="blood-pressure-view">
     <van-nav-bar title="血压" left-arrow @click-left="router.back()" fixed placeholder class="nav-bar">
-      <template #right>
+      <!-- <template #right>
         <van-icon name="ellipsis" size="18" />
-      </template>
+      </template> -->
     </van-nav-bar>
 
     <!-- Family Selector -->
@@ -28,7 +28,7 @@
         </div>
       </div>
 
-      <van-empty v-if="!loading && filteredRecords.length === 0" description="暂无数据" />
+      <van-empty v-if="filteredRecords.length === 0" description="暂无数据" />
 
       <template v-else>
         <!-- Latest Record / Summary -->
@@ -72,49 +72,120 @@
 
         <!-- Chart -->
         <div class="card chart-card">
-          <div class="chart-header">
-            <span>{{ chartTitle }}</span>
-          </div>
           <div class="chart-container" ref="chartContainer"></div>
         </div>
 
         <!-- Stats Grid (Week/Month view) -->
-        <div class="card stats-card" v-if="activeTab !== 'day'">
-          <div class="card-title">本{{ activeTab === 'week' ? '周' : '月' }}概览</div>
+        <div class="card stats-card">
+          <div class="card-title">
+            <van-icon name="eye-o" color="#ff4d4f" size="18" style="margin-right: 4px;" />
+            数据概览
+          </div>
           <div class="stats-grid">
+            <!-- Row 1: Averages -->
             <div class="stat-item">
-              <div class="value">{{ avgSbp }}/{{ avgDbp }} <span class="unit">mmHg</span></div>
-              <div class="label">血压平均值</div>
+              <div class="value">{{ avgSbp }} <span class="unit">mmHg</span></div>
+              <div class="label">平均高压</div>
             </div>
             <div class="stat-item">
-              <div class="value">{{ avgHr }} <span class="unit">次/分</span></div>
-              <div class="label">脉搏平均值</div>
+              <div class="value">{{ avgDbp }} <span class="unit">mmHg</span></div>
+              <div class="label">平均低压</div>
             </div>
+
+            <!-- Row 2: Max Values -->
             <div class="stat-item">
               <div class="value">{{ maxSbp }} <span class="unit">mmHg</span></div>
-              <div class="label">最高高压</div>
+              <div class="label">
+                最高高压
+                <span class="tag high" v-if="maxSbp >= 140">偏高</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="value">{{ maxDbp }} <span class="unit">mmHg</span></div>
+              <div class="label">
+                最高低压
+                <span class="tag high" v-if="maxDbp >= 90">偏高</span>
+              </div>
+            </div>
+
+            <!-- Row 3: Min Values -->
+            <div class="stat-item">
+              <div class="value">{{ minSbp }} <span class="unit">mmHg</span></div>
+              <div class="label">
+                最低高压
+                <span class="tag low" v-if="minSbp > 0 && minSbp < 90">偏低</span>
+              </div>
             </div>
             <div class="stat-item">
               <div class="value">{{ minDbp }} <span class="unit">mmHg</span></div>
-              <div class="label">最低低压</div>
+              <div class="label">
+                最低低压
+                <span class="tag low" v-if="minDbp > 0 && minDbp < 60">偏低</span>
+              </div>
+            </div>
+
+            <!-- Row 4: Heart Rate -->
+            <div class="stat-item" v-if="minHr && maxHr">
+              <div class="value">{{ minHr }}-{{ maxHr }} <span class="unit">次/分</span></div>
+              <div class="label">心率范围</div>
+            </div>
+            <div class="stat-item" v-if="avgHr">
+              <div class="value">{{ avgHr }} <span class="unit">次/分</span></div>
+              <div class="label">平均心率</div>
+            </div>
+
+            <!-- Row 5: Blood Oxygen -->
+            <div class="stat-item" v-if="minBloodOxygen && maxBloodOxygen">
+              <div class="value">{{ minBloodOxygen }}-{{ maxBloodOxygen }} <span class="unit">%</span></div>
+              <div class="label">血氧范围</div>
+            </div>
+            <div class="stat-item" v-if="avgBloodOxygen">
+              <div class="value">{{ avgBloodOxygen }} <span class="unit">%</span></div>
+              <div class="label">平均血氧</div>
             </div>
           </div>
         </div>
 
         <!-- Distribution (Day view) -->
-        <div class="card stats-card" v-if="activeTab === 'day'">
+        <div class="card stats-card">
           <div class="card-title">
             <van-icon name="chart-trending-o" color="#ee0a24" />
             血压分布
           </div>
           <div class="distribution-bar">
-            <div class="bar-fill" style="width: 100%; background: #95de64;"></div>
+            <div v-for="(item, index) in bpDistribution" :key="index" class="bar-fill"
+              :style="{ width: item.percent + '%', background: item.color }" v-show="item.percent > 0">
+            </div>
           </div>
           <div class="distribution-info">
-            <div class="count">{{ todayRecords.length }} <span class="unit">次</span></div>
-            <div class="status-text"><span class="dot normal"></span> 正常 100%</div>
+            <div v-for="(item, index) in bpDistribution" :key="index" class="distribution-item" v-show="item.count > 0">
+              <div class="count">{{ item.count }} <span class="unit">次</span></div>
+              <div class="status-text">
+                <span class="dot" :style="{ background: item.color }"></span>
+                {{ item.label }} {{ item.percent }}%
+              </div>
+            </div>
           </div>
         </div>
+
+        <!-- 列表展示数据 -->
+        <div class="record-list">
+          <div v-for="(group, date) in groupedRecords" :key="date" class="record-group">
+            <div class="group-header">{{ date }}</div>
+            <div class="group-items">
+              <div v-for="record in group" :key="record.id" class="record-item" @click="openDetail(record)">
+                <div class="record-main">
+                  <span class="bp-value">{{ record.sbp }}/{{ record.dbp }} <span class="unit">mmHg</span></span>
+                </div>
+                <div class="record-meta">
+                  <span class="time">{{ dayjs(record.timestamp).format('MM月DD日 HH:mm') }}</span>
+                  <van-icon name="arrow" color="#ccc" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </template>
     </div>
 
@@ -191,18 +262,53 @@
     <TimeRangePicker v-model:show="showTimeRangePicker" :type="activeTab" :current-date="currentDate"
       :current-range="currentRange" @confirm="onTimeRangeConfirm" />
 
+    <!-- Detail Popup -->
+    <van-popup v-model:show="showDetailPopup" position="bottom" round closeable>
+      <div class="popup-content">
+        <h2 class="popup-title">详情</h2>
+        <div class="detail-list" v-if="currentRecord">
+          <div class="detail-item">
+            <span class="label">测量时间</span>
+            <span class="value">{{ dayjs(currentRecord.timestamp).format('YYYY/MM/DD HH:mm') }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="label">收缩压 (高压)</span>
+            <span class="value">{{ currentRecord.sbp }}<span class="unit">mmHg</span></span>
+          </div>
+          <div class="detail-item">
+            <span class="label">舒张压 (低压)</span>
+            <span class="value">{{ currentRecord.dbp }}<span class="unit">mmHg</span></span>
+          </div>
+          <div class="detail-item">
+            <span class="label">脉搏</span>
+            <span class="value">{{ currentRecord.heartRate || '--' }}<span class="unit">次/分</span></span>
+          </div>
+          <div class="detail-item">
+            <span class="label">血氧</span>
+            <span class="value">{{ currentRecord.bloodOxygen || '--' }}<span class="unit">%</span></span>
+          </div>
+        </div>
+
+        <div class="submit-btn-container">
+          <van-button type="danger" block round @click="handleDelete">
+            删除数据
+          </van-button>
+        </div>
+      </div>
+    </van-popup>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import { useBloodPressureStore } from '@/stores/bloodPressure';
+import { useBloodPressureStore, type BloodPressureRecord } from '@/stores/bloodPressure';
 import { useFamily } from '@/composables/useFamily';
 import FamilySelector from '@/components/FamilySelector/FamilySelector.vue';
 import dayjs from 'dayjs';
 import { createChart, ColorType } from 'lightweight-charts';
-import { showToast } from 'vant';
+import { showToast, showConfirmDialog } from 'vant';
 import TimeRangePicker from '@/components/TimeRangePicker/TimeRangePicker.vue';
 
 const router = useRouter();
@@ -220,6 +326,8 @@ const tabs = [
 const showAddPopup = ref(false);
 const showDatePicker = ref(false);
 const showTimeRangePicker = ref(false);
+const showDetailPopup = ref(false);
+const currentRecord = ref<BloodPressureRecord | null>(null);
 
 // Date State (Independent for each tab)
 const dateStates = reactive({
@@ -313,6 +421,18 @@ const todayRecords = computed(() => {
   return filteredRecords.value;
 });
 
+const groupedRecords = computed(() => {
+  const groups: Record<string, BloodPressureRecord[]> = {};
+  filteredRecords.value.forEach(record => {
+    const date = dayjs(record.timestamp).format('YYYY年MM月DD日');
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(record);
+  });
+  return groups;
+});
+
 const currentDateText = computed(() => {
   if (activeTab.value === 'custom') {
     return dateStates.custom.label || '请选择时间段';
@@ -333,10 +453,6 @@ const currentDateText = computed(() => {
   return d.format('YYYY年MM月');
 });
 
-const chartTitle = computed(() => {
-  if (activeTab.value === 'day') return '今日趋势';
-  return '近期趋势';
-});
 
 // Stats (based on filteredRecords)
 const avgSbp = computed(() => {
@@ -351,16 +467,94 @@ const avgDbp = computed(() => {
 });
 const avgHr = computed(() => {
   if (!filteredRecords.value.length) return 0;
-  const sum = filteredRecords.value.reduce((acc, r) => acc + r.heartRate, 0);
-  return Math.round(sum / filteredRecords.value.length);
+  // 过滤掉为0 的数据
+  const validRecords = filteredRecords.value.filter(r => r.heartRate !== 0);
+  if (!validRecords.length) return 0;
+
+  const sum = validRecords.reduce((acc, r) => acc + r.heartRate, 0);
+  return Math.round(sum / validRecords.length);
 });
 const maxSbp = computed(() => {
   if (!filteredRecords.value.length) return 0;
   return Math.max(...filteredRecords.value.map(r => r.sbp));
 });
+const maxDbp = computed(() => {
+  if (!filteredRecords.value.length) return 0;
+  return Math.max(...filteredRecords.value.map(r => r.dbp));
+});
+const minSbp = computed(() => {
+  if (!filteredRecords.value.length) return 0;
+  return Math.min(...filteredRecords.value.map(r => r.sbp));
+});
 const minDbp = computed(() => {
   if (!filteredRecords.value.length) return 0;
   return Math.min(...filteredRecords.value.map(r => r.dbp));
+});
+
+const minHr = computed(() => {
+  if (!filteredRecords.value.length) return 0;
+  const validRecords = filteredRecords.value.filter(r => r.heartRate && r.heartRate !== 0);
+  if (!validRecords.length) return 0;
+  return Math.min(...validRecords.map(r => r.heartRate));
+});
+const maxHr = computed(() => {
+  if (!filteredRecords.value.length) return 0;
+  const validRecords = filteredRecords.value.filter(r => r.heartRate && r.heartRate !== 0);
+  if (!validRecords.length) return 0;
+  return Math.max(...validRecords.map(r => r.heartRate));
+});
+
+const avgBloodOxygen = computed(() => {
+  if (!filteredRecords.value.length) return 0;
+  const validRecords = filteredRecords.value.filter(r => r.bloodOxygen && r.bloodOxygen !== 0);
+  if (!validRecords.length) return 0;
+
+  const sum = validRecords.reduce((acc, r) => acc + (r.bloodOxygen || 0), 0);
+  return Math.round(sum / validRecords.length);
+});
+
+const minBloodOxygen = computed(() => {
+  if (!filteredRecords.value.length) return 0;
+  const validRecords = filteredRecords.value.filter(r => r.bloodOxygen && r.bloodOxygen !== 0);
+  if (!validRecords.length) return 0;
+  return Math.min(...validRecords.map(r => r.bloodOxygen || 0));
+});
+
+const maxBloodOxygen = computed(() => {
+  if (!filteredRecords.value.length) return 0;
+  const validRecords = filteredRecords.value.filter(r => r.bloodOxygen && r.bloodOxygen !== 0);
+  if (!validRecords.length) return 0;
+  return Math.max(...validRecords.map(r => r.bloodOxygen || 0));
+});
+
+const bpDistribution = computed(() => {
+  const stats = {
+    low: { count: 0, color: '#1989fa', label: '偏低' },
+    normal: { count: 0, color: '#95de64', label: '正常' },
+    normal_high: { count: 0, color: '#faad14', label: '正常高值' },
+    high: { count: 0, color: '#ff4d4f', label: '偏高' }
+  };
+
+  const records = filteredRecords.value;
+  const total = records.length;
+
+  records.forEach(record => {
+    const { sbp, dbp } = record;
+    if (sbp >= 140 || dbp >= 90) {
+      stats.high.count++;
+    } else if (sbp < 90 || dbp < 60) {
+      stats.low.count++;
+    } else if ((sbp >= 120 && sbp <= 139) || (dbp >= 80 && dbp <= 89)) {
+      stats.normal_high.count++;
+    } else {
+      stats.normal.count++;
+    }
+  });
+
+  return Object.values(stats).map(item => ({
+    ...item,
+    percent: total > 0 ? Math.round((item.count / total) * 100) : 0
+  }));
 });
 
 const isValidForm = computed(() => {
@@ -439,6 +633,33 @@ const handleSubmit = async () => {
   } catch (e) {
     showToast('添加失败');
   }
+};
+
+const openDetail = (record: BloodPressureRecord) => {
+  currentRecord.value = record;
+  showDetailPopup.value = true;
+};
+
+const handleDelete = () => {
+  if (!currentRecord.value) return;
+
+  showConfirmDialog({
+    title: '确认删除',
+    message: '确定要删除这条测量记录吗？',
+  })
+    .then(async () => {
+      try {
+        await store.removeRecord(currentRecord.value!.id);
+        showToast('删除成功');
+        showDetailPopup.value = false;
+        fetchData(); // Refresh list
+      } catch (e) {
+        showToast('删除失败');
+      }
+    })
+    .catch(() => {
+      // on cancel
+    });
 };
 
 // --- Chart ---
@@ -732,21 +953,45 @@ onMounted(async () => {
   gap: 16px;
 
   .stat-item {
+    margin-bottom: 8px;
+
     .value {
-      font-size: 18px;
+      font-size: 24px;
       font-weight: bold;
+      font-family: 'DIN Alternate', sans-serif;
+      margin-bottom: 2px;
 
       .unit {
-        font-size: 12px;
-        color: #999;
+        font-size: 14px;
+        color: #333;
         font-weight: normal;
+        margin-left: 2px;
       }
     }
 
     .label {
-      font-size: 12px;
+      font-size: 14px;
       color: #999;
-      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      .tag {
+        font-size: 10px;
+        padding: 1px 4px;
+        border-radius: 4px;
+        font-weight: normal;
+
+        &.high {
+          background: rgba(238, 10, 36, 0.1);
+          color: #ee0a24;
+        }
+
+        &.low {
+          background: rgba(25, 137, 250, 0.1);
+          color: #1989fa;
+        }
+      }
     }
   }
 }
@@ -754,10 +999,10 @@ onMounted(async () => {
 .card-title {
   font-size: 16px;
   font-weight: bold;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .distribution-bar {
@@ -765,108 +1010,225 @@ onMounted(async () => {
   background: #f0f0f0;
   border-radius: 6px;
   overflow: hidden;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
+  display: flex;
 
   .bar-fill {
     height: 100%;
-    border-radius: 6px;
+    &:first-child {
+      border-top-left-radius: 6px;
+      border-bottom-left-radius: 6px;
+    }
+    &:last-child {
+      border-top-right-radius: 6px;
+      border-bottom-right-radius: 6px;
+    }
   }
 }
 
 .distribution-info {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+
+  .distribution-item {
+    margin-bottom: 8px;
+  }
 
   .count {
+    font-size: 20px;
     font-weight: bold;
+    font-family: 'DIN Alternate', sans-serif;
+    margin-bottom: 4px;
+
+    .unit {
+      font-size: 12px;
+      font-weight: normal;
+      color: #999;
+    }
   }
 
   .status-text {
+    font-size: 12px;
+    color: #666;
     display: flex;
     align-items: center;
-    gap: 4px;
-    color: #666;
+    gap: 6px;
 
     .dot {
-      width: 6px;
-      height: 6px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      background: #07c160;
     }
   }
 }
 
 .bottom-action {
   position: fixed;
-  bottom: 20px;
-  left: 20px;
-  right: 20px;
+  bottom: 24px;
+  left: 24px;
+  right: 24px;
+  z-index: 99;
 }
 
 .popup-content {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
+  padding: 24px;
 
   .popup-title {
-    font-size: 24px;
+    font-size: 20px;
+    font-weight: bold;
     margin-bottom: 24px;
-    font-weight: normal;
+    text-align: center;
   }
 
   .form-section {
-    margin-bottom: 24px;
+    margin-top: 24px;
 
     .section-label {
       font-size: 14px;
-      color: #666;
+      color: #999;
       margin-bottom: 12px;
     }
+  }
 
-    .input-row {
-      display: flex;
-      gap: 12px;
+  .input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
 
-      .input-box {
-        flex: 1;
+    .input-box {
+      .label {
+        font-size: 14px;
+        color: #333;
+        margin-bottom: 8px;
+      }
+
+      .input-wrapper {
         background: #f7f8fa;
-        padding: 16px;
-        border-radius: 12px;
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
 
-        .label {
-          font-size: 12px;
-          color: #999;
-          margin-bottom: 8px;
+        input {
+          width: 100%;
+          border: none;
+          background: transparent;
+          font-size: 24px;
+          font-weight: bold;
+          font-family: 'DIN Alternate', sans-serif;
+          color: #333;
+          padding: 0;
+
+          &::placeholder {
+            color: #ccc;
+          }
         }
 
-        .input-wrapper {
-          display: flex;
-          align-items: baseline;
-
-          input {
-            width: 100%;
-            border: none;
-            background: transparent;
-            font-size: 20px;
-            font-weight: bold;
-            padding: 0;
-            margin: 0;
-          }
-
-          .unit {
-            font-size: 12px;
-            color: #999;
-            margin-left: 4px;
-            white-space: nowrap;
-          }
+        .unit {
+          font-size: 12px;
+          color: #999;
+          flex-shrink: 0;
         }
       }
     }
   }
 
   .submit-btn-container {
-    margin-top: auto;
+    margin-top: 32px;
+  }
+}
+
+.record-list {
+  padding-bottom: 80px;
+
+  .record-group {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+
+    .group-header {
+      padding: 12px 16px;
+      font-size: 14px;
+      color: #666;
+      background: #fbfbfb;
+      border-bottom: 1px solid #f5f5f5;
+    }
+
+    .group-items {
+      .record-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px;
+        border-bottom: 1px solid #f5f5f5;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        &:active {
+          background-color: #f9f9f9;
+        }
+
+        .record-main {
+          .bp-value {
+            font-size: 18px;
+            font-weight: bold;
+            font-family: 'DIN Alternate', sans-serif;
+
+            .unit {
+              font-size: 12px;
+              color: #999;
+              font-weight: normal;
+              margin-left: 2px;
+            }
+          }
+        }
+
+        .record-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .time {
+            font-size: 14px;
+            color: #999;
+          }
+        }
+      }
+    }
+  }
+}
+
+.detail-list {
+  margin-top: 20px;
+
+  .detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid #f5f5f5;
+
+    .label {
+      font-size: 16px;
+      color: #333;
+    }
+
+    .value {
+      font-size: 16px;
+      color: #666;
+
+      .unit {
+        font-size: 12px;
+        color: #999;
+        margin-left: 2px;
+      }
+    }
   }
 }
 </style>
