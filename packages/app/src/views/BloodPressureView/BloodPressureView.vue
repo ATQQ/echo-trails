@@ -208,7 +208,7 @@
             <div class="input-box">
               <div class="label">收缩压 (高压)</div>
               <div class="input-wrapper">
-                <input type="number" v-model="addForm.sbp" placeholder="0" />
+                <input ref="sbpInputRef" type="number" v-model="addForm.sbp" placeholder="0" />
                 <span class="unit">mmHg</span>
               </div>
             </div>
@@ -329,6 +329,23 @@ const showDatePicker = ref(false);
 const showTimeRangePicker = ref(false);
 const showDetailPopup = ref(false);
 const currentRecord = ref<BloodPressureRecord | null>(null);
+
+const sbpInputRef = ref<HTMLInputElement | null>(null);
+
+watch(showAddPopup, async (val) => {
+  if (val) {
+    // Reset form or set default time
+    addForm.value.time = dayjs();
+    addForm.value.timeStr = dayjs().format('YYYY/MM/DD HH:mm');
+    addForm.value.sbp = '';
+    addForm.value.dbp = '';
+    addForm.value.heartRate = '';
+    addForm.value.bloodOxygen = '';
+
+    await nextTick();
+    sbpInputRef.value?.focus();
+  }
+});
 
 // Date State (Independent for each tab)
 const dateStates = reactive({
