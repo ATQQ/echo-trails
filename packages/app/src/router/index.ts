@@ -134,6 +134,38 @@ const router = createRouter({
         nav: false,
         componentName: 'VideoView'
       }
+    },
+    {
+      path: '/asset',
+      name: 'asset',
+      component: () => import('../views/asset/AssetLayout.vue'),
+      redirect: '/asset/list',
+      children: [
+        {
+          path: 'timeline',
+          name: 'asset-timeline',
+          component: () => import('../views/asset/AssetTimeline.vue'),
+          meta: { nav: false }
+        },
+        {
+          path: 'list',
+          name: 'asset-list',
+          component: () => import('../views/asset/AssetList.vue'),
+          meta: { nav: false }
+        },
+        {
+          path: 'stats',
+          name: 'asset-stats',
+          component: () => import('../views/asset/AssetStats.vue'),
+          meta: { nav: false }
+        },
+        {
+          path: 'manage',
+          name: 'asset-manage',
+          component: () => import('../views/asset/AssetManage.vue'),
+          meta: { nav: false }
+        }
+      ]
     }
   ],
 })

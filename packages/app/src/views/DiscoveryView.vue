@@ -91,6 +91,7 @@ const mediaApps = ref<AppItem[]>([
 ]);
 
 const otherApps = ref<AppItem[]>([
+  { text: '资产', icon: 'gold-coin-o', color: '#ffd700', url: '/asset' },
   { text: '交流', icon: 'chat-o', color: '#07c160' },
   { text: '纪念日', icon: 'calendar-o', color: '#f2826a' },
   { text: '待办事项', icon: 'todo-list-o', color: '#6739b6' },
