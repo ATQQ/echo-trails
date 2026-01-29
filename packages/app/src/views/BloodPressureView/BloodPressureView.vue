@@ -176,6 +176,10 @@
               <div v-for="record in group" :key="record.id" class="record-item" @click="openDetail(record)">
                 <div class="record-main">
                   <span class="bp-value">{{ record.sbp }}/{{ record.dbp }} <span class="unit">mmHg</span></span>
+                  <div class="record-note" v-if="record.note">
+                    <van-icon name="notes-o" />
+                    <span class="text">{{ record.note }}</span>
+                  </div>
                 </div>
                 <div class="record-meta">
                   <span class="time">{{ dayjs(record.timestamp).format('MM月DD日 HH:mm') }}</span>
@@ -255,6 +259,11 @@
             </div>
           </div>
         </div>
+        <div class="form-section">
+          <div class="section-label">备注</div>
+          <van-field v-model="addForm.note" rows="2" autosize type="textarea" maxlength="100" placeholder="请输入备注信息"
+            show-word-limit class="note-input" />
+        </div>
 
         <div class="submit-btn-container">
           <van-button type="primary" block round @click="handleSubmit" :disabled="!isValidForm">
@@ -300,6 +309,10 @@
           <div class="detail-item">
             <span class="label">血氧</span>
             <span class="value">{{ currentRecord.bloodOxygen || '--' }}<span class="unit">%</span></span>
+          </div>
+          <div class="detail-item full-width" v-if="currentRecord.note">
+            <span class="label">备注</span>
+            <span class="value note-text">{{ currentRecord.note }}</span>
           </div>
         </div>
 
@@ -409,7 +422,8 @@ const addForm = ref({
   heartRate: '',
   bloodOxygen: '',
   time: dayjs(),
-  timeStr: dayjs().format('YYYY/MM/DD HH:mm')
+  timeStr: dayjs().format('YYYY-MM-DD HH:mm'),
+  note: ''
 });
 const pickerActiveTab = ref(0);
 const datePickerValue = ref([dayjs().format('YYYY'), dayjs().format('MM'), dayjs().format('DD')]);
@@ -620,16 +634,22 @@ const handleSubmit = async () => {
     await store.addRecord({
       sbp: Number(addForm.value.sbp),
       dbp: Number(addForm.value.dbp),
-      heartRate: Number(addForm.value.heartRate) || 0,
-      bloodOxygen: Number(addForm.value.bloodOxygen) || 0,
+      heartRate: addForm.value.heartRate ? Number(addForm.value.heartRate) : 0,
+      bloodOxygen: addForm.value.bloodOxygen ? Number(addForm.value.bloodOxygen) : 0,
       timestamp: addForm.value.time.valueOf(),
+      note: addForm.value.note
     });
     showAddPopup.value = false;
     showToast('添加成功');
-    addForm.value.sbp = '';
-    addForm.value.dbp = '';
-    addForm.value.heartRate = '';
-    addForm.value.bloodOxygen = '';
+    addForm.value = {
+      sbp: '',
+      dbp: '',
+      heartRate: '',
+      bloodOxygen: '',
+      time: dayjs(),
+      timeStr: dayjs().format('YYYY-MM-DD HH:mm'),
+      note: ''
+    };
 
     // fetchData(); // store.addRecord already fetches (all).
     // Ideally we should re-fetch with current range, but let's rely on client filtering for now.
