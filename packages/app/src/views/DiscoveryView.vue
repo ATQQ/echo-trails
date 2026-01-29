@@ -10,38 +10,41 @@
 
     <div class="section-title">健康管理</div>
     <van-grid :column-num="2" :gutter="10" clickable>
-      <van-grid-item
-        v-for="item in healthApps"
-        :key="item.text"
-        :icon="item.icon"
-        :text="item.text"
-        :icon-color="item.color"
-        @click="handleClick(item)"
-      />
+      <van-grid-item v-for="item in healthApps" :key="item.text" :icon="item.icon" :text="item.text"
+        :icon-color="item.color" @click="handleClick(item)">
+        <template #icon v-if="!item.url">
+          <div class="icon-wrapper">
+            <van-icon :name="item.icon" :color="item.color" size="28" />
+            <span class="dev-tag">待上线</span>
+          </div>
+        </template>
+      </van-grid-item>
     </van-grid>
 
     <div class="section-title">娱乐媒体</div>
     <van-grid :column-num="2" :gutter="10" clickable>
-      <van-grid-item
-        v-for="item in mediaApps"
-        :key="item.text"
-        :icon="item.icon"
-        :text="item.text"
-        :icon-color="item.color"
-        @click="handleClick(item)"
-      />
+      <van-grid-item v-for="item in mediaApps" :key="item.text" :icon="item.icon" :text="item.text"
+        :icon-color="item.color" @click="handleClick(item)">
+        <template #icon v-if="!item.url">
+          <div class="icon-wrapper">
+            <van-icon :name="item.icon" :color="item.color" size="28" />
+            <span class="dev-tag">待上线</span>
+          </div>
+        </template>
+      </van-grid-item>
     </van-grid>
 
     <div class="section-title">其他工具</div>
     <van-grid :column-num="4" :gutter="10" clickable>
-      <van-grid-item
-        v-for="item in otherApps"
-        :key="item.text"
-        :icon="item.icon"
-        :text="item.text"
-        :icon-color="item.color"
-        @click="handleClick(item)"
-      />
+      <van-grid-item v-for="item in otherApps" :key="item.text" :icon="item.icon" :text="item.text"
+        :icon-color="item.color" @click="handleClick(item)">
+        <template #icon v-if="!item.url">
+          <div class="icon-wrapper">
+            <van-icon :name="item.icon" :color="item.color" size="28" />
+            <span class="dev-tag">待上线</span>
+          </div>
+        </template>
+      </van-grid-item>
     </van-grid>
   </div>
 </template>
@@ -99,12 +102,12 @@ const handleClick = (item: AppItem) => {
     // Navigate if url exists
     router.push(item.url);
   } else {
-    showToast('功能开发中，敬请期待');
+    showToast('功能待上线，敬请期待');
   }
 };
 </script>
 
-<style scoped lang="scss">
+<style lang="scss" scoped>
 .discovery-view {
   padding: 20px 16px;
   background-color: #f7f8fa;
@@ -136,6 +139,26 @@ const handleClick = (item: AppItem) => {
     font-size: 16px;
     font-weight: 600;
     color: #323233;
+  }
+
+  .icon-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .dev-tag {
+    position: absolute;
+    top: -20px;
+    right: -30px;
+    background-color: #c8c9cc;
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    transform: scale(0.8);
+    white-space: nowrap;
   }
 }
 </style>
