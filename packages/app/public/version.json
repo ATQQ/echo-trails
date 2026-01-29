@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.5.0",
-    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.0.apk",
+    "version": "0.5.1",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.1.apk",
     "forceUpdate": false,
-    "description": "支持血压记录功能",
-    "md5": "b38aa89e2f6cdb55928129e88a34978d"
+    "description": "血压输入添加智能解析,方便快捷录入",
+    "md5": "c94504135c3473130d2ae7a7eddf564b"
   },
   "ios": {
     "version": "0.1.2",

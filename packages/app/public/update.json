@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.5.1",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.1.apk",
+      "forceUpdate": false,
+      "description": "血压输入添加智能解析,方便快捷录入",
+      "md5": "c94504135c3473130d2ae7a7eddf564b"
+    },
+    {
       "version": "0.5.0",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.0.apk",
       "forceUpdate": false,
