@@ -1,12 +1,12 @@
 <template>
   <div class="asset-stats">
     <van-nav-bar title="资产统计" left-arrow @click-left="onClickLeft" fixed placeholder />
-    
+
     <div class="content">
       <van-cell-group inset title="分类统计">
         <van-cell v-for="cat in categoryStats" :key="cat.name" :title="cat.name" :value="`¥${cat.value}`" />
       </van-cell-group>
-      
+
       <van-cell-group inset title="状态统计" style="margin-top: 16px;">
         <van-cell v-for="stat in statusStats" :key="stat.name" :title="stat.name" :value="`¥${stat.value}`" />
       </van-cell-group>
@@ -45,6 +45,9 @@ const statusStats = computed(() => {
 </script>
 
 <style scoped>
+.van-nav-bar__placeholder> :deep(.van-nav-bar--fixed) {
+  padding-top: var(--safe-area-top);
+}
 .asset-stats {
   background-color: #f7f8fa;
   min-height: 100vh;

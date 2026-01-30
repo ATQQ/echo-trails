@@ -1,6 +1,6 @@
 <template>
   <div class="asset-list">
-    <van-nav-bar title="我的资产" left-arrow @click-left="onClickLeft" fixed placeholder>
+    <van-nav-bar title="我的资产" left-arrow @click-left="onClickLeft" fixed placeholder class="safe-padding-top">
       <template #right>
         <van-icon name="plus" size="18" @click="showAddPopup = true" />
       </template>
@@ -24,9 +24,9 @@
           <span>已退役 {{ retiredCount }}</span>
           <span>已卖出 {{ soldCount }}</span>
         </div>
-        <van-progress 
-          :percentage="activePercentage" 
-          stroke-width="8" 
+        <van-progress
+          :percentage="activePercentage"
+          stroke-width="8"
           :show-pivot="false"
           track-color="#ebedf0"
           color="#07c160"
@@ -42,13 +42,13 @@
           <van-dropdown-menu class="status-dropdown">
              <van-dropdown-item v-model="activeStatusFilter" :options="statusOptionsWithAll" />
           </van-dropdown-menu>
-          
+
           <div class="filter-chips">
-             <!-- All Subcategories is implicitly selected if no chip active? 
-                  Or do we show subcategories for ALL items? 
-                  Usually subcategories depend on Main Category. 
-                  If "All" Main Category is selected, maybe we don't show subcategories, 
-                  or show ALL subcategories? 
+             <!-- All Subcategories is implicitly selected if no chip active?
+                  Or do we show subcategories for ALL items?
+                  Usually subcategories depend on Main Category.
+                  If "All" Main Category is selected, maybe we don't show subcategories,
+                  or show ALL subcategories?
                   Let's assume "All" tab doesn't have subcategory filter, or just flat list.
                   But the user requirement implies subcategory filter.
                   Let's show no subcategory chips for "All" tab for now, or just show status.
@@ -61,18 +61,18 @@
            <AssetItems :assets="filteredAssets" @increment="incrementUsage" />
         </div>
       </van-tab>
-      
+
       <van-tab v-for="cat in store.categories" :key="cat.id" :title="cat.name" :name="cat.id">
          <!-- Filter Area for Specific Category -->
          <div class="filter-area">
           <van-dropdown-menu class="status-dropdown">
              <van-dropdown-item v-model="activeStatusFilter" :options="statusOptionsWithAll" />
           </van-dropdown-menu>
-          
+
           <div class="filter-chips">
-             <van-tag 
-                plain 
-                round 
+             <van-tag
+                plain
+                round
                 size="medium"
                 :type="activeSubCategory === 'all' ? 'primary' : 'default'"
                 @click="activeSubCategory = 'all'"
@@ -80,11 +80,11 @@
               >
                 全部
               </van-tag>
-             <van-tag 
+             <van-tag
                 v-for="sub in cat.subCategories"
                 :key="sub.id"
-                plain 
-                round 
+                plain
+                round
                 size="medium"
                 :type="activeSubCategory === sub.id ? 'primary' : 'default'"
                 @click="activeSubCategory = sub.id"
@@ -102,7 +102,7 @@
     </van-tabs>
 
     <!-- Add Asset Popup -->
-    <van-popup v-model:show="showAddPopup" position="bottom" :style="{ height: '100%' }">
+    <van-popup v-model:show="showAddPopup" position="bottom" :style="{ height: '100%' }" class="safe-padding-top">
       <div class="popup-content">
         <van-nav-bar title="添加资产" right-text="保存" left-arrow @click-left="showAddPopup = false" @click-right="handleSave" />
         <div class="form-scroll">
@@ -115,7 +115,7 @@
               </van-field>
 
               <van-field v-model="newItem.name" label="物品名" placeholder="请输入物品名称" required />
-              
+
               <van-field
                 v-model="newItem.categoryName"
                 is-link
@@ -168,7 +168,7 @@
               </van-popup>
 
               <van-field v-model="newItem.price" type="number" label="金额" placeholder="0.00" required />
-              
+
               <van-field
                 v-model="newItem.dateStr"
                 is-link
@@ -205,6 +205,7 @@ import { useRouter } from 'vue-router';
 import { useAssetStore, type Asset } from '@/stores/asset';
 import { storeToRefs } from 'pinia';
 import { showToast } from 'vant';
+import { preventBack } from '@/lib/router';
 
 // Component for rendering list items to avoid duplication
 const AssetItems = defineComponent({
@@ -214,11 +215,11 @@ const AssetItems = defineComponent({
     <div>
       <div v-for="item in assets" :key="item.id" class="asset-item">
         <div class="item-image">
-            <van-image 
-            width="60" 
-            height="60" 
+            <van-image
+            width="60"
+            height="60"
             radius="8"
-            :src="item.image || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" 
+            :src="item.image || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'"
             fit="cover"
           />
         </div>
@@ -327,6 +328,7 @@ const incrementUsage = (id: string) => {
 
 // --- Form Logic ---
 const showAddPopup = ref(false);
+preventBack(showAddPopup);
 const fileList = ref<any[]>([]);
 
 const newItem = reactive({
@@ -396,7 +398,7 @@ const handleSave = () => {
     showToast('请填写必填项');
     return;
   }
-  
+
   store.addAsset({
     name: newItem.name,
     category: newItem.categoryName, // Keeping name for backward compat if needed, but ID is primary now
@@ -410,7 +412,7 @@ const handleSave = () => {
     image: newItem.image,
     calcType: newItem.calcType as any
   });
-  
+
   showToast('添加成功');
   showAddPopup.value = false;
   // Reset form
@@ -431,6 +433,9 @@ const handleSave = () => {
 </script>
 
 <style scoped lang="scss">
+.van-nav-bar__placeholder> :deep(.van-nav-bar--fixed) {
+  padding-top: var(--safe-area-top);
+}
 .asset-list {
   background-color: #f7f8fa;
   min-height: 100vh;
@@ -440,12 +445,12 @@ const handleSave = () => {
   background-color: #2c2c2c;
   color: #fff;
   padding: 20px 16px;
-  
+
   .stat-row {
     display: flex;
     justify-content: space-between;
     margin-bottom: 20px;
-    
+
     .stat-item {
       .label {
         font-size: 12px;
@@ -458,7 +463,7 @@ const handleSave = () => {
       }
     }
   }
-  
+
   .status-bar {
     .status-text {
       display: flex;
@@ -475,10 +480,10 @@ const handleSave = () => {
   align-items: center;
   background-color: #fff;
   border-bottom: 1px solid #f2f2f2;
-  
+
   .status-dropdown {
      flex: 0 0 100px; // Fixed width for status
-     
+
      :deep(.van-dropdown-menu__bar) {
        box-shadow: none;
        height: 44px;
@@ -487,7 +492,7 @@ const handleSave = () => {
         font-size: 13px;
      }
   }
-  
+
   .filter-chips {
     flex: 1;
     display: flex;
@@ -497,11 +502,11 @@ const handleSave = () => {
     align-items: center;
     height: 44px;
     white-space: nowrap;
-    
+
     .filter-chip {
       padding: 4px 12px;
     }
-    
+
     .chip-placeholder {
        color: #999;
        font-size: 12px;
@@ -522,44 +527,44 @@ const handleSave = () => {
   display: flex;
   align-items: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-  
+
   .item-image {
     margin-right: 12px;
     flex-shrink: 0;
   }
-  
+
   .item-info {
     flex: 1;
-    
+
     .item-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 4px;
-      
+
       .item-name {
          font-weight: bold;
          color: #323233;
       }
     }
-    
+
     .cost-per-use {
       font-size: 16px;
       font-weight: 600;
       color: #323233;
       margin-bottom: 4px;
     }
-    
+
     .details {
       font-size: 12px;
       color: #969799;
-      
+
       .separator {
         margin: 0 4px;
       }
     }
   }
-  
+
   .item-action {
     margin-left: 8px;
   }
@@ -570,7 +575,7 @@ const handleSave = () => {
   display: flex;
   flex-direction: column;
   background: #f7f8fa;
-  
+
   .form-scroll {
     flex: 1;
     overflow-y: auto;

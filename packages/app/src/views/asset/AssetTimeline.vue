@@ -1,7 +1,7 @@
 <template>
   <div class="asset-timeline">
     <van-nav-bar title="资产时间线" left-arrow @click-left="onClickLeft" fixed placeholder />
-    
+
     <div class="timeline-content">
       <van-steps direction="vertical" :active="-1">
         <van-step v-for="asset in sortedAssets" :key="asset.id">
@@ -10,7 +10,7 @@
           <p v-if="asset.description" class="desc">{{ asset.description }}</p>
         </van-step>
       </van-steps>
-      
+
       <van-empty v-if="sortedAssets.length === 0" description="暂无资产记录" />
     </div>
   </div>
@@ -36,13 +36,19 @@ const formatDate = (timestamp: number) => {
 </script>
 
 <style scoped>
+.van-nav-bar__placeholder> :deep(.van-nav-bar--fixed) {
+  padding-top: var(--safe-area-top);
+}
+
 .asset-timeline {
   background-color: #fff;
   min-height: 100vh;
 }
+
 .timeline-content {
   padding: 16px 0;
 }
+
 .desc {
   color: #969799;
   font-size: 12px;
