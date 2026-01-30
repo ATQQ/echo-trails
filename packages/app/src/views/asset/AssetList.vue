@@ -1,6 +1,6 @@
 <template>
   <div class="asset-list">
-    <van-nav-bar title="我的资产" left-arrow @click-left="onClickLeft" fixed placeholder class="safe-padding-top">
+    <van-nav-bar title="我的资产" left-arrow @click-left="onClickLeft" fixed placeholder>
       <template #right>
         <van-icon name="plus" size="18" @click="showAddPopup = true" />
       </template>
@@ -439,6 +439,7 @@ const handleSave = () => {
 .asset-list {
   background-color: #f7f8fa;
   min-height: 100vh;
+  box-sizing: border-box;
 }
 
 .stats-header {

@@ -6,24 +6,73 @@
       </keep-alive>
     </router-view>
 
-    <van-tabbar route placeholder fixed>
-      <van-tabbar-item replace to="/asset/timeline" icon="clock-o">时间线</van-tabbar-item>
-      <van-tabbar-item replace to="/asset/list" icon="apps-o">全部</van-tabbar-item>
-      <van-tabbar-item replace to="/asset/stats" icon="chart-trending-o">统计</van-tabbar-item>
-      <van-tabbar-item replace to="/asset/manage" icon="setting-o">管理</van-tabbar-item>
-    </van-tabbar>
+    <BottomActions :menus="menus" />
   </div>
 </template>
 
 <script setup lang="ts">
-// Layout logic if needed
+import BottomActions from '@/components/BottomActions/BottomActions.vue';
+import { useRoute, useRouter } from 'vue-router';
+
+const route = useRoute();
+const router = useRouter();
+
+const handleTabClick = (path: string) => {
+  if (route.path === path) {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  } else {
+    router.replace(path);
+  }
+}
+
+const menus = [
+  {
+    icon: 'clock-o',
+    text: '时间线',
+    path: '/asset/timeline',
+    activeIcon: 'clock',
+    activeColor: '#2196f3',
+    replace: true,
+    handleClick: () => handleTabClick('/asset/timeline')
+  },
+  {
+    icon: 'apps-o',
+    text: '全部',
+    path: '/asset/list',
+    activeIcon: 'apps-o',
+    activeColor: '#2196f3',
+    replace: true,
+    handleClick: () => handleTabClick('/asset/list')
+  },
+  {
+    icon: 'chart-trending-o',
+    text: '统计',
+    path: '/asset/stats',
+    activeIcon: 'chart-trending-o',
+    activeColor: '#2196f3',
+    replace: true,
+    handleClick: () => handleTabClick('/asset/stats')
+  },
+  {
+    icon: 'setting-o',
+    text: '管理',
+    path: '/asset/manage',
+    activeIcon: 'setting',
+    activeColor: '#2196f3',
+    replace: true,
+    handleClick: () => handleTabClick('/asset/manage')
+  }
+]
 </script>
 
 <style scoped>
 .asset-layout {
   min-height: 100vh;
   background-color: #f7f8fa;
-  padding-bottom: 50px;
+  box-sizing: border-box;
   /* Tabbar height */
 }
 </style>
