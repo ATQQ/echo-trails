@@ -10,7 +10,6 @@ import { providePhotoListStore } from '@/composables/photoList';
 import ImageCell from '../ImageCell/ImageCell.vue';
 import pLimit from 'p-limit';
 import { open } from '@tauri-apps/plugin-dialog';
-import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
 import BottomActions from '../BottomActions/BottomActions.vue';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';

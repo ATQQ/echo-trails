@@ -266,3 +266,19 @@ export function checkDuplicateByMd5(md5: string) {
     }
   }).json().then((v) => v.data)
 }
+
+export function addUsageRecord(data: {
+  targetId: string,
+  targetType: string,
+  actionType: string,
+  description?: string,
+  data?: any
+}) {
+  return api.post<ServerResponse>('usageRecord/add', { json: data }).json();
+}
+
+export function getUsageRecords(targetId: string, options?: { targetType?: string, actionType?: string }) {
+  return api.get<ServerResponse<any[]>>(`usageRecord/list/${targetId}`, {
+      searchParams: options as any
+  }).json().then(v => v.data);
+}

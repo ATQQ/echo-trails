@@ -12,6 +12,8 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AddButton: typeof import('./src/components/AddButton/AddButton.vue')['default']
+    AssetForm: typeof import('./src/components/AssetForm/AssetForm.vue')['default']
+    AssetItem: typeof import('./src/components/AssetItem/AssetItem.vue')['default']
     BottomActions: typeof import('./src/components/BottomActions/BottomActions.vue')['default']
     EditAlbumCard: typeof import('./src/components/EditAlbumCard/EditAlbumCard.vue')['default']
     FamilySelector: typeof import('./src/components/FamilySelector/FamilySelector.vue')['default']

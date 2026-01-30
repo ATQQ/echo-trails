@@ -2,35 +2,34 @@
   <div class="asset-list">
     <van-nav-bar title="我的资产" left-arrow @click-left="onClickLeft" fixed placeholder>
       <template #right>
-        <van-icon name="plus" size="18" @click="showAddPopup = true" />
+        <van-icon name="plus" size="18" @click="handleAdd" />
       </template>
     </van-nav-bar>
 
     <!-- Header Stats -->
     <div class="stats-header">
-      <div class="stat-row">
-        <div class="stat-item">
-          <div class="label">总资产</div>
-          <div class="value">¥{{ totalValue.toFixed(2) }}</div>
+      <div class="overview-card">
+        <div class="total-value">
+          <div class="label">总资产估值</div>
+          <div class="value">{{ formatCurrency(totalValue) }}</div>
         </div>
-        <div class="stat-item">
-          <div class="label">日均成本</div>
-          <div class="value">¥{{ dailyCost.toFixed(2) }}</div>
+        <div class="divider"></div>
+        <div class="daily-cost">
+          <div class="label">日均持有成本</div>
+          <div class="value">{{ formatCurrency(dailyCost) }}</div>
         </div>
       </div>
-      <div class="status-bar">
+
+      <div class="status-bar-container">
         <div class="status-text">
-          <span>服役中 {{ activeCount }}</span>
-          <span>已退役 {{ retiredCount }}</span>
-          <span>已卖出 {{ soldCount }}</span>
+          <div class="status-item"><span class="dot active"></span>服役中 {{ activeCount }}</div>
+          <div class="status-item"><span class="dot retired"></span>已退役 {{ retiredCount }}</div>
+          <div class="status-item"><span class="dot sold"></span>已卖出 {{ soldCount }}</div>
         </div>
-        <van-progress
-          :percentage="activePercentage"
-          stroke-width="8"
-          :show-pivot="false"
-          track-color="#ebedf0"
-          color="#07c160"
-        />
+        <div class="progress-bar">
+          <div class="bar-segment active" :style="{ width: activePercentage + '%' }"></div>
+          <div class="bar-segment remainder" :style="{ width: (100 - activePercentage) + '%' }"></div>
+        </div>
       </div>
     </div>
 
@@ -40,226 +39,105 @@
         <!-- Filter Area -->
         <div class="filter-area">
           <van-dropdown-menu class="status-dropdown">
-             <van-dropdown-item v-model="activeStatusFilter" :options="statusOptionsWithAll" />
+            <van-dropdown-item v-model="activeStatusFilter" :options="statusOptionsWithAll" />
           </van-dropdown-menu>
 
           <div class="filter-chips">
-             <!-- All Subcategories is implicitly selected if no chip active?
-                  Or do we show subcategories for ALL items?
-                  Usually subcategories depend on Main Category.
-                  If "All" Main Category is selected, maybe we don't show subcategories,
-                  or show ALL subcategories?
-                  Let's assume "All" tab doesn't have subcategory filter, or just flat list.
-                  But the user requirement implies subcategory filter.
-                  Let's show no subcategory chips for "All" tab for now, or just show status.
-             -->
-             <span class="chip-placeholder" v-if="activeCategory === 'all'">选择分类查看子类</span>
+            <span class="chip-placeholder" v-if="activeCategory === 'all'">选择分类查看子类</span>
           </div>
         </div>
 
         <div class="list-container">
-           <AssetItems :assets="filteredAssets" @increment="incrementUsage" />
+          <AssetItem v-for="item in filteredAssets" :key="item.id" :item="item" @increment="incrementUsage"
+            @edit="handleEdit" @delete="handleDelete" @click-body="handleBodyClick" />
+          <van-empty v-if="filteredAssets.length === 0" description="暂无数据" />
         </div>
       </van-tab>
 
       <van-tab v-for="cat in store.categories" :key="cat.id" :title="cat.name" :name="cat.id">
-         <!-- Filter Area for Specific Category -->
-         <div class="filter-area">
+        <!-- Filter Area for Specific Category -->
+        <div class="filter-area">
           <van-dropdown-menu class="status-dropdown">
-             <van-dropdown-item v-model="activeStatusFilter" :options="statusOptionsWithAll" />
+            <van-dropdown-item v-model="activeStatusFilter" :options="statusOptionsWithAll" />
           </van-dropdown-menu>
 
           <div class="filter-chips">
-             <van-tag
-                plain
-                round
-                size="medium"
-                :type="activeSubCategory === 'all' ? 'primary' : 'default'"
-                @click="activeSubCategory = 'all'"
-                class="filter-chip"
-              >
-                全部
-              </van-tag>
-             <van-tag
-                v-for="sub in cat.subCategories"
-                :key="sub.id"
-                plain
-                round
-                size="medium"
-                :type="activeSubCategory === sub.id ? 'primary' : 'default'"
-                @click="activeSubCategory = sub.id"
-                class="filter-chip"
-              >
-                {{ sub.name }}
-              </van-tag>
+            <van-tag plain round size="medium" :type="activeSubCategory === 'all' ? 'primary' : 'default'"
+              @click="activeSubCategory = 'all'" class="filter-chip">
+              全部
+            </van-tag>
+            <van-tag v-for="sub in cat.subCategories" :key="sub.id" plain round size="medium"
+              :type="activeSubCategory === sub.id ? 'primary' : 'default'" @click="activeSubCategory = sub.id"
+              class="filter-chip">
+              {{ sub.name }}
+            </van-tag>
           </div>
         </div>
 
-         <div class="list-container">
-            <AssetItems :assets="filteredAssets" @increment="incrementUsage" />
-         </div>
+        <div class="list-container">
+          <AssetItem v-for="item in filteredAssets" :key="item.id" :item="item" @increment="incrementUsage"
+            @edit="handleEdit" @delete="handleDelete" @click-body="handleBodyClick" />
+          <van-empty v-if="filteredAssets.length === 0" description="暂无数据" />
+        </div>
       </van-tab>
     </van-tabs>
 
-    <!-- Add Asset Popup -->
-    <van-popup v-model:show="showAddPopup" position="bottom" :style="{ height: '100%' }" class="safe-padding-top">
-      <div class="popup-content">
-        <van-nav-bar title="添加资产" right-text="保存" left-arrow @click-left="showAddPopup = false" @click-right="handleSave" />
-        <div class="form-scroll">
-          <van-form>
-            <van-cell-group inset title="基本信息">
-              <van-field name="uploader" label="图片">
-                <template #input>
-                  <van-uploader v-model="fileList" :max-count="1" :after-read="afterRead" />
-                </template>
-              </van-field>
+    <!-- Add/Edit Asset Form -->
+    <AssetForm v-model:visible="showAssetForm" :categories="store.categories" :statuses="store.statuses"
+      :initial-data="editingAsset" @save="onSave" />
 
-              <van-field v-model="newItem.name" label="物品名" placeholder="请输入物品名称" required />
+    <!-- Increment Confirmation Dialog -->
+    <van-dialog v-model:show="showIncrementDialog" title="增加使用次数" show-cancel-button @confirm="confirmIncrement">
+      <van-field v-model="incrementDescription" label="备注" placeholder="请输入使用备注（选填）" type="textarea" rows="2"
+        autosize />
+    </van-dialog>
 
-              <van-field
-                v-model="newItem.categoryName"
-                is-link
-                readonly
-                label="分类"
-                placeholder="选择分类"
-                @click="showCategoryPicker = true"
-                required
-              />
-              <van-popup v-model:show="showCategoryPicker" position="bottom">
-                <van-picker
-                  :columns="categoryColumns"
-                  @confirm="onConfirmCategory"
-                  @cancel="showCategoryPicker = false"
-                />
-              </van-popup>
-
-              <van-field
-                v-if="currentSubCategories.length > 0"
-                v-model="newItem.subCategoryName"
-                is-link
-                readonly
-                label="子分类"
-                placeholder="选择子分类"
-                @click="showSubCategoryPicker = true"
-              />
-              <van-popup v-model:show="showSubCategoryPicker" position="bottom">
-                <van-picker
-                  :columns="subCategoryColumns"
-                  @confirm="onConfirmSubCategory"
-                  @cancel="showSubCategoryPicker = false"
-                />
-              </van-popup>
-
-              <van-field
-                v-model="newItem.statusName"
-                is-link
-                readonly
-                label="状态"
-                placeholder="选择状态"
-                @click="showStatusPicker = true"
-                required
-              />
-              <van-popup v-model:show="showStatusPicker" position="bottom">
-                <van-picker
-                  :columns="statusColumns"
-                  @confirm="onConfirmStatus"
-                  @cancel="showStatusPicker = false"
-                />
-              </van-popup>
-
-              <van-field v-model="newItem.price" type="number" label="金额" placeholder="0.00" required />
-
-              <van-field
-                v-model="newItem.dateStr"
-                is-link
-                readonly
-                label="购入时间"
-                placeholder="点击选择日期"
-                @click="showCalendar = true"
-                required
-              />
-              <van-calendar v-model:show="showCalendar" @confirm="onConfirmDate" />
-
-              <van-field label="计费方式" readonly>
-                <template #input>
-                  <van-radio-group v-model="newItem.calcType" direction="horizontal">
-                    <van-radio name="count">按次</van-radio>
-                    <van-radio name="day">按天</van-radio>
-                    <van-radio name="consumable">消耗品</van-radio>
-                  </van-radio-group>
-                </template>
-              </van-field>
-
-              <van-field v-model="newItem.description" label="描述" type="textarea" placeholder="备注信息" rows="3" autosize />
-            </van-cell-group>
-          </van-form>
-        </div>
+    <!-- Usage History Popup -->
+    <van-popup v-model:show="showHistoryPopup" position="bottom" :style="{ height: '60%' }" closeable round>
+      <div class="popup-title">使用记录</div>
+      <div class="history-list">
+        <van-loading v-if="historyLoading" vertical class="loading-spinner">加载中...</van-loading>
+        <template v-else>
+          <van-cell-group v-if="usageHistory.length > 0">
+            <van-cell v-for="record in usageHistory" :key="record._id" :title="formatDate(record.createdAt)"
+              :label="record.description || '无备注'" />
+          </van-cell-group>
+          <van-empty v-else description="暂无记录" />
+        </template>
       </div>
     </van-popup>
+
+    <AddButton class="add-position" @click="handleAdd" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, watch, defineComponent } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAssetStore, type Asset } from '@/stores/asset';
 import { storeToRefs } from 'pinia';
-import { showToast } from 'vant';
 import { preventBack } from '@/lib/router';
-
-// Component for rendering list items to avoid duplication
-const AssetItems = defineComponent({
-  props: ['assets'],
-  emits: ['increment'],
-  template: `
-    <div>
-      <div v-for="item in assets" :key="item.id" class="asset-item">
-        <div class="item-image">
-            <van-image
-            width="60"
-            height="60"
-            radius="8"
-            :src="item.image || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'"
-            fit="cover"
-          />
-        </div>
-        <div class="item-info">
-          <div class="item-header">
-             <div class="item-name">{{ item.name }}</div>
-             <van-tag plain type="primary" v-if="item.subCategoryName">{{ item.subCategoryName }}</van-tag>
-          </div>
-          <div class="cost-per-use">
-             <template v-if="item.calcType === 'count'">
-               ¥{{ (item.usageCount > 0 ? item.price / item.usageCount : item.price).toFixed(2) }}/{{ item.usageCount > 0 ? '次' : '未用' }}
-             </template>
-             <template v-else-if="item.calcType === 'day'">
-               ¥{{ ((Date.now() - item.purchaseDate) > 0 ? item.price / Math.max(1, Math.floor((Date.now() - item.purchaseDate)/(1000*60*60*24))) : item.price).toFixed(2) }}/天
-             </template>
-             <template v-else>
-               消耗品
-             </template>
-          </div>
-          <div class="details">
-            <span>¥{{ item.price }}</span>
-            <span class="separator">•</span>
-            <span>已用 {{ item.usageCount }} 次</span>
-          </div>
-        </div>
-        <div class="item-action">
-          <van-button icon="plus" round type="success" size="small" @click.stop="$emit('increment', item.id)" />
-        </div>
-      </div>
-      <van-empty v-if="assets.length === 0" description="暂无数据" />
-    </div>
-  `
-});
+import { showConfirmDialog, showToast } from 'vant';
+import { addUsageRecord, getUsageRecords } from '@/service';
+import AddButton from '@/components/AddButton/AddButton.vue';
+import AssetItem from '@/components/AssetItem/AssetItem.vue';
+import AssetForm from '@/components/AssetForm/AssetForm.vue';
+import { formatCurrency } from '@/lib/format';
+import { useAssetStats } from '@/hooks/useAssetStats';
 
 const router = useRouter();
 const store = useAssetStore();
-const { assets, categories, statuses, totalValue, dailyCost } = storeToRefs(store);
+const { assets, categories } = storeToRefs(store);
+const { totalValue, dailyCost, refreshStats } = useAssetStats(store);
+
+onMounted(() => {
+  store.loadData().then(() => {
+    refreshStats();
+  });
+});
 
 const activeCategory = ref('all');
-const activeStatusFilter = ref('active'); // Default to 'active' or 'all'? Let's default to 'active' as per screenshot usually showing active items.
+const activeStatusFilter = ref('active');
 const activeSubCategory = ref('all');
 
 // Reset subcategory when main category changes
@@ -280,8 +158,8 @@ const filteredAssets = computed(() => {
     // Category Filter
     let catMatch = true;
     if (activeCategory.value !== 'all') {
-       // Match by ID
-       catMatch = item.categoryId === activeCategory.value;
+      // Match by ID
+      catMatch = item.categoryId === activeCategory.value;
     }
 
     // Status Filter
@@ -313,121 +191,113 @@ const statusOptionsWithAll = computed(() => [
   ...store.statuses.map(s => ({ text: s.name, value: s.value }))
 ]);
 
-const statusColumns = computed(() => store.statuses.map(s => ({ text: s.name, value: s.value })));
-
 const onClickLeft = () => {
-  router.push('/discovery');
+  router.back();
 };
+
+// --- Increment Usage with Confirmation & Record ---
+const showIncrementDialog = ref(false);
+const incrementDescription = ref('');
+const currentIncrementId = ref('');
 
 const incrementUsage = (id: string) => {
-  const asset = assets.value.find(a => a.id === id);
-  if (asset) {
-    store.updateAsset(id, { usageCount: asset.usageCount + 1 });
+  currentIncrementId.value = id;
+  incrementDescription.value = '';
+  showIncrementDialog.value = true;
+};
+
+const confirmIncrement = async () => {
+  if (!currentIncrementId.value) return;
+
+  try {
+    // 1. Add Record
+    await addUsageRecord({
+      targetId: currentIncrementId.value,
+      targetType: 'asset',
+      actionType: 'increment_usage',
+      description: incrementDescription.value
+    });
+
+    // 2. Update Asset
+    const asset = assets.value.find(a => a.id === currentIncrementId.value);
+    if (asset) {
+      await store.updateAsset(currentIncrementId.value, { usageCount: asset.usageCount + 1 });
+      await store.loadData();
+      refreshStats();
+    }
+
+    showToast('记录成功');
+    showIncrementDialog.value = false;
+  } catch (e) {
+    console.error(e);
+    showToast('操作失败');
   }
 };
+
+// --- Usage History Popup ---
+const showHistoryPopup = ref(false);
+const usageHistory = ref<any[]>([]);
+const historyLoading = ref(false);
+
+const handleBodyClick = async (item: Asset) => {
+  if(item.calcType !== 'count') return;
+  // Only show history for 'count' type assets? Or all?
+  // User said "Item can be clicked to view added times record"
+  // Assuming mostly relevant for 'count' type, but maybe generic history later.
+  // Let's show it for all for now, as records are generic.
+
+  usageHistory.value = [];
+  showHistoryPopup.value = true;
+  historyLoading.value = true;
+
+  try {
+    const records = await getUsageRecords(item.id, { targetType: 'asset', actionType: 'increment_usage' });
+    usageHistory.value = records;
+  } catch (e) {
+    console.error(e);
+  } finally {
+    historyLoading.value = false;
+  }
+};
+
+const formatDate = (ts: string) => {
+  return new Date(ts).toLocaleString();
+}
+
 
 // --- Form Logic ---
-const showAddPopup = ref(false);
-preventBack(showAddPopup);
-const fileList = ref<any[]>([]);
+const showAssetForm = ref(false);
+const editingAsset = ref<Asset | null>(null);
+preventBack(showAssetForm);
+preventBack(showHistoryPopup);
 
-const newItem = reactive({
-  name: '',
-  categoryName: '',
-  categoryId: '',
-  subCategoryName: '',
-  subCategoryId: '',
-  statusName: '服役中',
-  statusValue: 'active',
-  price: '',
-  dateStr: '',
-  purchaseDate: 0,
-  calcType: 'count',
-  description: '',
-  image: ''
-});
-
-const showCategoryPicker = ref(false);
-const showSubCategoryPicker = ref(false);
-const showStatusPicker = ref(false);
-const showCalendar = ref(false);
-
-const categoryColumns = computed(() => store.categories.map(c => ({ text: c.name, value: c.id })));
-
-const currentSubCategories = computed(() => {
-  if (!newItem.categoryId) return [];
-  const cat = store.categories.find(c => c.id === newItem.categoryId);
-  return cat ? cat.subCategories : [];
-});
-
-const subCategoryColumns = computed(() => currentSubCategories.value.map(s => ({ text: s.name, value: s.id })));
-
-const onConfirmCategory = ({ selectedOptions }: any) => {
-  newItem.categoryName = selectedOptions[0].text;
-  newItem.categoryId = selectedOptions[0].value;
-  newItem.subCategoryName = ''; // Reset subcategory
-  newItem.subCategoryId = '';
-  showCategoryPicker.value = false;
+const handleAdd = () => {
+  editingAsset.value = null;
+  showAssetForm.value = true;
 };
 
-const onConfirmSubCategory = ({ selectedOptions }: any) => {
-  newItem.subCategoryName = selectedOptions[0].text;
-  newItem.subCategoryId = selectedOptions[0].value;
-  showSubCategoryPicker.value = false;
+const handleEdit = (item: Asset) => {
+  editingAsset.value = item;
+  showAssetForm.value = true;
 };
 
-const onConfirmStatus = ({ selectedOptions }: any) => {
-  newItem.statusName = selectedOptions[0].text;
-  newItem.statusValue = selectedOptions[0].value;
-  showStatusPicker.value = false;
-};
-
-const onConfirmDate = (date: Date) => {
-  newItem.dateStr = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
-  newItem.purchaseDate = date.getTime();
-  showCalendar.value = false;
-};
-
-const afterRead = (file: any) => {
-  // Use ObjectURL for preview since we are UI only
-  newItem.image = file.objectUrl || URL.createObjectURL(file.file);
-};
-
-const handleSave = () => {
-  if (!newItem.name || !newItem.categoryId || !newItem.price || !newItem.purchaseDate) {
-    showToast('请填写必填项');
-    return;
-  }
-
-  store.addAsset({
-    name: newItem.name,
-    category: newItem.categoryName, // Keeping name for backward compat if needed, but ID is primary now
-    categoryId: newItem.categoryId,
-    subCategoryId: newItem.subCategoryId,
-    status: newItem.statusValue as any,
-    price: Number(newItem.price),
-    purchaseDate: newItem.purchaseDate,
-    usageCount: 0,
-    description: newItem.description,
-    image: newItem.image,
-    calcType: newItem.calcType as any
+const handleDelete = (id: string) => {
+  showConfirmDialog({
+    title: '确认删除',
+    message: '删除后无法恢复，确认删除吗？'
+  }).then(async () => {
+    await store.deleteAsset(id);
+    refreshStats();
+    showToast('删除成功');
+  }).catch(() => {
+    // cancel
   });
+}
 
-  showToast('添加成功');
-  showAddPopup.value = false;
-  // Reset form
-  newItem.name = '';
-  newItem.categoryName = '';
-  newItem.categoryId = '';
-  newItem.subCategoryName = '';
-  newItem.subCategoryId = '';
-  newItem.statusName = '服役中';
-  newItem.statusValue = 'active';
-  newItem.price = '';
-  newItem.dateStr = '';
-  newItem.description = '';
-  newItem.image = '';
-  fileList.value = [];
+const onSave = () => {
+  store.loadData().then(() => {
+    refreshStats();
+  });
 };
 
 </script>
@@ -436,6 +306,7 @@ const handleSave = () => {
 .van-nav-bar__placeholder> :deep(.van-nav-bar--fixed) {
   padding-top: var(--safe-area-top);
 }
+
 .asset-list {
   background-color: #f7f8fa;
   min-height: 100vh;
@@ -443,35 +314,48 @@ const handleSave = () => {
 }
 
 .stats-header {
-  background-color: #2c2c2c;
-  color: #fff;
-  padding: 20px 16px;
+  background-color: #f7f8fa;
+  padding: 16px;
 
-  .stat-row {
+  .overview-card {
+    background: linear-gradient(135deg, #1989fa, #39b9f8);
+    border-radius: 12px;
+    padding: 20px;
+    color: #fff;
     display: flex;
     justify-content: space-between;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 12px rgba(25, 137, 250, 0.3);
 
-    .stat-item {
-      .label {
-        font-size: 12px;
-        opacity: 0.7;
-        margin-bottom: 4px;
-      }
-      .value {
-        font-size: 24px;
-        font-weight: bold;
-      }
+    .total-value,
+    .daily-cost {
+      flex: 1;
+    }
+
+    .label {
+      font-size: 13px;
+      opacity: 0.9;
+      margin-bottom: 8px;
+    }
+
+    .value {
+      font-size: 20px;
+      font-weight: bold;
     }
   }
 
-  .status-bar {
+  .status-bar-container {
+    background: #fff;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+
     .status-text {
       display: flex;
       justify-content: space-between;
       font-size: 12px;
-      margin-bottom: 6px;
-      opacity: 0.8;
+      margin-bottom: 8px;
+      color: #646566;
     }
   }
 }
@@ -483,15 +367,16 @@ const handleSave = () => {
   border-bottom: 1px solid #f2f2f2;
 
   .status-dropdown {
-     flex: 0 0 100px; // Fixed width for status
+    flex: 0 0 100px; // Fixed width for status
 
-     :deep(.van-dropdown-menu__bar) {
-       box-shadow: none;
-       height: 44px;
-     }
-     :deep(.van-dropdown-menu__title) {
-        font-size: 13px;
-     }
+    :deep(.van-dropdown-menu__bar) {
+      box-shadow: none;
+      height: 44px;
+    }
+
+    :deep(.van-dropdown-menu__title) {
+      font-size: 13px;
+    }
   }
 
   .filter-chips {
@@ -509,8 +394,8 @@ const handleSave = () => {
     }
 
     .chip-placeholder {
-       color: #999;
-       font-size: 12px;
+      color: #999;
+      font-size: 12px;
     }
   }
 }
@@ -518,57 +403,6 @@ const handleSave = () => {
 
 .list-container {
   padding: 10px 16px;
-}
-
-.asset-item {
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-
-  .item-image {
-    margin-right: 12px;
-    flex-shrink: 0;
-  }
-
-  .item-info {
-    flex: 1;
-
-    .item-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
-
-      .item-name {
-         font-weight: bold;
-         color: #323233;
-      }
-    }
-
-    .cost-per-use {
-      font-size: 16px;
-      font-weight: 600;
-      color: #323233;
-      margin-bottom: 4px;
-    }
-
-    .details {
-      font-size: 12px;
-      color: #969799;
-
-      .separator {
-        margin: 0 4px;
-      }
-    }
-  }
-
-  .item-action {
-    margin-left: 8px;
-  }
 }
 
 .popup-content {
@@ -582,5 +416,27 @@ const handleSave = () => {
     overflow-y: auto;
     padding-top: 10px;
   }
+}
+
+.popup-title {
+  text-align: center;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.history-list {
+  padding: 10px;
+  overflow-y: auto;
+  max-height: calc(100% - 50px);
+}
+
+.loading-spinner {
+  margin-top: 40px;
+}
+
+.add-position {
+  bottom: var(--footer-area-height);
 }
 </style>

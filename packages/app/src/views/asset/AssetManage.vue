@@ -7,19 +7,21 @@
         <van-collapse-item v-for="cat in store.categories" :key="cat.id" :name="cat.id" :title="cat.name">
           <!-- Sub Categories List -->
           <van-cell-group :border="false">
-            <van-swipe-cell v-for="sub in cat.subCategories" :key="sub.id">
-              <van-cell :title="sub.name" size="normal" />
-              <template #right>
-                <van-button square type="danger" text="删除" size="small"
-                  @click="store.removeSubCategory(cat.id, sub.id)" />
-              </template>
-            </van-swipe-cell>
-            <van-cell title="添加子分类" icon="plus" class="add-btn" @click="openAddSub(cat.id)" />
+             <van-swipe-cell v-for="sub in cat.subCategories" :key="sub.id" :disabled="!!sub.isSystem">
+                <van-cell :title="sub.name" size="normal" />
+                <template #right>
+                  <van-button square type="danger" text="删除" size="small" @click="handleRemoveSubCategory(cat.id, sub.id)" />
+                </template>
+             </van-swipe-cell>
+             <van-cell title="添加子分类" icon="plus" class="add-btn" @click="openAddSub(cat.id)" />
           </van-cell-group>
 
           <!-- Category Actions -->
-          <div class="cat-actions">
-            <van-button size="small" type="danger" plain block @click="store.removeCategory(cat.id)">删除该分类</van-button>
+          <div class="cat-actions" v-if="!cat.isSystem">
+             <van-button size="small" type="danger" plain block @click="handleRemoveCategory(cat.id)">删除该分类</van-button>
+          </div>
+          <div class="cat-actions" v-else>
+             <div class="system-tip">系统分类不可删除</div>
           </div>
         </van-collapse-item>
       </van-collapse>
@@ -40,12 +42,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAssetStore } from '@/stores/asset';
+import { showToast, showLoadingToast, closeToast, showConfirmDialog } from 'vant';
 
 const router = useRouter();
 const store = useAssetStore();
+
+onMounted(() => {
+    if (store.categories.length === 0) {
+        store.loadData();
+    }
+});
 
 const activeCollapse = ref('');
 const showAddCategory = ref(false);
@@ -59,11 +68,36 @@ const onClickLeft = () => {
   router.push('/discovery');
 };
 
-const handleAddCategory = () => {
+const handleAddCategory = async () => {
   if (newCategoryName.value) {
-    store.addCategory(newCategoryName.value);
-    newCategoryName.value = '';
+    showLoadingToast({ message: '添加中...', forbidClick: true });
+    try {
+        await store.addCategory(newCategoryName.value);
+        newCategoryName.value = '';
+        closeToast();
+        showToast('添加成功');
+    } catch (e) {
+        closeToast();
+        showToast('添加失败');
+    }
   }
+};
+
+const handleRemoveCategory = async (id: string) => {
+    showConfirmDialog({
+        title: '确认删除',
+        message: '删除分类将同时删除其下所有子分类，确认删除吗？',
+    }).then(async () => {
+        showLoadingToast({ message: '删除中...', forbidClick: true });
+        try {
+            await store.removeCategory(id);
+            closeToast();
+            showToast('删除成功');
+        } catch (e: any) {
+            closeToast();
+            showToast(e.message || '删除失败');
+        }
+    }).catch(() => {});
 };
 
 const openAddSub = (catId: string) => {
@@ -71,11 +105,36 @@ const openAddSub = (catId: string) => {
   showAddSubCategory.value = true;
 };
 
-const handleAddSubCategory = () => {
+const handleAddSubCategory = async () => {
   if (newSubCategoryName.value && currentCategoryId.value) {
-    store.addSubCategory(currentCategoryId.value, newSubCategoryName.value);
-    newSubCategoryName.value = '';
+    showLoadingToast({ message: '添加中...', forbidClick: true });
+    try {
+        await store.addSubCategory(currentCategoryId.value, newSubCategoryName.value);
+        newSubCategoryName.value = '';
+        closeToast();
+        showToast('添加成功');
+    } catch (e) {
+        closeToast();
+        showToast('添加失败');
+    }
   }
+};
+
+const handleRemoveSubCategory = async (catId: string, subId: string) => {
+    showConfirmDialog({
+        title: '确认删除',
+        message: '确认删除该子分类吗？',
+    }).then(async () => {
+        showLoadingToast({ message: '删除中...', forbidClick: true });
+        try {
+            await store.removeSubCategory(catId, subId);
+            closeToast();
+            showToast('删除成功');
+        } catch (e: any) {
+            closeToast();
+            showToast(e.message || '删除失败');
+        }
+    }).catch(() => {});
 };
 </script>
 
@@ -93,12 +152,18 @@ const handleAddSubCategory = () => {
   text-align: center;
 
   :deep(.van-cell__title) {
-    flex: none;
+     flex: none;
   }
 }
 
 .cat-actions {
   padding: 10px 16px;
   border-top: 1px solid #ebedf0;
+
+  .system-tip {
+     color: #999;
+     font-size: 12px;
+     text-align: center;
+  }
 }
 </style>

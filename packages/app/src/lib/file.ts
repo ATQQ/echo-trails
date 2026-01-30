@@ -334,6 +334,7 @@ export async function parseNativeImageFileUploadInfo(filePath: string) {
 
     return {
       file,
+      name: originalName,
       md5: nativeInfo.md5,
       width: nativeInfo.width,
       height: nativeInfo.height,

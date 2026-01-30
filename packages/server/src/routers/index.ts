@@ -7,8 +7,10 @@ import weightRouter from "./weight";
 import familyRouter from "./family";
 import appRouter from "./app";
 import bloodPressureRouter from "./bloodPressure";
+import assetRouter from "./asset";
+import usageRecordRouter from "./usageRecord";
 
-const routers = [appRouter, fileRouter, albumRouter, configRouter, userRouter, weightRouter, familyRouter, bloodPressureRouter]
+const routers = [appRouter, fileRouter, albumRouter, configRouter, userRouter, weightRouter, familyRouter, bloodPressureRouter, assetRouter, usageRecordRouter]
 export default function mountedRouter(app: any) {
   routers.forEach(router => {
     const child = new Hono()

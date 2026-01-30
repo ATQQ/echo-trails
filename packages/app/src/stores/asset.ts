@@ -1,10 +1,18 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import {
+  getAssets,
+  createAsset,
+  updateAsset as updateAssetApi,
+  deleteAsset as deleteAssetApi,
+  getAssetCategories,
+  createAssetCategory,
+  deleteAssetCategory
+} from '@/service/asset';
 
 export interface Asset {
   id: string;
   name: string;
-  category: string; // This stores the Category ID or Name? Currently Name based on mock. Ideally ID.
   categoryId: string;
   subCategoryId?: string;
   status: 'active' | 'retired' | 'sold';
@@ -12,19 +20,26 @@ export interface Asset {
   purchaseDate: number; // timestamp
   usageCount: number;
   image?: string;
+  cover?: string;
   description?: string;
   createTime: number;
-  calcType: 'count' | 'day' | 'consumable'; // Added 'consumable'
+  calcType: 'count' | 'day' | 'consumable';
+  // Computed from backend
+  costPerUse?: number;
+  costPerDay?: number;
+  daysHeld?: number;
 }
 
 export interface SubCategory {
   id: string;
   name: string;
+  isSystem?: boolean;
 }
 
 export interface AssetCategory {
   id: string;
   name: string;
+  isSystem?: boolean;
   subCategories: SubCategory[];
 }
 
@@ -36,84 +51,8 @@ export interface AssetStatus {
 
 export const useAssetStore = defineStore('asset', () => {
   // --- State ---
-  const assets = ref<Asset[]>([
-    {
-      id: '1',
-      name: 'MacBook Pro',
-      category: '数码',
-      categoryId: '1',
-      subCategoryId: '1-1',
-      status: 'active',
-      price: 12999,
-      purchaseDate: Date.now() - 1000 * 60 * 60 * 24 * 30,
-      usageCount: 30,
-      createTime: Date.now() - 1000 * 60 * 60 * 24 * 30,
-      calcType: 'day'
-    },
-    {
-      id: '2',
-      name: 'iPhone 15',
-      category: '数码',
-      categoryId: '1',
-      subCategoryId: '1-2',
-      status: 'active',
-      price: 6999,
-      purchaseDate: Date.now() - 1000 * 60 * 60 * 24 * 10,
-      usageCount: 100,
-      createTime: Date.now() - 1000 * 60 * 60 * 24 * 10,
-      calcType: 'day'
-    },
-    {
-      id: '3',
-      name: 'Winter Coat',
-      category: '衣物',
-      categoryId: '2',
-      subCategoryId: '2-1',
-      status: 'retired',
-      price: 1200,
-      purchaseDate: Date.now() - 1000 * 60 * 60 * 24 * 365,
-      usageCount: 50,
-      createTime: Date.now() - 1000 * 60 * 60 * 24 * 365,
-      calcType: 'count'
-    }
-  ]);
-
-  const categories = ref<AssetCategory[]>([
-    {
-      id: '1',
-      name: '数码',
-      subCategories: [
-        { id: '1-1', name: '电脑' },
-        { id: '1-2', name: '手机' },
-        { id: '1-3', name: '配件' }
-      ]
-    },
-    {
-      id: '2',
-      name: '衣物',
-      subCategories: [
-        { id: '2-1', name: '上衣' },
-        { id: '2-2', name: '裤子' },
-        { id: '2-3', name: '鞋靴' },
-        { id: '2-4', name: '配饰' }
-      ]
-    },
-    {
-      id: '3',
-      name: '家电',
-      subCategories: []
-    },
-    {
-      id: '4',
-      name: '书籍',
-      subCategories: []
-    },
-    {
-      id: '5',
-      name: '其他',
-      subCategories: []
-    },
-  ]);
+  const assets = ref<Asset[]>([]);
+  const categories = ref<AssetCategory[]>([]);
 
   const statuses = ref<AssetStatus[]>([
     { id: '1', name: '服役中', value: 'active' },
@@ -122,69 +61,72 @@ export const useAssetStore = defineStore('asset', () => {
   ]);
 
   // --- Getters ---
-  const totalValue = computed(() => {
-    return assets.value.reduce((sum, item) => sum + item.price, 0);
-  });
-
-  const dailyCost = computed(() => {
-    const now = Date.now();
-    let totalDays = 0;
-    let totalP = 0;
-
-    assets.value.forEach(item => {
-      const days = Math.max(1, Math.floor((now - item.purchaseDate) / (1000 * 60 * 60 * 24)));
-      totalDays += days;
-      totalP += item.price;
-    });
-
-    return totalDays > 0 ? (totalP / totalDays) : 0;
-  });
-
   const assetsByDate = computed(() => {
     return [...assets.value].sort((a, b) => b.purchaseDate - a.purchaseDate);
   });
 
   // --- Actions ---
-  const addAsset = (asset: Omit<Asset, 'id' | 'createTime'>) => {
-    const newAsset: Asset = {
-      ...asset,
-      id: Date.now().toString(),
-      createTime: Date.now(),
-    };
-    assets.value.push(newAsset);
+  const loadData = async () => {
+    const [assetsData, categoriesData] = await Promise.all([
+      getAssets(),
+      getAssetCategories()
+    ]);
+    assets.value = assetsData;
+    categories.value = categoriesData;
   };
 
-  const updateAsset = (id: string, updates: Partial<Asset>) => {
+  const addAsset = async (asset: Omit<Asset, 'id' | 'createTime'>) => {
+    const newAsset = await createAsset(asset);
+    assets.value.push({
+        ...newAsset,
+        id: newAsset._id,
+        purchaseDate: new Date(newAsset.purchaseDate).getTime(),
+        createTime: new Date(newAsset.createdAt).getTime()
+    });
+  };
+
+  const updateAsset = async (id: string, updates: Partial<Asset>) => {
+    await updateAssetApi({ id, ...updates });
     const index = assets.value.findIndex(a => a.id === id);
     if (index !== -1) {
       assets.value[index] = { ...assets.value[index], ...updates };
     }
   };
 
-  const deleteAsset = (id: string) => {
+  const deleteAsset = async (id: string) => {
+    await deleteAssetApi(id);
     const index = assets.value.findIndex(a => a.id === id);
     if (index !== -1) {
       assets.value.splice(index, 1);
     }
   };
 
-  const addCategory = (name: string) => {
-    categories.value.push({ id: Date.now().toString(), name, subCategories: [] });
+  const addCategory = async (name: string) => {
+    const newCat = await createAssetCategory({ name });
+    categories.value.push({
+        id: newCat.id,
+        name: newCat.name,
+        isSystem: false,
+        subCategories: []
+    });
   };
 
-  const removeCategory = (id: string) => {
+  const removeCategory = async (id: string) => {
+    await deleteAssetCategory(id);
     const index = categories.value.findIndex(c => c.id === id);
     if (index !== -1) categories.value.splice(index, 1);
   };
 
-  const addSubCategory = (categoryId: string, name: string) => {
+  const addSubCategory = async (categoryId: string, name: string) => {
+    const newSub = await createAssetCategory({ name, parentId: categoryId });
     const cat = categories.value.find(c => c.id === categoryId);
     if (cat) {
-      cat.subCategories.push({ id: Date.now().toString(), name });
+      cat.subCategories.push({ id: newSub.id, name: newSub.name, isSystem: false });
     }
   };
 
-  const removeSubCategory = (categoryId: string, subCategoryId: string) => {
+  const removeSubCategory = async (categoryId: string, subCategoryId: string) => {
+    await deleteAssetCategory(subCategoryId);
     const cat = categories.value.find(c => c.id === categoryId);
     if (cat) {
       const idx = cat.subCategories.findIndex(sc => sc.id === subCategoryId);
@@ -196,9 +138,8 @@ export const useAssetStore = defineStore('asset', () => {
     assets,
     categories,
     statuses,
-    totalValue,
-    dailyCost,
     assetsByDate,
+    loadData,
     addAsset,
     updateAsset,
     deleteAsset,
