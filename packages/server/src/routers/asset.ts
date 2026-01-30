@@ -171,7 +171,7 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       const now = Date.now();
       const pDate = new Date(a.purchaseDate).getTime();
       const daysHeld = Math.max(1, Math.floor((now - pDate) / (1000 * 60 * 60 * 24)));
-      
+
       let costPerUse = 0;
       let costPerDay = 0;
 
@@ -261,20 +261,16 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     let totalValue = 0;
     let dailyCost = 0;
     const now = Date.now();
-    let totalDays = 0;
-    let totalP = 0;
-
     assets.forEach(item => {
         totalValue += item.price;
 
         // Daily cost calculation
         const pDate = new Date(item.purchaseDate).getTime();
         const days = Math.max(1, Math.floor((now - pDate) / (1000 * 60 * 60 * 24)));
-        totalDays += days;
-        totalP += item.price;
-    });
 
-    dailyCost = totalDays > 0 ? (totalP / totalDays) : 0;
+        // Sum of daily cost of each item
+        dailyCost += (item.price / days);
+    });
 
     return ctx.json({
         code: 0,

@@ -311,6 +311,7 @@ const onSave = () => {
   background-color: #f7f8fa;
   min-height: 100vh;
   box-sizing: border-box;
+  padding-bottom: var(--footer-area-height);
 }
 
 .stats-header {
