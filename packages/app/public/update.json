@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.5.2",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.2.apk",
+      "forceUpdate": false,
+      "description": "1.血压录入支持添加描述 2.添加资产管理功能",
+      "md5": "ecb5a83b13be30e5f918c4ca5ce1a153"
+    },
+    {
       "version": "0.5.1",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.1.apk",
       "forceUpdate": false,
