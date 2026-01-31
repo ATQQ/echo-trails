@@ -136,6 +136,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/memorial',
+      name: 'memorial',
+      component: () => import('../views/memorial/MemorialList.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'MemorialList'
+      }
+    },
+    {
       path: '/asset',
       name: 'asset',
       component: () => import('../views/asset/AssetLayout.vue'),

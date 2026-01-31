@@ -282,3 +282,24 @@ export function getUsageRecords(targetId: string, options?: { targetType?: strin
       searchParams: options as any
   }).json().then(v => v.data);
 }
+
+// --- Memorial API ---
+export function getMemorials() {
+    return api.get<ServerResponse<any[]>>('memorial/list').json().then(v => v.data);
+}
+
+export function createMemorial(data: any) {
+    return api.post<ServerResponse<any>>('memorial/create', { json: data }).json().then(v => v.data);
+}
+
+export function updateMemorial(id: string, data: any) {
+    return api.put<ServerResponse<any>>('memorial/update', { json: { id, ...data } }).json();
+}
+
+export function deleteMemorial(id: string) {
+    return api.delete<ServerResponse<any>>('memorial/delete', { json: { id } }).json();
+}
+
+export function getMemorialCovers() {
+    return api.get<ServerResponse<string[]>>('memorial/covers').json().then(v => v.data);
+}

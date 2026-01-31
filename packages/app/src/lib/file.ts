@@ -50,17 +50,25 @@ export function formatSize(
   )
 }
 
-export function downloadFile(url: string, name: string, isImage: boolean = true) {
+export function downloadFile(url: string | Blob, name: string, isImage: boolean = true) {
   const { promise, resolve, reject } = PromiseWithResolver()
   if (isTauri) {
     // 添加保存到相册的功能
     // 创建一个函数来处理保存到相册
     const saveToGallery = async () => {
       try {
-        // 使用Tauri的API保存到相册
-        const response = await tauriFetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
+        let uint8Array: Uint8Array;
+        
+        if (url instanceof Blob) {
+            const arrayBuffer = await url.arrayBuffer();
+            uint8Array = new Uint8Array(arrayBuffer);
+        } else {
+            // 使用Tauri的API保存到相册
+            const response = await tauriFetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            uint8Array = new Uint8Array(arrayBuffer);
+        }
+
         // 保存到相册目录
         // TODO: 可以优化 使用 Rust 写入系统相册
         const filePath = await invoke('save_to_pictures', {
@@ -81,20 +89,37 @@ export function downloadFile(url: string, name: string, isImage: boolean = true)
   } else {
     // 图片文件下载
     if (isImage) {
+      let src = '';
+      if (url instanceof Blob) {
+          src = URL.createObjectURL(url);
+      } else {
+          src = url;
+      }
+
       const img = new Image()
-      img.src = url
+      img.src = src
       img.onload = () => {
         const a = document.createElement('a')
         a.href = img.src
         a.download = name
         a.click()
+        if (url instanceof Blob) {
+            URL.revokeObjectURL(src);
+        }
       }
     } else {
       // 其它类型文件下载
       const a = document.createElement('a')
-      a.href = url
+      if (url instanceof Blob) {
+          a.href = URL.createObjectURL(url);
+      } else {
+          a.href = url;
+      }
       a.download = name
       a.click()
+      if (url instanceof Blob) {
+          URL.revokeObjectURL(a.href);
+      }
     }
     resolve(name)
   }

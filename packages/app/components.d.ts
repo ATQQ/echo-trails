@@ -20,6 +20,7 @@ declare module 'vue' {
     FooterNav: typeof import('./src/components/FooterNav/FooterNav.vue')['default']
     ImageCell: typeof import('./src/components/ImageCell/ImageCell.vue')['default']
     InfoCard: typeof import('./src/components/InfoCard/InfoCard.vue')['default']
+    MemorialForm: typeof import('./src/components/MemorialForm/MemorialForm.vue')['default']
     PageTitle: typeof import('./src/components/PageTitle/PageTitle.vue')['default']
     PhotoList: typeof import('./src/components/PhotoList/PhotoList.vue')['default']
     PreviewImage: typeof import('./src/components/PreviewImage/PreviewImage.vue')['default']
