@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.5.3",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.3.apk",
+      "forceUpdate": false,
+      "description": "新增纪念日功能支持",
+      "md5": "4afa82a644463e846a676a45df7c6198"
+    },
+    {
       "version": "0.5.2",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.2.apk",
       "forceUpdate": false,
