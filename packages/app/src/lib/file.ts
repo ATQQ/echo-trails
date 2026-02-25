@@ -58,7 +58,7 @@ export function downloadFile(url: string | Blob, name: string, isImage: boolean 
     const saveToGallery = async () => {
       try {
         let uint8Array: Uint8Array;
-        
+
         if (url instanceof Blob) {
             const arrayBuffer = await url.arrayBuffer();
             uint8Array = new Uint8Array(arrayBuffer);
@@ -338,8 +338,19 @@ export async function parseNativeImageFileUploadInfo(filePath: string) {
     const fileType = nativeInfo.fileType || 'image/jpeg'
 
     // 3. 解析 EXIF
-    const exif = await getImageExif(buffer) as any
-    const exifDate = getExifDate(exif)
+    let exif: any = {}
+    let exifDate: Date | null = null
+
+    if (nativeInfo.width > 0 && nativeInfo.height > 0 && nativeInfo.lastModified > 0) {
+      exif = {
+        'Image Width': { value: nativeInfo.width },
+        'Image Height': { value: nativeInfo.height },
+        'FileType': { value: fileType }
+      }
+    } else {
+      exif = await getImageExif(buffer) as any
+      exifDate = getExifDate(exif)
+    }
 
     // 4. 确定最终时间: EXIF > Native/lstat > Current
     const lastModified = +(exifDate || nativeInfo.lastModified || new Date())
