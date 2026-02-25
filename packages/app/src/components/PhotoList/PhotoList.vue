@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
 import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
-import { filePath2Name, generateFileKey, getFileInfo, getFileMd5Hash, getImageDimensions, getImageExif, parseNativeImageFileUploadInfo, ensureUploadInfo } from '../../lib/file';
+import { filePath2Name, generateFileKey, parseNativeImageFileUploadInfo, ensureUploadInfo } from '../../lib/file';
 import { isTauri, UploadStatus } from '../../constants/index'
-import { useEventListener } from '@vueuse/core'
+import { useEventListener, useThrottleFn } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage/PreviewImage.vue';
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { providePhotoListStore } from '@/composables/photoList';
@@ -130,11 +130,9 @@ const addPhoto2List = (photo: Photo) => {
     photoList.push(photo)
     return true
   } else {
-    // 更新其中链接
+    // 更新所有属性
     const existPhoto = existPhotoMap.get(photo._id)!
-    existPhoto.url = photo.url
-    existPhoto.cover = photo.cover
-    existPhoto.preview = photo.preview
+    Object.assign(existPhoto, photo)
   }
 
   return false
@@ -151,14 +149,6 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
     albumId: album?._id,
     isDelete
   }).then(res => {
-    // 如果是刷新操作，清空现有列表
-    if (isRefresh) {
-      photoList.length = 0
-      existPhotoMap.clear()
-      repeatPhotoMap.clear()
-      pageInfo.pageIndex = 1
-    }
-
     let addCount = 0
     // 数据去重
     res.forEach(v => {
@@ -175,32 +165,16 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
 
     // 更新缓存
     saveCache()
-    // 指定页码时不做额外操作
-    if (index || pageSize) {
-      // 检查是否已经没有更多数据了（当前页数据不满pageSize）
-      if (res.length < (pageSize || pageInfo.pageSize)) {
-        hasMoreData.value = false
-      } else {
-        // 如果重新加载了第一页，且数据满了，说明可能还有更多数据
-        hasMoreData.value = true
-        // 修正页码：如果是重置加载（如下拉刷新），重置为下一页
-        if (index === 1 || isRefresh) {
-          pageInfo.pageIndex = 2
-        }
-      }
-      return
-    }
 
-    if (res.length < pageInfo.pageSize) {
-      // 返回数据少于 pageSize，说明没有更多数据了
+    // 检查是否已经没有更多数据了
+    if (res.length < (pageSize || pageInfo.pageSize)) {
       hasMoreData.value = false
-      // 仍然增加页码，避免重复请求当前页（虽然没有更多了，但逻辑上当前页已加载）
-      pageInfo.pageIndex += 1
     } else {
-      // 数据够了，增加页码以便下次加载下一页
-      pageInfo.pageIndex += 1
       hasMoreData.value = true
     }
+
+    // 根据当前列表长度重新计算页码
+    pageInfo.pageIndex = Math.floor(photoList.length / pageInfo.pageSize) + 1
   }).finally(() => {
     pageInfo.lock = false
   })
@@ -235,7 +209,7 @@ let scrollListener: (() => void) | null = null
 
 const registerScrollListener = () => {
   if (scrollListener) return
-  scrollListener = useEventListener(window, 'scroll', checkScrollBottom, { passive: true })
+  scrollListener = useEventListener(window, 'scroll', useThrottleFn(checkScrollBottom, 200), { passive: true })
 }
 
 const unregisterScrollListener = () => {
@@ -252,6 +226,9 @@ watch(isActive, (active) => {
     const restored = loadCache()
     if (!restored) {
       loadNext()
+    } else {
+      // 就算有缓存，也拉取一次数据，缓存的数据只是帮助快速展示
+      loadNext(1, photoList.length, true)
     }
     registerScrollListener()
   } else {
@@ -691,28 +668,7 @@ preventBack(editData, 'active')
 const loading = ref(false)
 const pullRefresh = () => {
   loading.value = true
-  // 刷新时重置页码为1，并清空列表（可选，如果需要平滑过渡可以不清空，但需要处理数据替换逻辑）
-  // 这里选择不清空，依靠 loadNext 的 index=1 逻辑来处理
-  // 但为了彻底替换旧数据，我们需要在 loadNext 中识别出这是一个刷新操作
-
-  // 修正：loadNext 目前是追加逻辑。如果想替换，需要在 loadNext 里处理，或者在外面处理。
-  // 我们修改 loadNext，当 index=1 时，清空 photoList？
-  // 或者在这里清空？如果在这里清空，界面会闪烁。
-
-  // 更好的方式：传递一个 refresh 标记给 loadNext？
-  // 或者利用 loadNext 的 index 参数。
-
-  // 目前 loadNext 的逻辑是：
-  // getPhotos -> res -> addPhoto2List (去重/更新) -> sort -> saveCache
-
-  // 如果是刷新，我们希望：
-  // 1. 获取第一页数据
-  // 2. 如果成功，用新数据 *替换* 旧列表的前N项？不，应该是替换整个列表？
-  //    不，下拉刷新通常只刷新第一页。如果用户已经加载了10页，下拉刷新后应该只保留第一页吗？
-  //    通常是的，下拉刷新意味着“重新开始”。
-
-  // 所以：
-  loadNext(1, pageInfo.pageSize, true) // Add true for isRefresh
+  loadNext(1, photoList.length, true) // Add true for isRefresh
     ?.finally(() => {
       loading.value = false
     })
