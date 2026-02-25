@@ -319,17 +319,24 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
   if (!forceUpload && wrapperItem.status === UploadStatus.DUPLICATE) {
     return
   }
+  let sourceKey = ''
   // MD5判断是否重复，重复则先不上传做提示
-  if (!forceUpload && uploadInfo.md5) {
+  if (uploadInfo.md5) {
     try {
       const duplicateResult = await checkDuplicateByMd5(uploadInfo.md5)
       if (duplicateResult.isDuplicate) {
-        wrapperItem.status = UploadStatus.DUPLICATE
-        showNotify({
-          type: 'warning',
-          message: `文件 ${uploadInfo.name} 已存在，跳过上传`
-        })
-        return
+        if (!forceUpload) {
+          wrapperItem.status = UploadStatus.DUPLICATE
+          showNotify({
+            type: 'warning',
+            message: `文件 ${uploadInfo.name} 已存在，跳过上传`
+          })
+          return
+        }
+        // 强制上传时，如果文件已存在，则复用 key 实现秒传
+        if (duplicateResult.existingPhoto) {
+          sourceKey = duplicateResult.existingPhoto.key
+        }
       }
     } catch (error) {
       showNotify({
@@ -343,25 +350,32 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
   // 准备上传
   wrapperItem.status = UploadStatus.UPLOADING
 
-  // 获取上传链接
-  const uploadUrl = await getUploadUrl(key)
-
   // 触发上传
   try {
-    if (fileInfo.filePath && isTauri) {
-      await invoke('upload_file', {
-        key: uploadInfo.key,
-        path: fileInfo.filePath,
-        url: uploadUrl
-      })
+    if (!sourceKey) {
+      // 获取上传链接
+      const uploadUrl = await getUploadUrl(key)
+
+      if (fileInfo.filePath && isTauri) {
+        await invoke('upload_file', {
+          key: uploadInfo.key,
+          path: fileInfo.filePath,
+          url: uploadUrl
+        })
+      } else {
+        // Web 方法
+        await uploadFile(file, uploadUrl, (progress) => {
+          wrapperItem.progress = progress
+        })
+      }
     } else {
-      // Web 方法
-      await uploadFile(file, uploadUrl, (progress) => {
-        wrapperItem.progress = progress
-      })
+      wrapperItem.progress = 100
     }
 
     // 数据落库
+    if (sourceKey) {
+      uploadInfo.key = sourceKey
+    }
     const result = await addFileInfo(uploadInfo)
 
     // 空相册首次上传
@@ -369,8 +383,6 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
       albumPhotoStore?.refreshAlbum?.()
     }
 
-    // 优先展示临时资源链接，避免闪烁（会导致缓存数据异常）
-    // result.cover = wrapperItem.url
     // 正式列表数据更新
     if (addPhoto2List(result)) {
       photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
@@ -753,11 +765,11 @@ const handleOpenFile = async () => {
               <div v-else-if="item.status === UploadStatus.DUPLICATE" class="duplicate-mask">
                 <div class="duplicate-info">
                   <van-icon name="warning" />
-                  <span>文件重复</span>
+                  <span>照片存在</span>
                 </div>
                 <div class="duplicate-actions">
-                  <van-button size="mini" type="danger" @click="removeDuplicateFile(item)">删除</van-button>
-                  <van-button size="mini" type="primary" @click="forceUpload(item)">上传</van-button>
+                  <van-button size="mini" type="danger" @click="removeDuplicateFile(item)">取消</van-button>
+                  <van-button size="mini" type="success" @click="forceUpload(item)">上传</van-button>
                 </div>
               </div>
               <!-- 失败 -->
