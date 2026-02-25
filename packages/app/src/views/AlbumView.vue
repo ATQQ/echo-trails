@@ -164,7 +164,10 @@ preventBack(showAddModal)
   <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)">
     <PageTitle title="相册" :info="false">
       <template #action>
-        <van-popover v-model:show="showSortPopover" :actions="sortActions" @select="onSelectSort" placement="bottom-end">
+        <!-- 我喜欢入口 -->
+        <van-icon name="like-o" size="18" color="#333" style="margin-right: 16px;" @click="router.push('/like')" />
+        <van-popover v-model:show="showSortPopover" :actions="sortActions" @select="onSelectSort"
+          placement="bottom-end">
           <template #reference>
             <van-icon style="margin-right: 16px;" name="sort" size="18" color="#333" />
           </template>

@@ -16,7 +16,7 @@
     <!-- 关闭按钮 -->
     <div class="operation card-margin">
       <van-button @click="showInfoPanel = false" plain block round size="small">关闭</van-button>
-    </div> 。
+    </div>
   </van-popup>
 </template>
 

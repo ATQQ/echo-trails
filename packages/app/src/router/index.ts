@@ -50,8 +50,8 @@ const router = createRouter({
       name: 'like',
       component: () => import('../views/LikeView.vue'),
       meta: {
-        keepAlive: true,
-        nav: true,
+        // keepAlive: true,
+        // nav: true,
         componentName: 'LikeView'
       }
     },
