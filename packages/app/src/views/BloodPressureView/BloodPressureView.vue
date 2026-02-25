@@ -335,7 +335,10 @@ import { useBloodPressureStats } from '@/composables/useBloodPressureStats';
 import { useFamily } from '@/composables/useFamily';
 import FamilySelector from '@/components/FamilySelector/FamilySelector.vue';
 import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
 import { createChart, ColorType, LineSeries } from 'lightweight-charts';
+
+dayjs.locale('zh-cn');
 import { showToast, showConfirmDialog } from 'vant';
 import TimeRangePicker from '@/components/TimeRangePicker/TimeRangePicker.vue';
 import { preventBack } from '@/lib/router';
@@ -501,7 +504,7 @@ const todayRecords = computed(() => {
 const groupedRecords = computed(() => {
   const groups: Record<string, BloodPressureRecord[]> = {};
   filteredRecords.value.forEach(record => {
-    const date = dayjs(record.timestamp).format('YYYY年MM月DD日');
+    const date = dayjs(record.timestamp).format('YYYY年MM月DD日-dddd');
     if (!groups[date]) {
       groups[date] = [];
     }
