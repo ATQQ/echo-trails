@@ -149,6 +149,27 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
     albumId: album?._id,
     isDelete
   }).then(res => {
+    if (isRefresh) {
+      const newIdSet = new Set(res.map(v => v._id))
+      const idsToRemove: string[] = []
+      photoList.forEach(v => {
+        if (!newIdSet.has(v._id)) {
+          idsToRemove.push(v._id)
+        }
+      })
+      idsToRemove.forEach(id => {
+        const idx = photoList.findIndex(v => v._id === id)
+        if (idx !== -1) {
+          const item = photoList[idx]
+          photoList.splice(idx, 1)
+          existPhotoMap.delete(id)
+          const repeatItem = repeatPhotoMap.get(item.key)
+          if (repeatItem && repeatItem._id === id) {
+            repeatPhotoMap.delete(item.key)
+          }
+        }
+      })
+    }
     let addCount = 0
     // 数据去重
     res.forEach(v => {
