@@ -108,6 +108,7 @@ const onSubmit = () => {
           <p>{{ album.description }}</p>
         </div>
       </div>
+      <div v-else class="safe-padding-top"></div>
       <!-- 操作按钮 -->
       <div class="actions safe-padding-top" :class="{
         empty: !album.count

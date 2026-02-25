@@ -42,7 +42,7 @@ const sortAlbums = (albums: Album[]) => {
   // 1. 空相册置底
   // 2. 标签排序：有相同标签的排在一起 (按第一个标签聚类)，组内按时间倒序
   // 3. 时间排序：按 createdAt 倒序
-  
+
   const list = [...albums]
 
   return list.sort((a, b) => {
@@ -58,7 +58,7 @@ const sortAlbums = (albums: Album[]) => {
     if (sortType.value === 'tag') {
       const tagA = a.tags?.[0] || ''
       const tagB = b.tags?.[0] || ''
-      
+
       // 有标签的排前面
       if (tagA && !tagB) return -1
       if (!tagA && tagB) return 1
@@ -120,6 +120,9 @@ onActivated(() => {
     } else {
       // 缓存加载成功，更新empty状态
       showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
+
+      // 异步更新一下数据
+      loadAlbum(false)
     }
   }
 })
