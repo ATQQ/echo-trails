@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.5.3",
-    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.3.apk",
+    "version": "0.6.0",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.0.apk",
     "forceUpdate": false,
-    "description": "新增纪念日功能支持",
-    "md5": "4afa82a644463e846a676a45df7c6198"
+    "description": "1. 优化数据加载和缓存逻辑 2. 底部导航支持自定义，移除固定的我喜欢入口 3. 血压中显示星期，同时支持数据编辑，默认展示自定义视图 4. 相册中支持展示农历 5. 修复空相册列表时顶部间距缺失问题 6. 修复已删除图片未正确移除的问题",
+    "md5": "850fae5118d89fac647bdb5a85845c50"
   },
   "ios": {
     "version": "0.1.2",

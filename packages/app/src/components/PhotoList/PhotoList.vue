@@ -705,6 +705,7 @@ preventBack(editData, 'active')
 
 const loading = ref(false)
 const pullRefresh = () => {
+  repeatPhotoMap.clear()
   loading.value = true
   loadNext(1, photoList.length, true) // Add true for isRefresh
     ?.finally(() => {
