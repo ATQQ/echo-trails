@@ -85,10 +85,29 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
     }
   };
 
+  const updateRecord = async (record: Partial<BloodPressureRecord> & { id: string }) => {
+    try {
+      const res: any = await api.post('blood-pressure/update', {
+        json: {
+          ...record,
+          date: record.timestamp ? new Date(record.timestamp) : undefined
+        }
+      }).json();
+
+      if (res.code === 0) {
+        await fetchRecords();
+      }
+    } catch (e) {
+      console.error('Failed to update record', e);
+      throw e;
+    }
+  };
+
   return {
     records,
     fetchRecords,
     addRecord,
     removeRecord,
+    updateRecord,
   };
 });

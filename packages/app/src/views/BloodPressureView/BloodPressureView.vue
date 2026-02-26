@@ -204,7 +204,7 @@
     <van-popup v-model:show="showAddPopup" position="bottom" class="safe-padding-top" round :style="{ height: '100%' }"
       closeable>
       <div class="popup-content">
-        <h2 class="popup-title">添加数据</h2>
+        <h2 class="popup-title">{{ isEditing ? '编辑数据' : '添加数据' }}</h2>
         <van-cell title="测量时间" is-link :value="addForm.timeStr" @click="showDatePicker = true" />
 
         <!-- 快捷输入框 -->
@@ -317,6 +317,9 @@
         </div>
 
         <div class="submit-btn-container">
+          <van-button type="primary" block round @click="handleEdit" style="margin-bottom: 12px;">
+            编辑数据
+          </van-button>
           <van-button type="danger" block round @click="handleDelete">
             删除数据
           </van-button>
@@ -361,6 +364,8 @@ const showDatePicker = ref(false);
 const showTimeRangePicker = ref(false);
 const showDetailPopup = ref(false);
 const currentRecord = ref<BloodPressureRecord | null>(null);
+const isEditing = ref(false);
+const editId = ref('');
 
 const quickInputRef = ref<HTMLInputElement | null>(null);
 
@@ -392,19 +397,27 @@ watch(quickInput, (val) => {
 
 watch(showAddPopup, async (val) => {
   if (val) {
-    // Reset form or set default time
-    addForm.value.time = dayjs();
-    addForm.value.timeStr = dayjs().format('YYYY/MM/DD HH:mm');
-    addForm.value.sbp = '';
-    addForm.value.dbp = '';
-    addForm.value.heartRate = '';
-    addForm.value.bloodOxygen = '';
-    quickInput.value = '';
+    if (!isEditing.value) {
+      // Reset form or set default time
+      addForm.value.time = dayjs();
+      addForm.value.timeStr = dayjs().format('YYYY/MM/DD HH:mm');
+      addForm.value.sbp = '';
+      addForm.value.dbp = '';
+      addForm.value.heartRate = '';
+      addForm.value.bloodOxygen = '';
+      addForm.value.note = '';
+      quickInput.value = '';
+    }
 
     await nextTick();
     setTimeout(() => {
       quickInputRef.value?.focus();
     }, 500)
+  } else {
+    setTimeout(() => {
+      isEditing.value = false;
+      editId.value = '';
+    }, 300);
   }
 });
 
@@ -635,39 +648,55 @@ const onConfirmPicker = () => {
 
 const handleSubmit = async () => {
   try {
-    await store.addRecord({
+    const data = {
       sbp: Number(addForm.value.sbp),
       dbp: Number(addForm.value.dbp),
       heartRate: addForm.value.heartRate ? Number(addForm.value.heartRate) : 0,
       bloodOxygen: addForm.value.bloodOxygen ? Number(addForm.value.bloodOxygen) : 0,
       timestamp: addForm.value.time.valueOf(),
       note: addForm.value.note
-    });
-    showAddPopup.value = false;
-    showToast('添加成功');
-    addForm.value = {
-      sbp: '',
-      dbp: '',
-      heartRate: '',
-      bloodOxygen: '',
-      time: dayjs(),
-      timeStr: dayjs().format('YYYY-MM-DD HH:mm'),
-      note: ''
     };
 
-    // fetchData(); // store.addRecord already fetches (all).
-    // Ideally we should re-fetch with current range, but let's rely on client filtering for now.
-    // Or explicitly call fetchData() to reset store to current range?
-    // If we call fetchData(), it replaces store.records with range data.
+    if (isEditing.value) {
+      await store.updateRecord({ ...data, id: editId.value });
+      showToast('修改成功');
+    } else {
+      await store.addRecord(data);
+      showToast('添加成功');
+    }
+
+    showAddPopup.value = false;
+    // Form reset is handled by watch(showAddPopup) or next open
     fetchData();
   } catch (e) {
-    showToast('添加失败');
+    console.error(e);
+
+    showToast(isEditing.value ? '修改失败' : '添加失败');
   }
 };
 
 const openDetail = (record: BloodPressureRecord) => {
   currentRecord.value = record;
   showDetailPopup.value = true;
+};
+
+const handleEdit = () => {
+  if (!currentRecord.value) return;
+  const record = currentRecord.value;
+  isEditing.value = true;
+  editId.value = record.id;
+  addForm.value = {
+    sbp: String(record.sbp),
+    dbp: String(record.dbp),
+    heartRate: record.heartRate ? String(record.heartRate) : '',
+    bloodOxygen: record.bloodOxygen ? String(record.bloodOxygen) : '',
+    time: dayjs(record.timestamp),
+    timeStr: dayjs(record.timestamp).format('YYYY/MM/DD HH:mm'),
+    note: record.note || ''
+  };
+  quickInput.value = `${record.sbp}/${record.dbp} ${record.heartRate}`
+  showDetailPopup.value = false;
+  showAddPopup.value = true;
 };
 
 const handleDelete = () => {
