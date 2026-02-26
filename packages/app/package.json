@@ -14,18 +14,19 @@
   "dependencies": {
     "@vueuse/components": "^11.2.0",
     "@vueuse/core": "^11.2.0",
+    "@zumer/snapdom": "^2.0.2",
     "dayjs": "^1.11.13",
     "exifreader": "^4.33.1",
     "ky": "^1.7.2",
     "lightweight-charts": "^5.1.0",
+    "lunar-javascript": "^1.7.7",
     "p-limit": "^6.1.0",
     "pinia": "^2.2.4",
     "sass": "^1.80.6",
     "spark-md5": "^3.0.2",
     "vant": "^4.9.22",
     "vue": "^3.5.12",
-    "vue-router": "^4.4.5",
-    "@zumer/snapdom": "^2.0.2"
+    "vue-router": "^4.4.5"
   },
   "devDependencies": {
     "@types/spark-md5": "^3.0.5",

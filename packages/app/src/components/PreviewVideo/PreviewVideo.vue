@@ -33,7 +33,11 @@
             <div class="header-left">
                 <van-icon name="arrow-left" size="24" class="back-icon" />
                 <div class="header-text">
-                    <h3>{{ coverDate }}<span class="week-day"> - {{ weekDay }}</span></h3>
+                    <h3>
+                      {{ coverDate }}
+                      <span class="week-day"> - {{ weekDay }}</span>
+                      <span class="lunar-date"> / {{ lunarDate }}</span>
+                    </h3>
                     <h4>{{ coverTime }}</h4>
                 </div>
             </div>
@@ -137,13 +141,21 @@ const toggleControls = () => {
 
 const activeItem = computed(() => props.images[currentIdx.value] || {})
 
+import { getLunarDate } from '@/lib/lunar';
+
 // Information Computed Props
 const coverDate = computed(() => activeItem.value.lastModified ? dayjs(activeItem.value.lastModified).format('YYYY年MM月DD日') : '')
 const coverTime = computed(() => activeItem.value.lastModified ? dayjs(activeItem.value.lastModified).format('HH:mm') : '')
 const weekDay = computed(() => {
   if (!activeItem.value.lastModified) return ''
   const weekDayMap = ['日', '一', '二', '三', '四', '五', '六']
-  return `星期${weekDayMap[new Date(activeItem.value.lastModified).getDay()]}`
+  const date = new Date(activeItem.value.lastModified);
+  return `星期${weekDayMap[date.getDay()]}`
+})
+const lunarDate = computed(() => {
+  if (!activeItem.value.lastModified) return ''
+  const date = new Date(activeItem.value.lastModified);
+  return getLunarDate(date);
 })
 const filesize = computed(() => formatSize(activeItem.value.size))
 const fileWH = computed(() => {
@@ -474,7 +486,7 @@ const menus = computed(() => {
             font-weight: 500;
             color: #333;
 
-            .week-day {
+            .week-day, .lunar-date {
                 font-size: 12px;
                 opacity: 0.8;
                 color: #999;

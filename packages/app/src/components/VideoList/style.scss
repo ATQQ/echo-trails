@@ -1,12 +1,27 @@
-h2 {
-    padding-left: 10px;
+.photo-group-header {
+    padding-left: 16px;
     font-weight: normal;
     font-size: 18px;
-    margin: 10px 0;
+    margin: 16px 0 8px;
+    display: flex;
+    align-items: baseline;
+    color: #333;
 
-    .week-day {
-        color: #999;
+    .date {
+        margin-right: 8px;
+    }
+
+    .sub-info {
+        display: inline-flex;
+        align-items: center;
         font-size: 12px;
+        color: #969799;
+        font-weight: normal;
+
+        .divider {
+            margin: 0 4px;
+            opacity: 0.6;
+        }
     }
 }
 
