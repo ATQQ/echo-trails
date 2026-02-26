@@ -7,7 +7,7 @@
     "tauri": "tauri",
     "dev": "npm run pre:build && tauri dev",
     "dev:android": "npm run pre:build && tauri android dev",
-    "build:android": "npm run pre:build && tauri android build && bun run ../../scripts/rename-android-apk.ts",
+    "build:android": "npm run pre:build && tauri android build && bun run ../../scripts/rename-android-apk.ts && bun run ../../scripts/update-apk-md5.ts",
     "pre:build": "node scripts/preset-build.js"
   },
   "dependencies": {
