@@ -21,6 +21,7 @@ declare module 'vue' {
     ImageCell: typeof import('./src/components/ImageCell/ImageCell.vue')['default']
     InfoCard: typeof import('./src/components/InfoCard/InfoCard.vue')['default']
     MemorialForm: typeof import('./src/components/MemorialForm/MemorialForm.vue')['default']
+    NotificationBanner: typeof import('./src/components/NotificationBanner/NotificationBanner.vue')['default']
     PageTitle: typeof import('./src/components/PageTitle/PageTitle.vue')['default']
     PhotoList: typeof import('./src/components/PhotoList/PhotoList.vue')['default']
     PreviewImage: typeof import('./src/components/PreviewImage/PreviewImage.vue')['default']
