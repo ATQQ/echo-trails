@@ -348,7 +348,8 @@ const store = useBloodPressureStore();
 const { currentFamilyId, refreshFamilies } = useFamily();
 
 // --- State ---
-const activeTab = ref<'day' | 'week' | 'month' | 'custom'>('day');
+const activeTab = ref<'day' | 'week' | 'month' | 'custom'>('custom');
+
 const tabs = [
   { label: '日', value: 'day' as const },
   { label: '周', value: 'week' as const },
@@ -823,15 +824,19 @@ watchEffect(async () => {
   }
 });
 
+const setDefaultTimeRange = () => {
+  if (!dateStates.custom.range[0] || !dateStates.custom.range[1]) {
+    // Default to last 7 days
+    const end = dayjs().endOf('day').valueOf();
+    const start = dayjs().subtract(6, 'day').startOf('day').valueOf();
+    dateStates.custom.range = [start, end];
+    dateStates.custom.label = `${dayjs(start).format('YYYY年MM月DD日')} - ${dayjs(end).format('MM月DD日')}`;
+  }
+}
+
 watch(activeTab, (val) => {
   if (val === 'custom') {
-    if (!dateStates.custom.range[0] || !dateStates.custom.range[1]) {
-      // Default to last 7 days
-      const end = dayjs().endOf('day').valueOf();
-      const start = dayjs().subtract(6, 'day').startOf('day').valueOf();
-      dateStates.custom.range = [start, end];
-      dateStates.custom.label = `${dayjs(start).format('YYYY年MM月DD日')} - ${dayjs(end).format('MM月DD日')}`;
-    }
+    setDefaultTimeRange()
   }
   fetchData();
 });
@@ -840,6 +845,9 @@ watch(activeTab, (val) => {
 
 onMounted(async () => {
   await refreshFamilies();
+  if (activeTab.value === 'custom') {
+    setDefaultTimeRange()
+  }
   fetchData();
   // Removed explicit initChart call
 });
