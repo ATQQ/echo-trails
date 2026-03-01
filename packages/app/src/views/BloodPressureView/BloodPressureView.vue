@@ -176,6 +176,10 @@
               <div v-for="record in group" :key="record.id" class="record-item" @click="openDetail(record)">
                 <div class="record-main">
                   <span class="bp-value">{{ record.sbp }}/{{ record.dbp }} <span class="unit">mmHg</span></span>
+                  <div class="record-note" v-if="record.heartRate">
+                    <van-icon name="like-o" color="#f44336" />
+                    <span class="text">{{ record.heartRate }}次/分</span>
+                  </div>
                   <div class="record-note" v-if="record.note">
                     <van-icon name="notes-o" />
                     <span class="text">{{ record.note }}</span>
