@@ -1,60 +1,53 @@
 import mongoose from 'mongoose';
 import { Context, Next } from 'hono';
 
-let timer: NodeJS.Timeout | null = null
-let isConnected = false
+const dbName = process.env.DB_NAME || 'echo-trails-app';
+const uri = `mongodb://127.0.0.1:27017/${dbName}`;
+
+// Add connection event listeners
+mongoose.connection.on('connected', () => {
+  console.log(`Mongoose connected to ${uri}`);
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('Mongoose disconnected');
+});
 
 export async function initConnect() {
-  if (isConnected) return
-  const dbName = process.env.DB_NAME || 'echo-trails-app'
-  if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(`mongodb://127.0.0.1:27017/${dbName}`);
+  // 0: disconnected, 1: connected, 2: connecting, 3: disconnecting
+  if (mongoose.connection.readyState === 1) {
+    return;
   }
-  isConnected = true
-}
 
-function clearDisconnectTimer() {
-  if (timer) {
-    clearTimeout(timer);
-    timer = null;
+  // If currently connecting, return the existing promise if possible, 
+  // or just let mongoose handle it (calling connect again returns the same promise)
+  try {
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 5000,
+    });
+  } catch (error) {
+    console.error('Database connection failed:', error);
+    throw error;
   }
-}
-
-function startDisconnectTimer() {
-  if (timer) clearTimeout(timer);
-  timer = setTimeout(async () => {
-    try {
-      if (mongoose.connection.readyState !== 0) {
-        await mongoose.disconnect();
-      }
-      isConnected = false
-    } catch (e) {
-      console.error('DB disconnect error:', e);
-    }
-  }, 1000 * 60 * 30); // 30分钟无操作断开
 }
 
 export async function dbMiddleware(c: Context, next: Next) {
   await initConnect();
-  clearDisconnectTimer();
-
-  try {
-    await next();
-  } finally {
-    startDisconnectTimer();
-  }
+  await next();
 }
 
 export async function exec<T extends (...args: any[]) => any>(fn: T) {
   await initConnect();
-  clearDisconnectTimer();
 
   try {
     const result: ReturnType<T> = await fn();
     return result;
   } catch (error) {
     console.error(error);
-  } finally {
-    startDisconnectTimer();
+    throw error;
   }
 }
