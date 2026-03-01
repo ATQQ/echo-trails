@@ -17,7 +17,8 @@
     "upload:apk": "bun --env-file=.bitiful.env.local run scripts/upload-apk-to-s3.ts",
     "dev:server": "bun --filter server dev",
     "dev:android": "bun --filter echo-trails-native dev:android",
-    "dev": "run-p dev:server dev:android"
+    "dev": "run-p dev:server dev:android",
+    "build:android": "bun --filter echo-trails-native build:android"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",
