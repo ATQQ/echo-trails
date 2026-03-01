@@ -14,7 +14,10 @@
     "deploy:server": "bun run scripts/deploy-server.ts",
     "update:md5": "bun run scripts/update-apk-md5.ts",
     "release:git": "bun run scripts/git-release.ts",
-    "upload:apk": "bun --env-file=.bitiful.env.local run scripts/upload-apk-to-s3.ts"
+    "upload:apk": "bun --env-file=.bitiful.env.local run scripts/upload-apk-to-s3.ts",
+    "dev:server": "bun --filter server dev",
+    "dev:android": "bun --filter echo-trails-native dev:android",
+    "dev": "run-p dev:server dev:android"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",

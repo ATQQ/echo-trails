@@ -13,9 +13,11 @@
               <h3>
                 {{ coverDate }}
                 <span class="week-day"> - {{ weekDay }}</span>
-                <span class="lunar-date"> / {{ lunarDate }}</span>
               </h3>
-              <h4>{{ coverTime }}</h4>
+              <h4>
+                {{ coverTime }}
+                <span class="lunar-date"> / {{ lunarDate }}</span>
+              </h4>
               <div class="header-actions">
                 <van-icon v-show="showSetCover" class="set-cover-icon" @click.stop="handleSetCover" name="bookmark-o"
                   size="24" />
@@ -398,6 +400,11 @@ const menus = computed(() => {
   h4 {
     margin: 6px 0 0 0;
     font-weight: normal;
+    
+    .lunar-date {
+      color: #999;
+      font-size: 12px;
+    }
   }
 
   .header-actions {

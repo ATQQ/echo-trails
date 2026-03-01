@@ -36,9 +36,11 @@
                     <h3>
                       {{ coverDate }}
                       <span class="week-day"> - {{ weekDay }}</span>
-                      <span class="lunar-date"> / {{ lunarDate }}</span>
                     </h3>
-                    <h4>{{ coverTime }}</h4>
+                    <h4>
+                      {{ coverTime }}
+                      <span class="lunar-date"> / {{ lunarDate }}</span>
+                    </h4>
                 </div>
             </div>
 
@@ -499,6 +501,10 @@ const menus = computed(() => {
             font-weight: normal;
             opacity: 0.8;
             color: #666;
+
+            .lunar-date {
+              color: #999;
+            }
           }
       }
   }

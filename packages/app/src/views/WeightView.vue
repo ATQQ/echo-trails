@@ -105,7 +105,7 @@ function refreshRecord(familyId: string) {
   page.value = 1
   finished.value = false
   loading.value = true
-  weights.value = []
+  // weights.value = []
   onLoad()
 }
 
@@ -181,18 +181,20 @@ function handleSureRecord() {
 }
 
 // 删除记录
-function handleDeleteWeight(idx: number) {
+function handleDeleteWeight(item: WeightRecord) {
   showConfirmDialog({
     title: '提示',
     message: '确认移除此条记录？'
   })
     .then(() => {
-      // weights.value[idx].recordId -> _id
-      const id = weights.value[idx]._id
+      const id = item._id
       if (id) {
         deleteWeight(id).then(() => {
-          // Refresh or splice
-          weights.value.splice(idx, 1)
+          // Find index in weights.value
+          const index = weights.value.findIndex(w => w._id === id)
+          if (index > -1) {
+            weights.value.splice(index, 1)
+          }
         })
       }
     })
@@ -200,8 +202,8 @@ function handleDeleteWeight(idx: number) {
       // on cancel
     })
 }
-function handleUpdateWeight(idx: number) {
-  const record = weights.value[idx]
+function handleUpdateWeight(item: WeightRecord) {
+  const record = item
   state.editRecordId = record._id || ''
   editMode.value = true
 
@@ -398,8 +400,8 @@ onMounted(() => {
               </div>
             </van-cell>
             <template #right>
-              <van-button square type="primary" text="编辑" @click="handleUpdateWeight(idx)" />
-              <van-button square type="danger" text="删除" @click="handleDeleteWeight(idx)" />
+              <van-button square type="primary" text="编辑" @click="handleUpdateWeight(t)" />
+              <van-button square type="danger" text="删除" @click="handleDeleteWeight(t)" />
             </template>
           </van-swipe-cell>
         </van-list>
