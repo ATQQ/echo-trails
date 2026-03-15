@@ -57,9 +57,10 @@ const { likedMode = false, album, isDelete = false } = defineProps<{
 const waitUploadList = reactive<{ key: string, url: string, status: UploadStatus, progress?: number }[]>([])
 
 const showUploadList = computed(() => waitUploadList.filter(v => v.status !== UploadStatus.SUCCESS))
+const hasErrorUploads = computed(() => showUploadList.value.some(v => v.status === UploadStatus.ERROR || v.status === UploadStatus.DUPLICATE))
 
 const pageInfo = reactive({
-  pageSize: 20,
+  pageSize: 36,
   pageIndex: 1,
   lock: false,
 })
@@ -438,7 +439,7 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
 }
 
 const uploadValueMap = new Map<string, FileInfoItem>()
-const limit = pLimit(2);
+const limit = pLimit(3);
 const pendingCount = ref(0)
 const startUpload = async (values: FileInfoItem[]) => {
   pendingCount.value += values.length
@@ -488,6 +489,34 @@ const startUpload = async (values: FileInfoItem[]) => {
       }
     })
   }
+}
+
+const handleRetryAll = () => {
+  const errorItems = waitUploadList.filter(v => v.status === UploadStatus.ERROR || v.status === UploadStatus.DUPLICATE)
+  if (!errorItems.length) return
+
+  pendingCount.value += errorItems.length
+
+  errorItems.forEach(item => {
+    // 如果是重复状态，需要强制上传
+    const isDuplicate = item.status === UploadStatus.DUPLICATE
+    item.status = UploadStatus.PENDING
+    item.progress = 0
+
+    limit(async () => {
+      try {
+        const fileInfo = uploadValueMap.get(item.key)
+        if (fileInfo) {
+          // 对于重复文件，传入 forceUpload=true
+          await uloadOneFile(fileInfo, generateUploadInfo(fileInfo), isDuplicate)
+        }
+      } catch (e) {
+        console.error(e)
+      } finally {
+        pendingCount.value--
+      }
+    })
+  })
 }
 
 const reUpload = (item: { key: string, url: string, status: UploadStatus, progress?: number }) => {
@@ -791,6 +820,10 @@ const handleOpenFile = async () => {
         <slot name="header"></slot>
         <van-empty v-if="!photoList.length && showEmpty && !showUploadList.length" description="空空如也，快去添加吧" />
         <!-- 待上传列表 -->
+        <div v-if="showUploadList.length > 0" class="upload-list-header">
+           <span class="upload-title">正在上传 ({{ showUploadList.length }})</span>
+           <van-button v-if="hasErrorUploads" size="mini" plain type="primary" @click="handleRetryAll" class="retry-all-btn">全部重试</van-button>
+        </div>
         <van-grid :border="false" square>
           <van-grid-item v-for="item in showUploadList" :key="item.key" class="img-border">
             <ImageCell :src="item.url">
@@ -886,4 +919,17 @@ const handleOpenFile = async () => {
 </template>
 <style scoped lang="scss">
 @import url(./style.scss);
+
+.upload-list-header {
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #333;
+
+  .upload-title {
+    font-weight: 500;
+  }
+}
 </style>
