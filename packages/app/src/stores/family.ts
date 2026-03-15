@@ -11,26 +11,35 @@ export const useFamilyStore = defineStore('family', () => {
       const res = await getFamilyList();
       if (res.code === 0) {
         familyList.value = res.data;
-        
-        // Restore selection from local storage if exists
-        const saved = localStorage.getItem('currentPerson');
-        if (saved) {
-            const found = familyList.value.find(f => f.familyId === saved);
-            if (found) {
-                currentFamily.value = found;
-            } else if (saved === 'default') {
-                currentFamily.value = { familyId: 'default', name: '默认' };
+
+        // 1. Try to keep current selection
+        const currentInNewList = familyList.value.find(f => f.familyId === currentFamily.value.familyId);
+
+        if (currentInNewList) {
+          currentFamily.value = currentInNewList;
+        } else {
+          // 2. Fallback to localStorage
+          const saved = localStorage.getItem('currentPerson');
+          if (saved) {
+            const foundSaved = familyList.value.find(f => f.familyId === saved);
+            if (foundSaved) {
+              currentFamily.value = foundSaved;
+            } else {
+              currentFamily.value = { familyId: 'default', name: '默认' };
             }
+          } else {
+            currentFamily.value = { familyId: 'default', name: '默认' };
+          }
         }
       }
     } catch (e) {
       console.error('Failed to fetch family list', e);
     }
   };
-  
+
   const setCurrentFamily = (family: FamilyMember) => {
-      currentFamily.value = family;
-      localStorage.setItem('currentPerson', family.familyId);
+    currentFamily.value = family;
+    localStorage.setItem('currentPerson', family.familyId);
   }
 
   return {
