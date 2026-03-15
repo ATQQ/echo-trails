@@ -165,6 +165,14 @@ onMounted(() => {
 <style>
 .app-wrapper {
   background-color: #fff;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-wrapper > *:first-child {
+  flex: 1;
+  overflow-y: auto; /* Default to scrollable */
 }
 
 html,
@@ -172,6 +180,9 @@ body {
   /* 禁用弹性滚动 */
   overscroll-behavior: none;
   --footer-area-height: 70px;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 :root {

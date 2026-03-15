@@ -3,7 +3,7 @@ import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted
 import { addFileInfo, updateFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
 import { filePath2Name, generateFileKey, parseNativeImageFileUploadInfo, ensureUploadInfo } from '../../lib/file';
 import { isTauri, UploadStatus } from '../../constants/index'
-import { useEventListener, useThrottleFn } from '@vueuse/core'
+import { useEventListener, useThrottleFn, useWindowSize, useVirtualList, useElementSize } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage/PreviewImage.vue';
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { providePhotoListStore } from '@/composables/photoList';
@@ -213,32 +213,35 @@ onUnmounted(() => {
   // 组件卸载时清理事件监听器
   unregisterScrollListener()
 })
+const { width: windowWidth } = useWindowSize()
+const gridItemHeight = computed(() => windowWidth.value / 4)
+const headerRef = ref<HTMLElement | null>(null)
+const { height: headerHeight } = useElementSize(headerRef)
+const containerRef = ref<HTMLElement | null>(null)
+
 // 滚动事件监听
 const checkScrollBottom = () => {
   if (!isActive.value) return
-  const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-  const windowHeight = window.innerHeight
-  const documentHeight = document.documentElement.scrollHeight
+  // Use container ref for scrolling check
+  if (!containerRef.value) return
+
+  const { scrollTop, clientHeight, scrollHeight } = containerRef.value
 
   // 距离半个屏幕就触发
-  if (scrollTop + windowHeight >= documentHeight - windowHeight / 3) {
+  if (scrollTop + clientHeight >= scrollHeight - clientHeight / 3) {
     loadNext()
   }
 }
 
 // 根据页面活动状态注册/取消事件监听
-let scrollListener: (() => void) | null = null
-
+// With virtual list, we don't need window scroll listener, we use @scroll on container
+// But we still need to handle active state
 const registerScrollListener = () => {
-  if (scrollListener) return
-  scrollListener = useEventListener(window, 'scroll', useThrottleFn(checkScrollBottom, 200), { passive: true })
+  // No-op for window scroll, handled by container @scroll
 }
 
 const unregisterScrollListener = () => {
-  if (scrollListener) {
-    scrollListener()
-    scrollListener = null
-  }
+  // No-op
 }
 
 // 监听页面活动状态
@@ -811,79 +814,191 @@ const handleOpenFile = async () => {
 
   startUpload(files as any)
 }
+
+// Flatten the list
+const virtualListSource = computed(() => {
+  const items: any[] = []
+
+  // 1. Slot Header
+  items.push({ type: 'slot-header', id: 'slot-header' })
+
+  // 2. Upload List
+  if (showUploadList.value.length > 0) {
+    items.push({ type: 'upload-header', id: 'upload-header', count: showUploadList.value.length })
+    // Chunk upload list
+    const uploadChunks = []
+    for (let i = 0; i < showUploadList.value.length; i += 4) {
+      uploadChunks.push(showUploadList.value.slice(i, i + 4))
+    }
+    uploadChunks.forEach((chunk, index) => {
+      items.push({
+        type: 'upload-row',
+        id: `upload-row-${index}`,
+        items: chunk
+      })
+    })
+  }
+
+  // 3. Photo List
+  if (photoList.length === 0 && showEmpty.value && showUploadList.value.length === 0) {
+    items.push({ type: 'empty', id: 'empty' })
+  } else {
+    showPhotoList.value.forEach((group) => {
+      items.push({
+        type: 'group-header',
+        id: `group-${group.title}`,
+        title: group.title,
+        weekDay: group.weekDay,
+        lunarDate: group.lunarDate
+      })
+
+      const photoChunks = []
+      for (let i = 0; i < group.photos.length; i += 4) {
+        photoChunks.push(group.photos.slice(i, i + 4))
+      }
+      photoChunks.forEach((chunk, index) => {
+        items.push({
+          type: 'photo-row',
+          id: `photo-row-${group.title}-${index}`,
+          items: chunk
+        })
+      })
+    })
+  }
+
+  // 4. Footer (Load More)
+  items.push({ type: 'footer', id: 'footer' })
+
+  return items
+})
+
+const getItemHeight = (item: any) => {
+  if (item.type === 'slot-header') return headerHeight.value || 100 // Fallback
+  if (item.type === 'upload-header') return 44 // Padding + Font size
+  if (item.type === 'group-header') return 36 // Margin + Font size
+  if (item.type === 'upload-row' || item.type === 'photo-row') return gridItemHeight.value
+  if (item.type === 'empty') return 300
+  if (item.type === 'footer') return 80
+  return 50
+}
+
+const { list, containerProps, wrapperProps } = useVirtualList(virtualListSource, {
+  itemHeight: (index) => {
+    const item = virtualListSource.value[index]
+    return getItemHeight(item)
+  },
+  overscan: 5
+})
+
+const isPullRefreshDisabled = ref(false)
+const onScroll = useThrottleFn(checkScrollBottom, 200)
+
+const handleScroll = (e: Event) => {
+  const target = e.target as HTMLElement
+  if (target) {
+    isPullRefreshDisabled.value = target.scrollTop > 0
+  }
+  onScroll()
+}
+
+// Sync container ref with useVirtualList
+watch(containerRef, (el) => {
+  if (el) {
+    containerProps.ref.value = el
+  }
+})
 </script>
 
 <template>
   <div class="photo-list">
-    <van-pull-refresh v-model="loading" @refresh="pullRefresh">
-      <main>
-        <slot name="header"></slot>
-        <van-empty v-if="!photoList.length && showEmpty && !showUploadList.length" description="空空如也，快去添加吧" />
-        <!-- 待上传列表 -->
-        <div v-if="showUploadList.length > 0" class="upload-list-header">
-           <span class="upload-title">正在上传 ({{ showUploadList.length }})</span>
-           <van-button v-if="hasErrorUploads" size="mini" plain type="primary" @click="handleRetryAll" class="retry-all-btn">全部重试</van-button>
-        </div>
-        <van-grid :border="false" square>
-          <van-grid-item v-for="item in showUploadList" :key="item.key" class="img-border">
-            <ImageCell :src="item.url">
-              <!-- 等待中 -->
-              <div v-if="item.status === UploadStatus.PENDING" class="upload-mask">等待上传</div>
-              <!-- 上传中 -->
-              <div v-if="item.status === UploadStatus.UPLOADING" class="upload-mask">
-                上传中 {{ item.progress || 0 }}%
-              </div>
-              <!-- TODO：添加删除逻辑 -->
-              <!-- 重复 -->
-              <div v-else-if="item.status === UploadStatus.DUPLICATE" class="duplicate-mask">
-                <div class="duplicate-info">
-                  <van-icon name="warning" />
-                  <span>照片存在</span>
-                </div>
-                <div class="duplicate-actions">
-                  <van-button size="mini" type="danger" @click="removeDuplicateFile(item)">取消</van-button>
-                  <van-button size="mini" type="success" @click="forceUpload(item)">上传</van-button>
-                </div>
-              </div>
-              <!-- 失败 -->
-              <div @click="reUpload(item)" v-else-if="item.status === UploadStatus.ERROR" class="error-mask">上传失败
-                <van-icon name="replay" />
-              </div>
-            </ImageCell>
-          </van-grid-item>
-        </van-grid>
-        <!-- 正常列表 -->
-        <van-checkbox-group v-model="editData.selectIds">
-          <template v-for="{ title, photos, weekDay, lunarDate } in showPhotoList" :key="title">
-            <h2 class="photo-group-header">
-              <span class="date">{{ title }}</span>
+    <van-pull-refresh v-model="loading" @refresh="pullRefresh" class="pull-refresh-container" :disabled="isPullRefreshDisabled">
+      <div v-bind="containerProps" ref="containerRef" class="virtual-list-container" @scroll="handleScroll">
+        <div v-bind="wrapperProps">
+          <van-checkbox-group v-model="editData.selectIds">
+            <div v-for="item in list" :key="item.data.id" :style="{ height: getItemHeight(item.data) + 'px' }">
+
+            <!-- Slot Header -->
+            <div v-if="item.data.type === 'slot-header'" ref="headerRef">
+              <slot name="header"></slot>
+            </div>
+
+            <!-- Upload Header -->
+            <div v-else-if="item.data.type === 'upload-header'" class="upload-list-header">
+               <span class="upload-title">正在上传 ({{ item.data.count }})</span>
+               <van-button v-if="hasErrorUploads" size="mini" plain type="primary" @click="handleRetryAll" class="retry-all-btn">全部重试</van-button>
+            </div>
+
+            <!-- Upload Row -->
+            <div v-else-if="item.data.type === 'upload-row'" class="virtual-row">
+               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: gridItemHeight + 'px' }">
+                  <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
+                    <ImageCell :src="subItem.url">
+                      <!-- 等待中 -->
+                      <div v-if="subItem.status === UploadStatus.PENDING" class="upload-mask">等待上传</div>
+                      <!-- 上传中 -->
+                      <div v-if="subItem.status === UploadStatus.UPLOADING" class="upload-mask">
+                        上传中 {{ subItem.progress || 0 }}%
+                      </div>
+                      <!-- 重复 -->
+                      <div v-else-if="subItem.status === UploadStatus.DUPLICATE" class="duplicate-mask">
+                        <div class="duplicate-info">
+                          <van-icon name="warning" />
+                          <span>照片存在</span>
+                        </div>
+                        <div class="duplicate-actions">
+                          <van-button size="mini" type="danger" @click="removeDuplicateFile(subItem)">取消</van-button>
+                          <van-button size="mini" type="success" @click="forceUpload(subItem)">上传</van-button>
+                        </div>
+                      </div>
+                      <!-- 失败 -->
+                      <div @click="reUpload(subItem)" v-else-if="subItem.status === UploadStatus.ERROR" class="error-mask">上传失败
+                        <van-icon name="replay" />
+                      </div>
+                    </ImageCell>
+                  </div>
+               </div>
+            </div>
+
+            <!-- Empty State -->
+             <van-empty v-else-if="item.data.type === 'empty'" description="空空如也，快去添加吧" />
+
+            <!-- Group Header -->
+            <h2 v-else-if="item.data.type === 'group-header'" class="photo-group-header">
+              <span class="date">{{ item.data.title }}</span>
               <div class="sub-info">
-                <span class="week-day">{{ weekDay }}</span>
+                <span class="week-day">{{ item.data.weekDay }}</span>
                 <span class="divider">/</span>
-                <span class="lunar-date">{{ lunarDate }}</span>
+                <span class="lunar-date">{{ item.data.lunarDate }}</span>
               </div>
             </h2>
-            <van-grid :border="false" square>
-              <van-grid-item v-for="item in photos" :key="item.key" class="img-border">
-                <ImageCell @click="previewImage(item.idx)" :src="item.cover" :is-repeat="item.isRepeat"
-                  @longpress="handleLongPress(item.idx)" />
-                <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[item.idx] = el" :name="item._id"
-                  class="editSelected" />
-              </van-grid-item>
-            </van-grid>
-          </template>
-        </van-checkbox-group>
-        <!-- 空白块，用于触发列表滚动加载 -->
-        <!-- 加载更多按钮 -->
-        <div class="load-more-container" v-if="!showEmpty && photoList.length > 0">
-          <van-button v-if="hasMoreData" @click="handleLoadMore" :loading="pageInfo.lock" type="default" size="small"
-            class="load-more-btn">
-            {{ pageInfo.lock ? '加载中...' : '加载更多' }}
-          </van-button>
-          <div v-else class="no-more-text">没有更多了</div>
+
+            <!-- Photo Row -->
+            <div v-else-if="item.data.type === 'photo-row'" class="virtual-row">
+               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: gridItemHeight + 'px' }">
+                  <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
+                    <ImageCell @click="previewImage(subItem.idx)" :src="subItem.cover" :is-repeat="subItem.isRepeat"
+                      @longpress="handleLongPress(subItem.idx)" />
+                    <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[subItem.idx] = el" :name="subItem._id"
+                      class="editSelected" />
+                  </div>
+               </div>
+            </div>
+
+            <!-- Footer -->
+            <div v-else-if="item.data.type === 'footer'" class="load-more-container">
+              <template v-if="!showEmpty && photoList.length > 0">
+                <van-button v-if="hasMoreData" @click="handleLoadMore" :loading="pageInfo.lock" type="default" size="small"
+                  class="load-more-btn">
+                  {{ pageInfo.lock ? '加载中...' : '加载更多' }}
+                </van-button>
+                <div v-else class="no-more-text">没有更多了</div>
+              </template>
+              <div class="block"></div>
+            </div>
+           </div>
+          </van-checkbox-group>
         </div>
-        <div class="block"></div>
-      </main>
+      </div>
     </van-pull-refresh>
     <!-- 回到顶部 -->
     <van-back-top :bottom="'calc(var(--footer-area-height) + 48px)'" :right="20" :style="{
@@ -931,5 +1046,45 @@ const handleOpenFile = async () => {
   .upload-title {
     font-weight: 500;
   }
+}
+
+.photo-list {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Ensure virtual list container handles scroll */
+}
+
+.pull-refresh-container {
+  height: 100%;
+  overflow: hidden;
+}
+
+.virtual-list-container {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.virtual-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.virtual-col {
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.img-border {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border-bottom: 1px solid #fff;
+  border-right: 1px solid #fff;
+  position: relative;
+}
+
+.no-right-border {
+  border-right: none;
 }
 </style>
