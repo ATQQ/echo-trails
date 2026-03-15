@@ -36,13 +36,31 @@ import { useFamily } from '@/composables/useFamily';
 import UnderInput from '@/components/UnderInput/UnderInput.vue';
 
 const props = defineProps({
+  modelValue: {
+    type: String,
+    default: undefined
+  },
   activeColor: {
     type: String,
     default: '#1989fa'
   }
 });
 
-const { store, familyOptions, currentFamilyId, handleUpdateFamily, handleDeleteFamily, handleAddFamily } = useFamily();
+const emit = defineEmits(['update:modelValue']);
+
+// Determine if we are in controlled mode based on whether modelValue is provided
+// We use a computed wrapper that will be passed to useFamily if we are controlled.
+// Note: We assume that if modelValue is provided, it is intended to be used.
+const isControlled = props.modelValue !== undefined;
+
+const controlledState = computed({
+  get: () => props.modelValue || 'default',
+  set: (val) => emit('update:modelValue', val)
+});
+
+const { store, familyOptions, currentFamilyId, handleUpdateFamily, handleDeleteFamily, handleAddFamily } = useFamily(
+  isControlled ? controlledState : undefined
+);
 
 const showEdit = ref(false);
 const editName = ref('');

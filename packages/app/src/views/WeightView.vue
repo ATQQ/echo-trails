@@ -2,6 +2,7 @@
 import { showConfirmDialog, showSuccessToast } from 'vant'
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watchEffect, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useLocalStorage } from '@vueuse/core'
 import { getWeightDiff, getTimeDiffDes } from '@/lib/weight-utils'
 import { getWeightList, addWeight, updateWeight, deleteWeight, type WeightRecord } from '@/service/weight'
 import { useFamily } from '@/composables/useFamily'
@@ -33,12 +34,13 @@ function handleBack() {
   router.go(-1) // Changed from /dashboard to /home or similar
 }
 
-const { handleAddFamily, currentFamilyId, refreshFamilies } = useFamily()
+const { refreshFamilies } = useFamily()
+
+const currentFamilyId = useLocalStorage('weight_current_family', 'default')
 
 // Watch for family changes to refresh records
 watch(currentFamilyId, (val) => {
   refreshRecord(val)
-  // localStorage persistence is handled by store/hook now
 })
 
 const state = reactive({
@@ -363,7 +365,7 @@ onMounted(() => {
     <van-nav-bar class="safe-padding-top" fixed title="体重记录" left-text="返回" left-arrow @click-left="handleBack" />
     <!-- 选人 -->
     <header class="family-select-wrapper safe-padding-top">
-      <FamilySelector :active-color="themeColor" />
+      <FamilySelector v-model="currentFamilyId" :active-color="themeColor" />
     </header>
 
     <van-empty v-if="weights.length === 0" description="没有记录，点击右下角 + 添加" />

@@ -19,10 +19,10 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
   const { refreshFamilies } = useFamily()
   const familyStore = useFamilyStore();
 
-  const fetchRecords = async (startTime?: number, endTime?: number) => {
+  const fetchRecords = async (startTime?: number, endTime?: number, familyId?: string) => {
     try {
-      const familyId = familyStore.currentFamily.familyId || 'default';
-      const searchParams: any = { familyId };
+      const fid = familyId || familyStore.currentFamily.familyId || 'default';
+      const searchParams: any = { familyId: fid };
       if (startTime && endTime) {
         searchParams.startTime = startTime;
         searchParams.endTime = endTime;
@@ -47,19 +47,20 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
     }
   };
 
-  const addRecord = async (record: Omit<BloodPressureRecord, 'id'>) => {
+  const addRecord = async (record: Omit<BloodPressureRecord, 'id'>, familyId?: string) => {
     try {
-      const familyId = familyStore.currentFamily.familyId || 'default';
+      const fid = familyId || familyStore.currentFamily.familyId || 'default';
       const res: any = await api.post('blood-pressure/add', {
         json: {
           ...record,
           date: new Date(record.timestamp),
-          familyId
+          familyId: fid
         }
       }).json();
 
       if (res.code === 0) {
-        await fetchRecords();
+        // We should fetch records for the same familyId we just added to
+        await fetchRecords(undefined, undefined, fid);
         if (records.value.length === 1) {
           await refreshFamilies();
         }
@@ -70,14 +71,14 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
     }
   };
 
-  const removeRecord = async (id: string) => {
+  const removeRecord = async (id: string, familyId?: string) => {
     try {
       const res: any = await api.post('blood-pressure/delete', {
         json: { id }
       }).json();
 
       if (res.code === 0) {
-        await fetchRecords();
+        await fetchRecords(undefined, undefined, familyId);
       }
     } catch (e) {
       console.error('Failed to remove record', e);
@@ -85,7 +86,7 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
     }
   };
 
-  const updateRecord = async (record: Partial<BloodPressureRecord> & { id: string }) => {
+  const updateRecord = async (record: Partial<BloodPressureRecord> & { id: string }, familyId?: string) => {
     try {
       const res: any = await api.post('blood-pressure/update', {
         json: {
@@ -95,7 +96,7 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
       }).json();
 
       if (res.code === 0) {
-        await fetchRecords();
+        await fetchRecords(undefined, undefined, familyId);
       }
     } catch (e) {
       console.error('Failed to update record', e);

@@ -1,9 +1,9 @@
-import { computed, ref } from 'vue';
+import { computed, type Ref } from 'vue';
 import { useFamilyStore } from '@/stores/family';
 import { addFamily, updateFamily, deleteFamily } from '@/service/family';
 import { showSuccessToast, showFailToast, showConfirmDialog } from 'vant';
 
-export function useFamily() {
+export function useFamily(localState?: Ref<string>) {
   const store = useFamilyStore();
 
   const familyOptions = computed(() => {
@@ -15,8 +15,12 @@ export function useFamily() {
   });
 
   const currentFamilyId = computed({
-    get: () => store.currentFamily.familyId,
+    get: () => localState ? localState.value : store.currentFamily.familyId,
     set: (val) => {
+      if (localState) {
+        localState.value = val;
+        return;
+      }
       const found = store.familyList.find(f => f.familyId === val);
       if (found) {
         store.setCurrentFamily(found);
@@ -45,9 +49,13 @@ export function useFamily() {
         await refreshFamilies();
         const { familyId } = res.data;
         // Switch to new family
-        const found = store.familyList.find(f => f.familyId === familyId);
-        if (found) {
-          store.setCurrentFamily(found);
+        if (localState) {
+          localState.value = familyId;
+        } else {
+          const found = store.familyList.find(f => f.familyId === familyId);
+          if (found) {
+            store.setCurrentFamily(found);
+          }
         }
         return true;
       }
@@ -86,7 +94,11 @@ export function useFamily() {
       showSuccessToast('删除成功');
       await refreshFamilies();
       // Switch to default
-      store.setCurrentFamily({ familyId: 'default', name: '默认' });
+      if (localState) {
+        localState.value = 'default';
+      } else {
+        store.setCurrentFamily({ familyId: 'default', name: '默认' });
+      }
       return true;
     } catch (e) {
       // Cancelled or failed

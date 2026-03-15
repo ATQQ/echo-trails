@@ -8,7 +8,7 @@
 
     <!-- Family Selector -->
     <div class="family-select-wrapper">
-      <FamilySelector />
+      <FamilySelector v-model="currentFamilyId" />
     </div>
 
     <div class="content">
@@ -337,6 +337,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, reactive, onUnmounted, watchEffect } from 'vue';
 import { useRouter } from 'vue-router';
+import { useLocalStorage } from '@vueuse/core';
 import { useBloodPressureStore, type BloodPressureRecord } from '@/stores/bloodPressure';
 import { useBloodPressureStats } from '@/composables/useBloodPressureStats';
 import { useFamily } from '@/composables/useFamily';
@@ -352,7 +353,13 @@ import { preventBack } from '@/lib/router';
 
 const router = useRouter();
 const store = useBloodPressureStore();
-const { currentFamilyId, refreshFamilies } = useFamily();
+const { refreshFamilies } = useFamily();
+
+const currentFamilyId = useLocalStorage('bp_current_family', 'default');
+
+watch(currentFamilyId, () => {
+  fetchData();
+});
 
 // --- State ---
 const activeTab = ref<'day' | 'week' | 'month' | 'custom'>('custom');
@@ -455,16 +462,16 @@ const maxDate = new Date();
 const loading = ref(false);
 
 const fetchData = async () => {
-  const { start, end } = getTimeRange();
-  if (start && end) {
-    loading.value = true;
-    try {
-      await store.fetchRecords(start, end);
-    } finally {
-      loading.value = false;
+    const { start, end } = getTimeRange();
+    if (start && end) {
+      loading.value = true;
+      try {
+        await store.fetchRecords(start, end, currentFamilyId.value);
+      } finally {
+        loading.value = false;
+      }
     }
-  }
-};
+  };
 
 const getTimeRange = () => {
   let start = 0;
@@ -490,10 +497,6 @@ const getTimeRange = () => {
   }
   return { start, end };
 };
-
-watch(() => currentFamilyId.value, () => {
-  fetchData();
-});
 
 // --- Computed ---
 const currentDate = computed(() => {
@@ -662,10 +665,10 @@ const handleSubmit = async () => {
     };
 
     if (isEditing.value) {
-      await store.updateRecord({ ...data, id: editId.value });
+      await store.updateRecord({ ...data, id: editId.value }, currentFamilyId.value);
       showToast('修改成功');
     } else {
-      await store.addRecord(data);
+      await store.addRecord(data, currentFamilyId.value);
       showToast('添加成功');
     }
 
@@ -712,7 +715,7 @@ const handleDelete = () => {
   })
     .then(async () => {
       try {
-        await store.removeRecord(currentRecord.value!.id);
+        await store.removeRecord(currentRecord.value!.id, currentFamilyId.value);
         showToast('删除成功');
         showDetailPopup.value = false;
         fetchData(); // Refresh list
