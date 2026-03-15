@@ -727,8 +727,14 @@ onBeforeRouteLeave((to, from, next) => {
 const deletePhoto = (id: string) => {
   const deleteIndex = photoList.findIndex(v => v._id === id)
   if (deleteIndex !== -1) {
-    existPhotoMap.delete(photoList[deleteIndex].key)
+    const item = photoList[deleteIndex]
     photoList.splice(deleteIndex, 1)
+    existPhotoMap.delete(id)
+
+    const repeatItem = repeatPhotoMap.get(item.key)
+    if (repeatItem && repeatItem._id === id) {
+      repeatPhotoMap.delete(item.key)
+    }
 
     // 展示空文案
     if (photoList.length === 0) {
