@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.6.3",
-    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.3.apk",
+    "version": "0.6.4",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.4.apk",
     "forceUpdate": false,
-    "description": "上传优化",
-    "md5": "3c3f52f8e798995a52bd14cd24d74a12"
+    "description": "修复人员切换问题",
+    "md5": "7307b17ae4e8b8f0fc7bde9a4c81ca45"
   },
   "ios": {
     "version": "0.1.2",

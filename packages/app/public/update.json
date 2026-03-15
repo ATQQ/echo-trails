@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.6.4",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.4.apk",
+      "forceUpdate": false,
+      "description": "修复人员切换问题",
+      "md5": "7307b17ae4e8b8f0fc7bde9a4c81ca45"
+    },
+    {
       "version": "0.6.3",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.3.apk",
       "forceUpdate": false,
