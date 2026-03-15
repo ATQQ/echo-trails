@@ -99,7 +99,7 @@ const onSubmit = () => {
   <PhotoList v-if="album" :album="album">
     <template #header>
       <div v-if="album.count" class="large-card">
-        <ImageCell :src="album.cover" />
+        <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
         <!-- 标题和描述 -->
         <div class="title-desc" :class="{
           noCover: !album.cover

@@ -51,17 +51,35 @@
     },
     "fs:allow-lstat",
     "fs:allow-app-write",
-    "fs:allow-write-file",
     "fs:allow-picture-write",
     "fs:allow-picture-read",
     "fs:write-all",
     "fs:allow-remove",
     "fs:allow-mkdir",
+    "fs:allow-read-dir",
+    "fs:allow-stat",
+    "fs:allow-write",
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        "$APPDATA/**",
+        "$APPCACHE/**"
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        "$APPDATA/**",
+        "$APPCACHE/**"
+      ]
+    },
     {
       "identifier": "fs:scope",
       "allow": [
         "$APPDATA",
-        "$APPDATA/*"
+        "$APPDATA/*",
+        "$APPCACHE",
+        "$APPCACHE/*"
       ]
     },
     "log:default",

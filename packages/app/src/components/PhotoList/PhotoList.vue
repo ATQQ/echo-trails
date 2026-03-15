@@ -976,7 +976,7 @@ watch(containerRef, (el) => {
             <div v-else-if="item.data.type === 'photo-row'" class="virtual-row">
                <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: gridItemHeight + 'px' }">
                   <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
-                    <ImageCell @click="previewImage(subItem.idx)" :src="subItem.cover" :is-repeat="subItem.isRepeat"
+                    <ImageCell @click="previewImage(subItem.idx)" :src="subItem.cover" :is-repeat="subItem.isRepeat" :cache-key="subItem.key + '_cover'"
                       @longpress="handleLongPress(subItem.idx)" />
                     <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[subItem.idx] = el" :name="subItem._id"
                       class="editSelected" />

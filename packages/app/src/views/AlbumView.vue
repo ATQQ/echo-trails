@@ -188,7 +188,7 @@ preventBack(showAddModal)
         <van-grid :column-num="1" :border="false" :gutter="16">
           <van-grid-item v-for="album in displayAlbumList.large" :key="album._id">
             <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
-              <ImageCell :src="album.cover" />
+              <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
               <!-- 标题和描述 -->
               <div class="title-desc" :class="{
                 noCover: !album.cover
@@ -207,7 +207,7 @@ preventBack(showAddModal)
         <van-grid :gutter="10" :column-num="2" :border="false">
           <van-grid-item v-for="album in displayAlbumList.small" :key="album._id">
             <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
-              <ImageCell :src="album.cover" />
+              <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
               <div class="title-desc">
                 <h2>{{ album.name }}
                   <span v-if="album.tags?.length" class="tags">

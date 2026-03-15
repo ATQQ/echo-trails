@@ -8,7 +8,7 @@
           <van-grid-item v-for="(_album, idx) in albumList" :key="_album._id">
             <div class="small-card" @touchstart.stop>
               <div class="cover" @click="toggleSelectAlbum(idx)">
-                <ImageCell :src="_album.cover" />
+                <ImageCell :src="_album.cover" :cache-key="_album.coverKey ? _album.coverKey + '_cover' : undefined" />
                 <van-tag v-if="_album?._id === currentAlbumId" plain type="primary" class="current-album">当前相册</van-tag>
                 <van-checkbox :ref="el => checkboxRefs[idx] = el" :name="_album._id" class="selected" />
               </div>
@@ -26,6 +26,7 @@
     icon="success" magnetic="x" />
 </template>
 <script setup lang="ts">
+import ImageCell from '../ImageCell/ImageCell.vue';
 import { getAlbums } from '@/service';
 import { ref, watch } from 'vue';
 
