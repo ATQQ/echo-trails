@@ -260,7 +260,7 @@ const handleDeleteImage = async () => {
     return;
   }
 
-  deletePhoto(activeImage.value._id).then(() => {
+  deletePhoto(activeImage.value._id, album?._id).then(() => {
     showNotify({ type: 'success', message: '删除成功' });
     removePhotoFromList(activeImage.value._id)
   })

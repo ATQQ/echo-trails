@@ -72,6 +72,12 @@ export function addFileInfo(body: UploadInfo) {
   }).json().then(((v: any) => v.data))
 }
 
+export function updateFileInfo(body: Partial<UploadInfo> & { id: string }) {
+  return api.put<ServerResponse<Photo>>('file/update/info', {
+    json: body
+  }).json().then(((v: any) => v.data))
+}
+
 export function uploadFile(file: File, url: string, onProgress?: (progress: number) => void) {
   return new Promise<Response>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -213,18 +219,20 @@ export function updateAlbumCover(id: string, key: string) {
   })
 }
 
-export function deletePhoto(id: string) {
+export function deletePhoto(id: string, albumId?: string) {
   return api.delete<ServerResponse>('file/photo/delete', {
     json: {
-      id
+      id,
+      albumId
     }
   })
 }
 
-export function deletePhotos(ids: string[]) {
+export function deletePhotos(ids: string[], albumId?: string) {
   return api.delete<ServerResponse>('file/photos/delete', {
     json: {
-      ids
+      ids,
+      albumId
     }
   })
 }

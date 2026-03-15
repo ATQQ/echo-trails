@@ -60,13 +60,13 @@ export function downloadFile(url: string | Blob, name: string, isImage: boolean 
         let uint8Array: Uint8Array;
 
         if (url instanceof Blob) {
-            const arrayBuffer = await url.arrayBuffer();
-            uint8Array = new Uint8Array(arrayBuffer);
+          const arrayBuffer = await url.arrayBuffer();
+          uint8Array = new Uint8Array(arrayBuffer);
         } else {
-            // 使用Tauri的API保存到相册
-            const response = await tauriFetch(url);
-            const arrayBuffer = await response.arrayBuffer();
-            uint8Array = new Uint8Array(arrayBuffer);
+          // 使用Tauri的API保存到相册
+          const response = await tauriFetch(url);
+          const arrayBuffer = await response.arrayBuffer();
+          uint8Array = new Uint8Array(arrayBuffer);
         }
 
         // 保存到相册目录
@@ -91,9 +91,9 @@ export function downloadFile(url: string | Blob, name: string, isImage: boolean 
     if (isImage) {
       let src = '';
       if (url instanceof Blob) {
-          src = URL.createObjectURL(url);
+        src = URL.createObjectURL(url);
       } else {
-          src = url;
+        src = url;
       }
 
       const img = new Image()
@@ -104,21 +104,21 @@ export function downloadFile(url: string | Blob, name: string, isImage: boolean 
         a.download = name
         a.click()
         if (url instanceof Blob) {
-            URL.revokeObjectURL(src);
+          URL.revokeObjectURL(src);
         }
       }
     } else {
       // 其它类型文件下载
       const a = document.createElement('a')
       if (url instanceof Blob) {
-          a.href = URL.createObjectURL(url);
+        a.href = URL.createObjectURL(url);
       } else {
-          a.href = url;
+        a.href = url;
       }
       a.download = name
       a.click()
       if (url instanceof Blob) {
-          URL.revokeObjectURL(a.href);
+        URL.revokeObjectURL(a.href);
       }
     }
     resolve(name)
@@ -246,7 +246,7 @@ export const getVideoInfo = (file: File | Blob | string): Promise<{ width: numbe
   })
 }
 
-export function getImageExif(file: any) {
+export function getImageExif(file: any): any {
   try {
     return ExifReader.load(file)
   } catch {
@@ -275,13 +275,15 @@ async function getNativeFileInfo(filePath: string) {
     height: 0,
     fileType: '',
     md5: '',
-    size: 0
+    size: 0,
+    creationTime: 0
   }
 
   try {
     const info = await getFileInfo(filePath)
     if (info) {
       if (info.last_modified > 0) result.lastModified = info.last_modified
+      if (info.creation_time > 0) result.creationTime = info.creation_time
       if (info.width > 0 && info.height > 0) {
         result.width = info.width
         result.height = info.height
@@ -347,13 +349,14 @@ export async function parseNativeImageFileUploadInfo(filePath: string) {
         'Image Height': { value: nativeInfo.height },
         'FileType': { value: fileType }
       }
-    } else {
+    }
+    if (!nativeInfo.creationTime) {
       exif = await getImageExif(buffer) as any
       exifDate = getExifDate(exif)
     }
 
-    // 4. 确定最终时间: EXIF > Native/lstat > Current
-    const lastModified = +(exifDate || nativeInfo.lastModified || new Date())
+    // 4. 确定最终时间: Native EXIF > JS EXIF > Native/lstat > Current
+    const lastModified = +(nativeInfo.creationTime || exifDate || nativeInfo.lastModified || new Date())
 
     // 5. 构建 File 对象
     const originalName = filePath2Name(filePath) || 'unknown'
@@ -520,7 +523,7 @@ export async function ensureVideoUploadInfo(value: Partial<FileInfoItem> & { fil
   // 4. 更新 value 中的属性
   value.width = width
   value.height = height
-  ;(value as any).cover = cover
+    ; (value as any).cover = cover
 
   return value as FileInfoItem
 }

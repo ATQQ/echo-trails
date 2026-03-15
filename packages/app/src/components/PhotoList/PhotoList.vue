@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
-import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
+import { addFileInfo, updateFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
 import { filePath2Name, generateFileKey, parseNativeImageFileUploadInfo, ensureUploadInfo } from '../../lib/file';
 import { isTauri, UploadStatus } from '../../constants/index'
 import { useEventListener, useThrottleFn } from '@vueuse/core'
@@ -346,6 +346,7 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
     return
   }
   let sourceKey = ''
+  let existingId = ''
   // MD5判断是否重复，重复则先不上传做提示
   if (uploadInfo.md5) {
     try {
@@ -362,6 +363,7 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
         // 强制上传时，如果文件已存在，则复用 key 实现秒传
         if (duplicateResult.existingPhoto) {
           sourceKey = duplicateResult.existingPhoto.key
+          existingId = duplicateResult.existingPhoto._id
         }
       }
     } catch (error) {
@@ -402,7 +404,12 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
     if (sourceKey) {
       uploadInfo.key = sourceKey
     }
-    const result = await addFileInfo(uploadInfo)
+    let result
+    if (existingId) {
+      result = await updateFileInfo({ ...uploadInfo, id: existingId })
+    } else {
+      result = await addFileInfo(uploadInfo)
+    }
 
     // 空相册首次上传
     if (!photoList.length) {
@@ -602,7 +609,7 @@ const handleDeletePhotos = async () => {
     return;
   }
 
-  await deletePhotos(editData.selectIds)
+  await deletePhotos(editData.selectIds, album?._id)
 
   // 更新相册数据
   editData.selectIds.forEach(v => {

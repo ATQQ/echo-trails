@@ -103,6 +103,29 @@ object FileHelper {
                     BitmapFactory.decodeFile(filePath, options)
                     width = options.outWidth
                     height = options.outHeight
+
+                    // 尝试从 EXIF 获取拍摄时间
+                    try {
+                        val exif = ExifInterface(filePath)
+                        val dateTimeOriginal = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)
+                        val dateTime = exif.getAttribute(ExifInterface.TAG_DATETIME)
+                        
+                        val dateStr = dateTimeOriginal ?: dateTime
+                        if (!dateStr.isNullOrEmpty()) {
+                            val exifFormat = SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.getDefault())
+                            val date = exifFormat.parse(dateStr)
+                            if (date != null) {
+                                creationTime = date.time
+                                // 既然能读取到 EXIF，说明这应该是最准确的时间
+                                if (lastModified == 0L || Math.abs(lastModified - creationTime) > 1000) {
+                                     // 可选：是否要更新 lastModified? 
+                                     lastModified = creationTime 
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 } else if (videoExtensions.contains(extension)) {
                     val retriever = MediaMetadataRetriever()
                     retriever.setDataSource(filePath)
@@ -152,6 +175,7 @@ object FileHelper {
                         val fd = pfd.fileDescriptor
                         val stat = Os.fstat(fd)
                         var lastModified = stat.st_mtime * 1000 // st_mtime is seconds
+                        var creationTime = lastModified
                         val size = stat.st_size
                         
                         // 某些情况下 Photo Picker 返回的 st_mtime 可能是拷贝时间而不是原始拍摄时间
@@ -214,6 +238,32 @@ object FileHelper {
                                 val w = exif.getAttributeInt(ExifInterface.TAG_IMAGE_WIDTH, 0)
                                 val h = exif.getAttributeInt(ExifInterface.TAG_IMAGE_LENGTH, 0)
                                 orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+
+                                // 尝试从 EXIF 获取拍摄时间
+                                val dateTimeOriginal = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)
+                                val dateTime = exif.getAttribute(ExifInterface.TAG_DATETIME)
+                                
+                                val dateStr = dateTimeOriginal ?: dateTime
+                                if (!dateStr.isNullOrEmpty()) {
+                                    try {
+                                        // EXIF 时间格式通常为 "yyyy:MM:dd HH:mm:ss"
+                                        val exifFormat = SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.getDefault())
+                                        val date = exifFormat.parse(dateStr)
+                                        if (date != null) {
+                                            val exifTime = date.time
+                                            Log.d(TAG, "Found creation time from EXIF: $exifTime ($dateStr)")
+                                            // 如果是从 EXIF 获取的时间，优先作为创建时间和修改时间
+                                            creationTime = exifTime
+                                            // 如果当前 lastModified 看起来是文件系统时间（比如和现在很接近，或者和 EXIF 差距很大），
+                                            // 或者仅仅是因为没有其他来源，我们可以信任 EXIF 时间
+                                            if (lastModified == 0L || lastModified == stat.st_mtime * 1000) {
+                                                lastModified = exifTime
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "Failed to parse EXIF date: $dateStr")
+                                    }
+                                }
 
                                 if (w > 0 && h > 0) {
                                     if (orientation == ExifInterface.ORIENTATION_ROTATE_90 || 
@@ -313,7 +363,7 @@ object FileHelper {
                         // 对于 content uri，creationTime 通常不可用，使用 lastModified
                         val mimeType = context.contentResolver.getType(uri)
                         Log.d(TAG, "Got info via PFD + Cursor: width=$width, height=$height, mimeType=$mimeType, md5=$md5")
-                        return FileInfo(lastModified, lastModified, size, width, height, mimeType, md5)
+                        return FileInfo(lastModified, creationTime, size, width, height, mimeType, md5)
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to get info via ParcelFileDescriptor: ${e.message}")

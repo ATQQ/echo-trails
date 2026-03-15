@@ -94,6 +94,57 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     })
   })
 
+  router.put('update/info', async (ctx) => {
+    const { id, lastModified, albumId, likedMode, exif = {} } = await ctx.req.json()
+    const username = ctx.get('username')
+    const operator = ctx.get('operator')
+
+    const photo = await Photo.findById(id, null, {
+      username
+    })
+
+    if (!photo) {
+      return ctx.json({
+        code: 1,
+        message: 'photo not found'
+      })
+    }
+
+    const fileType = exif['FileType']?.value
+    const width = exif['Image Width']?.value || 0
+    const height = exif['Image Height']?.value || 0
+
+    photo.lastModified = new Date(lastModified)
+    photo.isLiked = !!likedMode
+    photo.updatedBy = operator
+    if (albumId && Array.isArray(albumId)) {
+      // Merge albumIds instead of replacing
+      const existingAlbumIds = photo.albumId || []
+      const newAlbumIds = albumId.filter((id: string) => !existingAlbumIds.includes(id))
+      photo.albumId = [...existingAlbumIds, ...newAlbumIds]
+    }
+    
+    // Update exif related info if provided
+    if (Object.keys(exif).length > 0) {
+      photo.exif = {
+        FileType: fileType,
+        'Image Width': width,
+        'Image Height': height,
+      }
+      if (fileType) photo.fileType = fileType
+      if (width) photo.width = width
+      if (height) photo.height = height
+    }
+
+    await photo.save()
+    const updatedData = await photoService.parsePhoto(photo)
+
+    return ctx.json({
+      code: 0,
+      data: updatedData
+    })
+  })
+
   router.get('photo/list', async (ctx) => {
     const username = ctx.get('username')
 
@@ -271,10 +322,10 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   })
 
   router.delete('photo/delete', async (ctx) => {
-    const { id } = await ctx.req.json()
+    const { id, albumId } = await ctx.req.json()
     const username = ctx.get('username')
     const operator = ctx.get('operator')
-    const photo = await Photo.findById(id, ['key'], {
+    const photo = await Photo.findById(id, ['key', 'albumId'], {
       username
     })
     if (!photo) {
@@ -283,8 +334,24 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         message: 'photo not found'
       })
     }
-    photo.deletedAt = new Date()
-    photo.deleted = true
+    
+    if (albumId) {
+      // If deleting from a specific album
+      if (photo.albumId && photo.albumId.includes(albumId)) {
+        photo.albumId = photo.albumId.filter(aid => aid !== albumId)
+        
+        // If no albums left, mark as deleted
+        if (photo.albumId.length === 0) {
+          photo.deletedAt = new Date()
+          photo.deleted = true
+        }
+      }
+    } else {
+      // Default behavior: delete the photo
+      photo.deletedAt = new Date()
+      photo.deleted = true
+    }
+    
     photo.updatedBy = operator
     await photo.save()
     // const deleteCmd = new PutObjectCommand({
@@ -300,14 +367,14 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   })
 
   router.delete('photos/delete', async (ctx) => {
-    const { ids } = await ctx.req.json()
+    const { ids, albumId } = await ctx.req.json()
     const username = ctx.get('username')
     const operator = ctx.get('operator')
     const photos = await Photo.find({
       _id: {
         $in: ids
       }
-    }, ['key'], {
+    }, ['key', 'albumId'], {
       username
     })
     if (!photos.length) {
@@ -318,8 +385,22 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     }
 
     for (const photo of photos) {
-      photo.deletedAt = new Date()
-      photo.deleted = true
+      if (albumId) {
+        // If deleting from a specific album
+        if (photo.albumId && photo.albumId.includes(albumId)) {
+          photo.albumId = photo.albumId.filter(aid => aid !== albumId)
+          
+          // If no albums left, mark as deleted
+          if (photo.albumId.length === 0) {
+            photo.deletedAt = new Date()
+            photo.deleted = true
+          }
+        }
+      } else {
+        // Default behavior: delete the photo
+        photo.deletedAt = new Date()
+        photo.deleted = true
+      }
       photo.updatedBy = operator
     }
     await Promise.all(photos.map(v => v.save()))
@@ -441,7 +522,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       data: {
         isDuplicate: !!existingPhoto,
         existingPhoto: existingPhoto ? {
-          id: existingPhoto._id,
+          _id: existingPhoto._id,
           key: existingPhoto.key
         } : null
       }
