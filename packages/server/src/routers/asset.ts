@@ -2,7 +2,7 @@ import { BlankEnv, BlankSchema } from "hono/types";
 import { Hono } from 'hono'
 import { Asset } from "../db/asset";
 import { AssetCategory } from "../db/assetCategory";
-import { createCoverLink } from "../lib/bitiful";
+import { createCoverLink, createPreviewLink } from "../lib/bitiful";
 
 const DEFAULT_CATEGORIES = [
   {
@@ -167,6 +167,7 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         }
       }
 
+      const preview = await createPreviewLink(a.image, true);
       // Calculation logic for costPerUse and daysHeld
       const now = Date.now();
       const pDate = new Date(a.purchaseDate).getTime();
@@ -194,6 +195,7 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         description: a.description,
         image: a.image,
         cover: cover,
+        preview,
         createTime: new Date(a.createdAt).getTime(),
         // Computed fields
         costPerUse,

@@ -58,6 +58,7 @@ import { formatCurrency } from '@/lib/format';
 interface ExtendedAsset extends Asset {
   cover?: string;
   subCategoryName?: string;
+  preview?: string;
 }
 
 const props = defineProps<{
@@ -74,17 +75,21 @@ const emit = defineEmits<{
 const imageSrc = computed(() => {
   // Prefer backend generated cover link
   if (props.item.cover) return props.item.cover;
-  
+
   const key = props.item.image;
   if (!key) return 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg';
   if (key.startsWith('http')) return key;
-  
+
   // Fallback to client-side generation
   const cdn = import.meta.env.VITE_BITIFUL_CDN || '';
   return `${cdn}/${key}?style=cover`;
 });
 
 const previewImage = () => {
+  if (props.item.preview) {
+    showImagePreview([props.item.preview]);
+    return;
+  }
   const src = imageSrc.value;
   if (!src) return;
   showImagePreview([src]);
