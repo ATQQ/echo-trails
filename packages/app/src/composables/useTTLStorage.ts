@@ -1,13 +1,15 @@
 import { ref, type Ref } from 'vue'
+import { isTauri } from '@/constants'
 
 interface TTLStorageOptions<T> {
-  ttl?: number // Time to live in ms, default 20 mins
+  ttl?: number // Time to live in ms, default 15 mins
   key: string | (() => string) // Support dynamic key
   initialValue: T
+  persistInTauri?: boolean // Whether to ignore TTL in Tauri environment (default: false)
 }
 
 export function useTTLStorage<T>(options: TTLStorageOptions<T>) {
-  const { ttl = 15 * 60 * 1000, key, initialValue } = options
+  const { ttl = 15 * 60 * 1000, key, initialValue, persistInTauri = false } = options
 
   // Create a deep copy of initialValue to avoid reference issues if needed,
   // but for simple usage ref() is fine.
@@ -26,7 +28,12 @@ export function useTTLStorage<T>(options: TTLStorageOptions<T>) {
       const parsed = JSON.parse(raw)
       const lastUpdate = parsed.lastUpdate || 0
 
-      if (Date.now() - lastUpdate > ttl) {
+      // In Tauri environment, if persistInTauri is true, we ignore TTL and always load from cache
+      // This allows offline viewing of previously loaded data
+      const isExpired = Date.now() - lastUpdate > ttl;
+      const shouldIgnoreTTL = isTauri && persistInTauri;
+
+      if (isExpired && !shouldIgnoreTTL) {
         localStorage.removeItem(storageKey)
         return false
       }

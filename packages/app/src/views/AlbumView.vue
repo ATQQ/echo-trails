@@ -20,7 +20,8 @@ const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
     large: [],
     small: []
   },
-  ttl: 15 * 60 * 1000
+  ttl: 15 * 60 * 1000,
+  persistInTauri: true // 开启离线支持，Tauri 环境下即使过期也先加载缓存
 })
 
 type SortType = 'time' | 'time_asc' | 'tag'
@@ -122,7 +123,9 @@ onActivated(() => {
       showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
 
       // 异步更新一下数据
-      loadAlbum(false)
+      loadAlbum(false).catch(e => {
+        console.warn('Silent refresh failed (might be offline):', e)
+      })
     }
   }
 })

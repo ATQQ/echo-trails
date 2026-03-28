@@ -106,7 +106,7 @@ watch(() => images, (newImages: Photo[]) => {
     newImages.forEach(async (img, index) => {
       // Use _preview suffix to distinguish from cover
       const localUrl = await cacheImage(img.preview, `${img.key}_preview`)
-      
+
       // Update if the image at this index hasn't changed (by reference check or key check)
       // Since images array might be mutated, we check if the current images[index] matches the one we processed
       if (images[index] === img || images[index]?.key === img.key) {
@@ -426,7 +426,7 @@ const menus = computed(() => {
   h4 {
     margin: 6px 0 0 0;
     font-weight: normal;
-    
+
     .lunar-date {
       color: #999;
       font-size: 12px;

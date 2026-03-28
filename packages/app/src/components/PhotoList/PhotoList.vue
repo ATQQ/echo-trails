@@ -76,7 +76,8 @@ const { data: cacheData, load: loadStorage, save: saveStorage } = useTTLStorage<
 }>({
   key: getCacheKey, // Pass function for dynamic key
   initialValue: { list: [], pageIndex: 1 },
-  ttl: 15 * 60 * 1000
+  ttl: 15 * 60 * 1000,
+  persistInTauri: true // 开启离线支持，Tauri 环境下即使过期也先加载缓存
 })
 
 const saveCache = () => {
@@ -245,15 +246,18 @@ const unregisterScrollListener = () => {
 }
 
 // 监听页面活动状态
-watch(isActive, (active) => {
+watch(isActive, async (active) => {
   if (active) {
     // 尝试加载缓存
     const restored = loadCache()
     if (!restored) {
-      loadNext()
+      await loadNext()
     } else {
-      // 就算有缓存，也拉取一次数据，缓存的数据只是帮助快速展示
-      loadNext(1, photoList.length, true)
+      // 就算有缓存，也静默拉取一次数据，更新本地列表
+      loadNext(1, photoList.length || pageInfo.pageSize, true).catch((e) => {
+        // 网络异常时，如果已有缓存，则静默失败，保留当前视图
+        console.warn('Silent refresh failed (might be offline):', e)
+      })
     }
     registerScrollListener()
   } else {

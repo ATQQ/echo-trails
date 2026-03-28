@@ -9,14 +9,37 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { preventBack } from '@/lib/router'
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
+import { useTTLStorage } from '@/composables/useTTLStorage';
 
 const route = useRoute();
 const album = ref<Album>()
-const refreshAlbum = () => {
+
+const { data: cachedAlbum, load: loadCache, save: saveCache } = useTTLStorage<Album | null>({
+  key: () => `album_info_${route.params.albumId}`,
+  initialValue: null,
+  ttl: 15 * 60 * 1000,
+  persistInTauri: true
+})
+
+const refreshAlbum = async () => {
   if (!route.params.albumId) return
-  getAlbumInfo(route.params.albumId + '').then(res => {
+
+  // Try to load from cache first
+  const hasCache = loadCache()
+  if (hasCache && cachedAlbum.value) {
+    album.value = cachedAlbum.value
+  }
+
+  // Then fetch from network silently
+  try {
+    const res = await getAlbumInfo(route.params.albumId + '')
     album.value = res
-  })
+    cachedAlbum.value = res
+    saveCache()
+  } catch (e) {
+    console.warn('Silent refresh album info failed (might be offline):', e)
+    // If no cache and network fails, we might want to handle it (e.g. show empty state)
+  }
 }
 
 provideAlbumPhotoStore({
