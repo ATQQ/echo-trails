@@ -51,6 +51,10 @@
             <span class="value">{{ latestRecord.bloodOxygen }}</span>
             <span class="unit">%</span>
           </div>
+          <div class="sub-value" v-if="latestRecord.arm">
+            <span class="label">测量手臂</span>
+            <span class="value">{{ latestRecord.arm === 'left' ? '左手' : '右手' }}</span>
+          </div>
           <div class="time">{{ formatTime(latestRecord.timestamp) }}</div>
 
           <!-- Status Bar Visualization -->
@@ -180,6 +184,10 @@
                     <van-icon name="like-o" color="#f44336" />
                     <span class="text">{{ record.heartRate }}次/分</span>
                   </div>
+                  <div class="record-note" v-if="record.arm">
+                    <van-icon name="guide-o" color="#1989fa" />
+                    <span class="text">{{ record.arm === 'left' ? '左手' : '右手' }}</span>
+                  </div>
                   <div class="record-note" v-if="record.note">
                     <van-icon name="notes-o" />
                     <span class="text">{{ record.note }}</span>
@@ -222,6 +230,15 @@
               </van-button>
             </template>
           </van-field>
+          <div class="input-row" style="margin-top: 12px; margin-bottom: -4px;">
+            <div class="input-box" style="width: 100%;">
+              <div class="label" style="margin-bottom: 4px;">测量手臂</div>
+              <van-radio-group v-model="addForm.arm" direction="horizontal">
+                <van-radio name="left">左手</van-radio>
+                <van-radio name="right">右手</van-radio>
+              </van-radio-group>
+            </div>
+          </div>
         </div>
 
         <div class="form-section">
@@ -313,6 +330,10 @@
           <div class="detail-item">
             <span class="label">血氧</span>
             <span class="value">{{ currentRecord.bloodOxygen || '--' }}<span class="unit">%</span></span>
+          </div>
+          <div class="detail-item">
+            <span class="label">测量手臂</span>
+            <span class="value">{{ currentRecord.arm === 'left' ? '左手' : (currentRecord.arm === 'right' ? '右手' : '--') }}</span>
           </div>
           <div class="detail-item full-width" v-if="currentRecord.note">
             <span class="label">备注</span>
@@ -416,6 +437,7 @@ watch(showAddPopup, async (val) => {
       addForm.value.dbp = '';
       addForm.value.heartRate = '';
       addForm.value.bloodOxygen = '';
+      addForm.value.arm = '';
       addForm.value.note = '';
       quickInput.value = '';
     }
@@ -449,6 +471,7 @@ const addForm = ref({
   dbp: '',
   heartRate: '',
   bloodOxygen: '',
+  arm: '', // 'left' | 'right' | ''
   time: dayjs(),
   timeStr: dayjs().format('YYYY-MM-DD HH:mm'),
   note: ''
@@ -660,6 +683,7 @@ const handleSubmit = async () => {
       dbp: Number(addForm.value.dbp),
       heartRate: addForm.value.heartRate ? Number(addForm.value.heartRate) : 0,
       bloodOxygen: addForm.value.bloodOxygen ? Number(addForm.value.bloodOxygen) : 0,
+      arm: (addForm.value.arm || undefined) as 'left' | 'right' | undefined,
       timestamp: addForm.value.time.valueOf(),
       note: addForm.value.note
     };
@@ -697,6 +721,7 @@ const handleEdit = () => {
     dbp: String(record.dbp),
     heartRate: record.heartRate ? String(record.heartRate) : '',
     bloodOxygen: record.bloodOxygen ? String(record.bloodOxygen) : '',
+    arm: record.arm || '',
     time: dayjs(record.timestamp),
     timeStr: dayjs(record.timestamp).format('YYYY/MM/DD HH:mm'),
     note: record.note || ''

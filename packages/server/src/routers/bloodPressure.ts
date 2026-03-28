@@ -48,7 +48,7 @@ export default function bloodPressureRouter(router: Hono) {
   router.post('/add', async (c) => {
     const username = c.get('username' as any)
     const operator = c.get('operator' as any)
-    const { sbp, dbp, heartRate, bloodOxygen, date, note, familyId } = await c.req.json()
+    const { sbp, dbp, heartRate, bloodOxygen, arm, date, note, familyId } = await c.req.json()
 
     if (!sbp || !dbp || !date || !familyId) {
       return c.json({ code: 400, message: 'Missing fields' })
@@ -62,6 +62,7 @@ export default function bloodPressureRouter(router: Hono) {
       dbp,
       heartRate,
       bloodOxygen,
+      arm,
       date: new Date(date),
       note: note || ''
     })
@@ -72,7 +73,7 @@ export default function bloodPressureRouter(router: Hono) {
   // Update blood pressure record
   router.post('/update', async (c) => {
     const username = c.get('username' as any)
-    const { id, sbp, dbp, heartRate, bloodOxygen, date, note } = await c.req.json()
+    const { id, sbp, dbp, heartRate, bloodOxygen, arm, date, note } = await c.req.json()
 
     if (!id) {
       return c.json({ code: 400, message: 'Missing id' })
@@ -85,6 +86,7 @@ export default function bloodPressureRouter(router: Hono) {
         dbp,
         heartRate,
         bloodOxygen,
+        arm,
         date: new Date(date),
         note
       },
