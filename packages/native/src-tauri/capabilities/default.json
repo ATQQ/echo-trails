@@ -46,16 +46,31 @@
       "allow": [
         {
           "path": "$APPDATA/databases/*"
+        },
+        {
+          "path": "$APPCACHE/**"
         }
       ]
     },
-    "fs:allow-lstat",
+    {
+      "identifier": "fs:allow-lstat",
+      "allow": [
+        "$APPDATA/**",
+        "$APPCACHE/**"
+      ]
+    },
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [
+        "$APPDATA/**",
+        "$APPCACHE/**"
+      ]
+    },
     "fs:allow-app-write",
     "fs:allow-picture-write",
     "fs:allow-picture-read",
     "fs:write-all",
     "fs:allow-remove",
-    "fs:allow-mkdir",
     "fs:allow-read-dir",
     "fs:allow-stat",
     "fs:allow-write",

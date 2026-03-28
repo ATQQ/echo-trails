@@ -8,7 +8,7 @@ import { appCacheDir, join } from '@tauri-apps/api/path';
 import SparkMD5 from 'spark-md5';
 import pLimit from 'p-limit';
 
-const limit = pLimit(5); // Limit concurrent downloads
+const limit = pLimit(4); // Limit concurrent downloads
 const CACHE_DIR_NAME = 'image_cache';
 
 // Cache for in-memory URLs to avoid repeated checks for the same URL in the same session
@@ -19,7 +19,7 @@ let cacheDirPromise: Promise<string> | null = null;
 
 async function getCacheDir() {
   if (cacheDirPromise) return cacheDirPromise;
-  
+
   cacheDirPromise = (async () => {
     try {
       await mkdir(CACHE_DIR_NAME, { baseDir: BaseDirectory.AppCache, recursive: true });
@@ -29,7 +29,7 @@ async function getCacheDir() {
       return CACHE_DIR_NAME;
     }
   })();
-  
+
   return cacheDirPromise;
 }
 
@@ -46,7 +46,7 @@ export async function cacheImage(url: string, cacheKey?: string): Promise<string
   // Use cacheKey for memory cache if available, otherwise URL
   // We suffix with 'key:' to distinguish from raw URLs if needed, but here simple string is fine
   const memKey = cacheKey ? `key:${cacheKey}` : url;
-  
+
   if (memoryCache.has(memKey)) {
     return memoryCache.get(memKey)!;
   }
@@ -59,11 +59,9 @@ export async function cacheImage(url: string, cacheKey?: string): Promise<string
 
     try {
       await getCacheDir();
-      
       // Use provided key for hashing, or fallback to URL
       const hashContent = cacheKey || url;
       const hash = SparkMD5.hash(hashContent);
-      
       // Try to guess extension from URL
       const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
       // Sanitize extension
@@ -84,21 +82,26 @@ export async function cacheImage(url: string, cacheKey?: string): Promise<string
         const cacheBase = await appCacheDir();
         const absolutePath = await join(cacheBase, CACHE_DIR_NAME, filename);
         const src = convertFileSrc(absolutePath);
-        
+
         memoryCache.set(memKey, src);
         return src;
       } else {
         // Download
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch ${url}`);
-        
+        const response = await fetch(url, {
+          method: 'GET',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${response.status} ${response.statusText} from ${url}`);
+        }
+
         const arrayBuffer = await response.arrayBuffer();
         await writeFile(filePath, new Uint8Array(arrayBuffer), { baseDir: BaseDirectory.AppCache });
-        
+
         const cacheBase = await appCacheDir();
         const absolutePath = await join(cacheBase, CACHE_DIR_NAME, filename);
         const src = convertFileSrc(absolutePath);
-        
+
         memoryCache.set(memKey, src);
         return src;
       }
@@ -111,7 +114,7 @@ export async function cacheImage(url: string, cacheKey?: string): Promise<string
 
 export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: MaybeRef<string | undefined>) {
   const cachedSrc = ref<string>('');
-  
+
   if (!isTauri) {
     watchEffect(() => {
       cachedSrc.value = toValue(url) || '';
@@ -122,7 +125,7 @@ export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: May
   watchEffect(async () => {
     const targetUrl = toValue(url);
     const key = toValue(cacheKey);
-    
+
     if (!targetUrl) {
       cachedSrc.value = '';
       return;
