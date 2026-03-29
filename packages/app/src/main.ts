@@ -12,6 +12,7 @@ import { isTauri } from './constants';
 import { PromiseWithResolver } from './lib/util';
 import { attachConsole } from '@tauri-apps/plugin-log'
 import { getConfig, refreshService } from './lib/configStorage';
+import { initImageCache } from './composables/useCachedImage';
 
 const app = createApp(App)
 
@@ -118,14 +119,15 @@ async function presetTauriMode() {
 }
 
 presetTauriMode().then(() => {
-  getConfig().then(cfg => {
-    refreshService(cfg)
-  }).finally(() => {
-    login().then(() => {
-      app.mount('#app')
-    }).catch(() => {
-      goLogin()
-    })
+  return Promise.all([
+    getConfig().then(cfg => refreshService(cfg)),
+    initImageCache()
+  ])
+}).finally(() => {
+  login().then(() => {
+    app.mount('#app')
+  }).catch(() => {
+    goLogin()
   })
 })
 

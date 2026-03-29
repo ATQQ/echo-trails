@@ -65,6 +65,10 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFooterStore } from '@/stores/footer';
 
+defineOptions({
+  name: 'DiscoveryView'
+});
+
 const router = useRouter();
 const footerStore = useFooterStore();
 const showEditFooter = ref(false);

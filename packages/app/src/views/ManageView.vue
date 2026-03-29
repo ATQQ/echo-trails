@@ -24,21 +24,24 @@ const downloadStatus = ref('');
 // 用户信息
 const { value: userInfo } = useLocalStorage('userInfo', {
   username: '',
-  operator: ''
+  operator: '',
+  isAdmin: false
 });
 
-const isAdmin = ref(false);
-const isLogin = ref(false);
+const isAdmin = ref(userInfo.isAdmin || false);
+const isLogin = ref(!!localStorage.getItem('token'));
 onMounted(async () => {
   try {
     const res = await checkLogin();
     if (res.code === 0) {
       isAdmin.value = res.data.isAdmin;
+      userInfo.isAdmin = res.data.isAdmin;
       isLogin.value = true;
     }
   } catch (e) {
     userInfo.username = '';
     userInfo.operator = '';
+    userInfo.isAdmin = false;
     isLogin.value = false;
     isAdmin.value = false;
     console.error(e);
@@ -60,6 +63,7 @@ const handleLogout = () => {
       localStorage.removeItem('token');
       userInfo.username = '';
       userInfo.operator = '';
+      userInfo.isAdmin = false;
       isLogin.value = false;
 
       showToast('已退出登录');
@@ -271,6 +275,7 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
       <!-- 功能 -->
       <van-cell-group v-if="isLogin" title="功能" inset>
         <van-cell title="回收站" is-link to="/delete" />
+        <van-cell title="缓存管理" is-link to="/manage/cache" />
       </van-cell-group>
 
       <!-- 其他 -->

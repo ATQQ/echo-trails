@@ -225,7 +225,7 @@
           <van-field ref="quickInputRef" v-model="quickInput" rows="2" autosize type="textarea" inputmode="decimal"
             placeholder="粘贴或输入：120 80 75 98 (分别对应高压、低压、脉搏、血氧)" class="quick-input-field">
             <template #button>
-              <van-button size="small" type="success" :disabled="!isValidForm" @click="handleSubmit">
+              <van-button size="small" type="success" :disabled="!isValidForm || isSubmitting" :loading="isSubmitting" @click="handleSubmit">
                 保存
               </van-button>
             </template>
@@ -287,7 +287,7 @@
         </div>
 
         <div class="submit-btn-container">
-          <van-button type="primary" block round @click="handleSubmit" :disabled="!isValidForm">
+          <van-button type="primary" block round @click="handleSubmit" :disabled="!isValidForm || isSubmitting" :loading="isSubmitting">
             保存
           </van-button>
         </div>
@@ -397,6 +397,7 @@ const showTimeRangePicker = ref(false);
 const showDetailPopup = ref(false);
 const currentRecord = ref<BloodPressureRecord | null>(null);
 const isEditing = ref(false);
+const isSubmitting = ref(false);
 const editId = ref('');
 
 const quickInputRef = ref<HTMLInputElement | null>(null);
@@ -437,7 +438,7 @@ watch(showAddPopup, async (val) => {
       addForm.value.dbp = '';
       addForm.value.heartRate = '';
       addForm.value.bloodOxygen = '';
-      addForm.value.arm = '';
+      addForm.value.arm = 'left';
       addForm.value.note = '';
       quickInput.value = '';
     }
@@ -471,7 +472,7 @@ const addForm = ref({
   dbp: '',
   heartRate: '',
   bloodOxygen: '',
-  arm: '', // 'left' | 'right' | ''
+  arm: 'left', // 'left' | 'right' | ''
   time: dayjs(),
   timeStr: dayjs().format('YYYY-MM-DD HH:mm'),
   note: ''
@@ -677,6 +678,8 @@ const onConfirmPicker = () => {
 };
 
 const handleSubmit = async () => {
+  if (isSubmitting.value) return;
+  isSubmitting.value = true;
   try {
     const data = {
       sbp: Number(addForm.value.sbp),
@@ -703,6 +706,8 @@ const handleSubmit = async () => {
     console.error(e);
 
     showToast(isEditing.value ? '修改失败' : '添加失败');
+  } finally {
+    isSubmitting.value = false;
   }
 };
 
@@ -721,7 +726,7 @@ const handleEdit = () => {
     dbp: String(record.dbp),
     heartRate: record.heartRate ? String(record.heartRate) : '',
     bloodOxygen: record.bloodOxygen ? String(record.bloodOxygen) : '',
-    arm: record.arm || '',
+    arm: record.arm || 'left',
     time: dayjs(record.timestamp),
     timeStr: dayjs(record.timestamp).format('YYYY/MM/DD HH:mm'),
     note: record.note || ''

@@ -12,7 +12,8 @@ const router = useRouter();
 
 const { value: userInfo } = useLocalStorage('userInfo', {
   username: '',
-  operator: ''
+  operator: '',
+  isAdmin: false
 });
 
 const handleLogin = (silent = false) => {
@@ -23,6 +24,7 @@ const handleLogin = (silent = false) => {
   login().then((res) => {
     userInfo.username = res.data.username;
     userInfo.operator = res.data.operator;
+    userInfo.isAdmin = res.data.isAdmin;
     router.replace({
       name: 'album'
     });

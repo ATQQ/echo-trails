@@ -143,7 +143,7 @@ onMounted(() => {
 <template>
   <div class="app-wrapper">
     <router-view v-slot="{ Component, route }">
-      <KeepAlive :include="['HomeView', 'AlbumView', 'LikeView']">
+      <KeepAlive :include="['HomeView', 'AlbumView', 'LikeView', 'DiscoveryView']">
         <component :is="Component" :key="route.fullPath"></component>
       </KeepAlive>
     </router-view>

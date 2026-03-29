@@ -126,6 +126,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/manage/cache',
+      name: 'manage-cache',
+      component: () => import('../views/CacheManageView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'CacheManageView',
+        nav: false
+      }
+    },
+    {
       path: '/video',
       name: 'video',
       component: () => import('../views/VideoView.vue'),
