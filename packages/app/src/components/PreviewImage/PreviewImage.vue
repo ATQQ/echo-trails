@@ -73,10 +73,12 @@ import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePho
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import { showConfirmDialog, showNotify, showLoadingToast, closeToast } from 'vant';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import BottomActions from '../BottomActions/BottomActions.vue';
+import { cacheImage } from '@/composables/useCachedImage';
+import { isTauri } from '@/constants';
 
 const { images = [], start = 0, album, isDelete = false } = defineProps<{
   images: Photo[]
@@ -88,7 +90,31 @@ const { images = [], start = 0, album, isDelete = false } = defineProps<{
 const show = defineModel("show", { type: Boolean, default: false })
 
 
-const urls = computed(() => images.map(i => i.preview))
+const urls = ref<string[]>([])
+
+watch(() => images, (newImages: Photo[]) => {
+  if (!newImages?.length) {
+    urls.value = []
+    return
+  }
+
+  // Initialize with remote URLs
+  urls.value = newImages.map(i => i.preview)
+
+  if (isTauri) {
+    // Cache images
+    newImages.forEach(async (img, index) => {
+      // Use _preview suffix to distinguish from cover
+      const localUrl = await cacheImage(img.preview, `${img.key}_preview`)
+
+      // Update if the image at this index hasn't changed (by reference check or key check)
+      // Since images array might be mutated, we check if the current images[index] matches the one we processed
+      if (images[index] === img || images[index]?.key === img.key) {
+        urls.value[index] = localUrl
+      }
+    })
+  }
+}, { immediate: true, deep: true })
 
 const currentIdx = ref(start)
 
@@ -400,7 +426,7 @@ const menus = computed(() => {
   h4 {
     margin: 6px 0 0 0;
     font-weight: normal;
-    
+
     .lunar-date {
       color: #999;
       font-size: 12px;

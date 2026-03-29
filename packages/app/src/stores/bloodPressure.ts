@@ -10,6 +10,7 @@ export interface BloodPressureRecord {
   dbp: number; // 舒张压 (Low)
   heartRate: number; // 脉搏
   bloodOxygen?: number; // 血氧饱和度
+  arm?: 'left' | 'right'; // 测量手臂
   timestamp: number;
   note?: string;
 }
@@ -38,6 +39,7 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
           dbp: item.dbp,
           heartRate: item.heartRate,
           bloodOxygen: item.bloodOxygen,
+          arm: item.arm,
           timestamp: new Date(item.date).getTime(),
           note: item.note
         }));

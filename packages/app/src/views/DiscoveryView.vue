@@ -65,6 +65,10 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFooterStore } from '@/stores/footer';
 
+defineOptions({
+  name: 'DiscoveryView'
+});
+
 const router = useRouter();
 const footerStore = useFooterStore();
 const showEditFooter = ref(false);
@@ -74,8 +78,14 @@ onMounted(() => {
     if (res.code !== 0) {
       throw new Error('未登录');
     }
-  }).catch(() => {
-    router.replace('/login');
+  }).catch((e) => {
+    // Only redirect to login if it's explicitly an Unauthorized error or a business logic error (code !== 0)
+    // Ignore network errors (like offline) so users can still see the Discovery page
+    if (e.message === 'Unauthorized' || e.message === '未登录') {
+      router.replace('/login');
+    } else {
+      console.warn('Login check failed (might be offline):', e);
+    }
   });
 });
 

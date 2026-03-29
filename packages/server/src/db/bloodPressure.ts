@@ -8,6 +8,7 @@ const bloodPressureSchema = new mongoose.Schema({
   dbp: { type: Number, required: true }, // 舒张压
   heartRate: { type: Number, required: true }, // 脉搏
   bloodOxygen: { type: Number, required: false }, // 血氧饱和度
+  arm: { type: String, enum: ['left', 'right'], required: false }, // 测量手臂
   date: { type: Date, required: true },
   note: { type: String, default: '' },
   isDelete: { type: Boolean, default: false },
