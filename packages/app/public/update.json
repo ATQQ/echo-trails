@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.6.5",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.5.apk",
+      "forceUpdate": false,
+      "description": "feat: 添加本地图片缓存,虚拟滚动",
+      "md5": "64430128d21d1b3d7aa90ce11c574ccc"
+    },
+    {
       "version": "0.6.4",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.4.apk",
       "forceUpdate": false,
