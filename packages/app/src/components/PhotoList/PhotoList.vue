@@ -934,7 +934,7 @@ watch(containerRef, (el) => {
 
             <!-- Upload Row -->
             <div v-else-if="item.data.type === 'upload-row'" class="virtual-row">
-               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: gridItemHeight + 'px' }">
+               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }">
                   <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
                     <ImageCell :src="subItem.url">
                       <!-- 等待中 -->
@@ -978,7 +978,7 @@ watch(containerRef, (el) => {
 
             <!-- Photo Row -->
             <div v-else-if="item.data.type === 'photo-row'" class="virtual-row">
-               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: gridItemHeight + 'px' }">
+               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }">
                   <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
                     <ImageCell @click="previewImage(subItem.idx)" :src="subItem.cover" :is-repeat="subItem.isRepeat" :cache-key="subItem.key + '_cover'"
                       @longpress="handleLongPress(subItem.idx)" />

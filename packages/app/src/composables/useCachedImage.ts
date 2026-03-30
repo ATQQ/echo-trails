@@ -8,7 +8,8 @@ import { appCacheDir, join } from '@tauri-apps/api/path';
 import SparkMD5 from 'spark-md5';
 import pLimit from 'p-limit';
 
-const limit = pLimit(4); // Limit concurrent downloads
+const limit = pLimit(4); // Limit concurrent file operations
+const downloadLimit = pLimit(1); // Limit concurrent background downloads
 const CACHE_DIR_NAME = 'image_cache';
 const MEMORY_CACHE_STORAGE_KEY = 'image_memory_cache_v1';
 
@@ -45,7 +46,8 @@ function persistMemoryCache() {
 
     // Use requestIdleCallback if available, otherwise just execute
     if ('requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(saveTask);
+      // (window as any).requestIdleCallback(saveTask);
+      saveTask();
     } else {
       saveTask();
     }
@@ -187,7 +189,7 @@ export async function cacheImage(url: string, cacheKey?: string): Promise<string
         };
 
         // Fire and forget
-        fetchAndCache();
+        downloadLimit(() => fetchAndCache());
 
         console.log(`[Cache Miss/Return URL] ${filename} - Returned in ${(performance.now() - totalStart).toFixed(2)}ms`);
         return url;
