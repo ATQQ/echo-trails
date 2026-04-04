@@ -1,6 +1,9 @@
 <template>
   <header class="page-header safe-padding-top">
-    <h1 @click="handlePressTitle">{{ title }}</h1>
+    <h1 @click="handlePressTitle">
+      <van-icon v-if="back" name="arrow-left" @click.stop="handleBack" class="back-icon" />
+      {{ title }}
+    </h1>
     <div class="actions">
       <slot name="action"></slot>
       <van-icon name="setting-o" v-if="setMode" size="26" @click="handleGoManagePage" />
@@ -27,16 +30,21 @@ import { useRouter } from 'vue-router';
 import { preventBack } from '@/lib/router'
 import InfoCard from '../InfoCard/InfoCard.vue';
 import { getPhotoListInfo } from '@/service';
-const { title = '', exit = false, info = true, likedMode = false, setMode = false, type = '' } = defineProps<{
+const { title = '', exit = false, info = true, likedMode = false, setMode = false, type = '', back = false } = defineProps<{
   title: string
   exit?: boolean
   info?: boolean
   likedMode?: boolean
   setMode?: boolean
   type?: string
+  back?: boolean
 }>()
 
 const router = useRouter();
+
+const handleBack = () => {
+  router.back()
+}
 
 const handleGoManagePage = () => {
   router.push({
@@ -92,13 +100,21 @@ preventBack(showInfoPanel)
   h1 {
     font-weight: 300;
     margin: 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .back-icon {
+      font-size: 24px;
+      cursor: pointer;
+    }
   }
 
   .actions {
     display: flex;
     align-items: center;
     gap: 16px;
-    
+
     .van-icon {
       margin-right: 16px;
       &:last-child {

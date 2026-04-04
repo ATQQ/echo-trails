@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { createAlbum, getAlbums } from '@/service';
 import { showToast } from 'vant';
-import { ref, reactive, onActivated, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import EditAlbumCard from '@/components/EditAlbumCard/EditAlbumCard.vue';
@@ -10,10 +10,8 @@ import AddButton from '@/components/AddButton/AddButton.vue';
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
-import { useTagStyles, type TagStyle } from '@/composables/useTagStyles';
 
 const { addRecent, getRecentIndex } = useRecentAlbums()
-const { tagStyles, setStyle, getStyle } = useTagStyles()
 
 // 添加本地存储
 const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
@@ -30,7 +28,7 @@ const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
 })
 
 type SortType = 'time' | 'time_asc' | 'tag'
-const sortType = ref<SortType>((localStorage.getItem('album_sort_type') as SortType) || 'time')
+const sortType = ref<SortType>((localStorage.getItem('all_album_sort_type') as SortType) || 'tag')
 const showSortPopover = ref(false)
 const sortActions = computed(() => [
   { text: '按时间排序', value: 'time', color: sortType.value === 'time' ? '#1989fa' : '' },
@@ -40,7 +38,7 @@ const sortActions = computed(() => [
 
 const onSelectSort = (action: { value: SortType }) => {
   sortType.value = action.value
-  localStorage.setItem('album_sort_type', action.value)
+  localStorage.setItem('all_album_sort_type', action.value)
 }
 
 const sortAlbums = (albums: Album[]) => {
@@ -92,33 +90,8 @@ const sortAlbums = (albums: Album[]) => {
 }
 
 const displayAlbumList = computed(() => {
-  const sortedSmall = sortAlbums(albumList.value.small)
-  
-  // 分组标签
-  const tagMap = new Map<string, Album[]>()
-  sortedSmall.forEach(album => {
-    if (album.tags && album.tags.length > 0) {
-      album.tags.forEach(tag => {
-        if (!tagMap.has(tag)) {
-          tagMap.set(tag, [])
-        }
-        tagMap.get(tag)!.push(album)
-      })
-    }
-  })
-
-  const tagGroups = Array.from(tagMap.entries()).map(([tag, albums]) => {
-    return {
-      tag,
-      albums,
-      style: getStyle(tag)
-    }
-  })
-
   return {
-    large: sortAlbums(albumList.value.large),
-    allSmall: sortedSmall.slice(0, 6),
-    tagGroups
+    small: sortAlbums(albumList.value.small)
   }
 })
 
@@ -135,7 +108,7 @@ const loadAlbum = (_loading = false) => {
   })
 }
 
-onActivated(() => {
+onMounted(() => {
   // 在这里如果有预请求数据直接回填，不用再发起请求
   if ((window as any).__PREFETCHED_ALBUMS__) {
     const data = (window as any).__PREFETCHED_ALBUMS__
@@ -194,25 +167,13 @@ const goToDetail = (albumId: string) => {
   router.push({ name: 'album-photo', params: { albumId } })
 }
 
-const goToAllAlbums = () => {
-  router.push('/album/all')
-}
-
-const changeTagStyle = (tag: string) => {
-  const currentStyle = getStyle(tag)
-  const newStyle = currentStyle === 'square' ? 'portrait' : 'square'
-  setStyle(tag, newStyle)
-}
-
 preventBack(showAddModal)
 </script>
 
 <template>
   <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)">
-    <PageTitle title="相册" :info="false">
+    <PageTitle title="全部相册" :info="false" back>
       <template #action>
-        <!-- 我喜欢入口 -->
-        <van-icon name="like-o" size="18" color="#333" style="margin-right: 16px;" @click="router.push('/like')" />
         <van-popover v-model:show="showSortPopover" :actions="sortActions" @select="onSelectSort"
           placement="bottom-end">
           <template #reference>
@@ -222,69 +183,30 @@ preventBack(showAddModal)
       </template>
     </PageTitle>
     <div class="album">
-      <div v-if="loading && !displayAlbumList.large?.length && !displayAlbumList.allSmall?.length"
+      <div v-if="loading && !displayAlbumList.small?.length"
         class="skeleton-container">
-        <div class="skeleton-large skeleton-bg"></div>
         <div class="skeleton-grid">
           <div class="skeleton-small skeleton-bg" v-for="i in 4" :key="i"></div>
         </div>
       </div>
       <template v-else>
         <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
-        <!-- 大卡片 -->
-        <van-grid :column-num="1" :border="false" :gutter="16">
-          <van-grid-item v-for="album in displayAlbumList.large" :key="album._id">
-            <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
+        <!-- 小卡片分类 -->
+        <van-grid :gutter="10" :column-num="2" :border="false">
+          <van-grid-item v-for="album in displayAlbumList.small" :key="album._id">
+            <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
               <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
-              <!-- 标题和描述 -->
-              <div class="title-desc" :class="{
-                noCover: !album.cover
-              }">
+              <div class="title-desc">
                 <h2>{{ album.name }}
                   <span v-if="album.tags?.length" class="tags">
                     <span v-for="tag in album.tags" :key="tag" class="tag">{{ tag }}</span>
                   </span>
                 </h2>
-                <p>{{ album.description }}</p>
+                <p>{{ album.count }}</p>
               </div>
             </div>
           </van-grid-item>
         </van-grid>
-        <!-- 全部相册区块 -->
-        <div class="section" v-if="displayAlbumList.allSmall?.length">
-          <div class="section-header" @click="goToAllAlbums">
-            <h2>全部相册</h2>
-            <van-icon name="arrow" />
-          </div>
-          <van-grid :gutter="10" :column-num="3" :border="false" class="small-card-grid">
-            <van-grid-item v-for="album in displayAlbumList.allSmall" :key="album._id">
-              <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
-                <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
-                <div class="title-desc">
-                  <h2>{{ album.name }}</h2>
-                  <p>{{ album.count }}</p>
-                </div>
-              </div>
-            </van-grid-item>
-          </van-grid>
-        </div>
-
-        <!-- 标签分组区块 -->
-        <div class="section tag-section" v-for="group in displayAlbumList.tagGroups" :key="group.tag">
-          <div class="section-header">
-            <h2>{{ group.tag }}</h2>
-            <van-icon name="exchange" @click.stop="changeTagStyle(group.tag)" />
-          </div>
-          <div class="horizontal-scroll">
-            <div class="scroll-item" :class="group.style" v-for="album in group.albums" :key="album._id" @click.stop.prevent="goToDetail(album._id)">
-              <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
-              <div class="title-desc">
-                <h2>{{ album.name }}</h2>
-                <p>{{ album.count }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </template>
     </div>
   </van-pull-refresh>
@@ -364,112 +286,6 @@ preventBack(showAddModal)
   }
 }
 
-.section {
-  margin-top: 24px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 16px;
-  margin-bottom: 12px;
-
-  h2 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-  }
-}
-
-.horizontal-scroll {
-  display: flex;
-  overflow-x: auto;
-  gap: 12px;
-  padding: 0 16px;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  .scroll-item {
-    flex-shrink: 0;
-    scroll-snap-align: start;
-    border-radius: 12px;
-    overflow: hidden;
-    position: relative;
-
-    :deep(.van-image) {
-      border-radius: 12px;
-      overflow: hidden;
-      width: 100% !important;
-      height: 100% !important;
-    }
-
-    &.square {
-      width: 32vw;
-      display: flex;
-      flex-direction: column;
-
-      :deep(.van-image) {
-        aspect-ratio: 1 / 1;
-        height: auto !important;
-      }
-
-      .title-desc {
-        margin-top: 6px;
-        h2 {
-          margin: 0;
-          color: #333;
-          font-size: 14px;
-          font-weight: 500;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        p {
-          margin: 2px 0 0 0;
-          font-size: 12px;
-          color: #999;
-        }
-      }
-    }
-
-    &.portrait {
-      width: 42vw;
-      aspect-ratio: 3 / 4;
-      
-      .title-desc {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: 24px 12px 12px;
-        background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.7));
-        color: #fff;
-        
-        h2 {
-          margin: 0;
-          color: #fff;
-          font-size: 15px;
-          font-weight: 500;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        p {
-          margin: 4px 0 0 0;
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.8);
-        }
-      }
-    }
-  }
-}
-
 .small-card {
   width: 100%;
   display: flex;
@@ -490,9 +306,23 @@ preventBack(showAddModal)
       color: #333;
       font-size: 14px;
       font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .tags {
+      display: inline-flex;
+      gap: 4px;
+    }
+
+    .tag {
+      font-size: 10px;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 1px 3px;
+      border-radius: 4px;
+      color: #666;
     }
 
     p {
