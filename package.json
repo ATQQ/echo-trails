@@ -18,7 +18,8 @@
     "dev:server": "bun --filter server dev",
     "dev:android": "bun --filter echo-trails-native dev:android",
     "dev": "run-p dev:server dev:android",
-    "build:android": "bun --filter echo-trails-native build:android"
+    "build:android": "bun --filter echo-trails-native build:android",
+    "build:test": "bun run scripts/build-test-android.ts"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",

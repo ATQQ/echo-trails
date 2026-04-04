@@ -94,8 +94,17 @@ preventBack(showInfoPanel)
     margin: 10px 0;
   }
 
-  .actions .van-icon {
-    margin-right: 16px;
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    
+    .van-icon {
+      margin-right: 16px;
+      &:last-child {
+        margin-right: 16px;
+      }
+    }
   }
 }
 

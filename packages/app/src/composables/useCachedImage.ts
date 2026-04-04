@@ -11,7 +11,7 @@ import pLimit from 'p-limit';
 const limit = pLimit(4); // Limit concurrent file operations
 const downloadLimit = pLimit(1); // Limit concurrent background downloads
 const CACHE_DIR_NAME = 'image_cache';
-const MEMORY_CACHE_STORAGE_KEY = 'image_memory_cache_v1';
+export const MEMORY_CACHE_STORAGE_KEY = 'image_memory_cache_v1';
 
 // Cache for in-memory URLs to avoid repeated checks for the same URL in the same session
 // Initialize from localStorage to persist across app restarts
@@ -32,7 +32,7 @@ function persistMemoryCache() {
   if (persistTimer) {
     clearTimeout(persistTimer);
   }
-  
+
   persistTimer = window.setTimeout(() => {
     const saveTask = () => {
       try {
@@ -225,6 +225,17 @@ export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: May
       cachedSrc.value = '';
       return;
     }
+
+    // Check memory cache synchronously to avoid microtask flicker
+    const memKey = key ? `key:${key}` : targetUrl;
+    if (memoryCache.has(memKey)) {
+      cachedSrc.value = memoryCache.get(memKey)!;
+      return;
+    }
+
+    // Clear the previous image before starting async work
+    // to prevent displaying old images when recycled in virtual lists
+    cachedSrc.value = '';
 
     cachedSrc.value = await cacheImage(targetUrl, key);
   });

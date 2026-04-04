@@ -47,10 +47,12 @@ onDeactivated(() => {
   }
 })
 
-const { likedMode = false, album, isDelete = false } = defineProps<{
+const { likedMode = false, album, isDelete = false, startDate, endDate } = defineProps<{
   likedMode?: boolean
   album?: Album
   isDelete?: boolean
+  startDate?: string
+  endDate?: string
 }>()
 
 
@@ -67,7 +69,7 @@ const pageInfo = reactive({
 
 // 缓存相关逻辑
 const getCacheKey = () => {
-  return `photo_list_cache_${album?._id || 'all'}_${likedMode}_${isDelete ? 'deleted' : 'normal'}`
+  return `photo_list_cache_${album?._id || 'all'}_${likedMode}_${isDelete ? 'deleted' : 'normal'}_${startDate || ''}_${endDate || ''}`
 }
 
 const { data: cacheData, load: loadStorage, save: saveStorage } = useTTLStorage<{
@@ -149,7 +151,9 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
   return getPhotos(index || pageInfo.pageIndex, pageSize || pageInfo.pageSize, {
     likedMode,
     albumId: album?._id,
-    isDelete
+    isDelete,
+    startDate,
+    endDate
   }).then(res => {
     if (isRefresh) {
       const newIdSet = new Set(res.map(v => v._id))
@@ -233,6 +237,12 @@ const checkScrollBottom = () => {
     loadNext()
   }
 }
+
+watch([() => startDate, () => endDate], () => {
+  if (isActive.value) {
+    pullRefresh()
+  }
+})
 
 // 根据页面活动状态注册/取消事件监听
 // With virtual list, we don't need window scroll listener, we use @scroll on container
@@ -891,16 +901,19 @@ const { list, containerProps, wrapperProps } = useVirtualList(virtualListSource,
     const item = virtualListSource.value[index]
     return getItemHeight(item)
   },
-  overscan: 5
+  overscan: 20
 })
 
 const isPullRefreshDisabled = ref(false)
+const isScrolled = ref(false)
 const onScroll = useThrottleFn(checkScrollBottom, 200)
 
 const handleScroll = (e: Event) => {
   const target = e.target as HTMLElement
   if (target) {
     isPullRefreshDisabled.value = target.scrollTop > 0
+    // 控制顶部毛玻璃遮罩的显示
+    isScrolled.value = target.scrollTop > 20
   }
   onScroll()
 }
@@ -915,6 +928,7 @@ watch(containerRef, (el) => {
 
 <template>
   <div class="photo-list">
+    <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div>
     <van-pull-refresh v-model="loading" @refresh="pullRefresh" class="pull-refresh-container" :disabled="isPullRefreshDisabled">
       <div v-bind="containerProps" ref="containerRef" class="virtual-list-container" @scroll="handleScroll">
         <div v-bind="wrapperProps">
@@ -1057,6 +1071,29 @@ watch(containerRef, (el) => {
   display: flex;
   flex-direction: column;
   overflow: hidden; /* Ensure virtual list container handles scroll */
+  position: relative;
+}
+
+.top-blur-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  pointer-events: none;
+  z-index: 10;
+  /* 更柔和的渐变毛玻璃效果 */
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.top-blur-mask.is-visible {
+  opacity: 1;
 }
 
 .pull-refresh-container {

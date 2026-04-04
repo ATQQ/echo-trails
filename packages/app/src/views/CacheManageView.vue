@@ -6,6 +6,7 @@ import { isTauri } from '@/constants';
 import { BaseDirectory, lstat, remove, readFile } from '@tauri-apps/plugin-fs';
 import { appCacheDir, join } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
+import { MEMORY_CACHE_STORAGE_KEY } from '@/composables/useCachedImage';
 
 const router = useRouter();
 
@@ -105,7 +106,7 @@ const getCategoryForKey = (key: string) => {
 
   // Data cache heuristics
   if (
-    key === 'image_memory_cache_v1' ||
+    key === MEMORY_CACHE_STORAGE_KEY ||
     key === 'albumList' ||
     key.startsWith('album_info_') ||
     key.startsWith('photo_list_cache') ||
@@ -166,7 +167,7 @@ const calculateImageCache = async () => {
   isCalculatingImages.value = true;
 
   try {
-    const memoryCacheStr = localStorage.getItem('image_memory_cache_v1');
+    const memoryCacheStr = localStorage.getItem(MEMORY_CACHE_STORAGE_KEY);
     if (memoryCacheStr) {
       const memoryCache = JSON.parse(memoryCacheStr);
 
@@ -275,7 +276,7 @@ const handleClearItem = (item: CacheItem, category: CacheCategory) => {
 const deleteImageCaches = async (items: ImageCacheItem[]) => {
   if (!items.length) return;
 
-  const memoryCacheStr = localStorage.getItem('image_memory_cache_v1');
+  const memoryCacheStr = localStorage.getItem(MEMORY_CACHE_STORAGE_KEY);
   const memoryCache = memoryCacheStr ? JSON.parse(memoryCacheStr) : {};
 
   let deletedCount = 0;
@@ -292,7 +293,7 @@ const deleteImageCaches = async (items: ImageCacheItem[]) => {
   }
 
   // Update memory cache
-  localStorage.setItem('image_memory_cache_v1', JSON.stringify(memoryCache));
+  localStorage.setItem(MEMORY_CACHE_STORAGE_KEY, JSON.stringify(memoryCache));
 
   // Clear selection
   selectedImages.value = [];
@@ -453,7 +454,7 @@ const clearAllSafe = () => {
               <van-collapse-item title="查看详情" :name="category.id">
                 <template v-for="item in category.items" :key="item.key">
                   <van-cell
-                    v-if="item.key !== 'image_memory_cache_v1'"
+                    v-if="item.key !== MEMORY_CACHE_STORAGE_KEY"
                     :value="item.sizeStr"
                     :label="`占用空间`"
                   >

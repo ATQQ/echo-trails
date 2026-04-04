@@ -29,38 +29,52 @@ async function main() {
 
   console.log(`Current version: ${currentVersion}`);
 
+  // Check arguments
+  const args = process.argv.slice(2);
+  const isAutoPatch = args.includes('--patch');
+  let autoDesc = '';
+  const descIndex = args.indexOf('--desc');
+  if (descIndex !== -1 && args[descIndex + 1]) {
+    autoDesc = args[descIndex + 1];
+  }
+
   // 2. Prompt for new version
   const patch = semver.inc(currentVersion, 'patch');
   const minor = semver.inc(currentVersion, 'minor');
   const major = semver.inc(currentVersion, 'major');
 
-  const response = await prompts({
-    type: 'select',
-    name: 'value',
-    message: 'Select release type',
-    choices: [
-      { title: `Patch (${patch})`, value: patch },
-      { title: `Minor (${minor})`, value: minor },
-      { title: `Major (${major})`, value: major },
-      { title: 'Custom', value: 'custom' },
-    ],
-  });
-
-  let newVersion = response.value;
-
-  if (!newVersion) {
-    console.log('Operation cancelled.');
-    process.exit(0);
-  }
-
-  if (newVersion === 'custom') {
-    const customRes = await prompts({
-      type: 'text',
+  let newVersion;
+  if (isAutoPatch) {
+    newVersion = patch;
+  } else {
+    const response = await prompts({
+      type: 'select',
       name: 'value',
-      message: 'Enter custom version',
-      validate: (value) => semver.valid(value) ? true : 'Invalid semver version',
+      message: 'Select release type',
+      choices: [
+        { title: `Patch (${patch})`, value: patch },
+        { title: `Minor (${minor})`, value: minor },
+        { title: `Major (${major})`, value: major },
+        { title: 'Custom', value: 'custom' },
+      ],
     });
-    newVersion = customRes.value;
+
+    newVersion = response.value;
+
+    if (!newVersion) {
+      console.log('Operation cancelled.');
+      process.exit(0);
+    }
+
+    if (newVersion === 'custom') {
+      const customRes = await prompts({
+        type: 'text',
+        name: 'value',
+        message: 'Enter custom version',
+        validate: (value) => semver.valid(value) ? true : 'Invalid semver version',
+      });
+      newVersion = customRes.value;
+    }
   }
 
   if (!newVersion) {
@@ -69,13 +83,16 @@ async function main() {
   }
 
   // Prompt for release description
-  const descriptionRes = await prompts({
-    type: 'text',
-    name: 'value',
-    message: 'Enter release description (optional)',
-    initial: 'Maintenance update',
-  });
-  const description = descriptionRes.value;
+  let description = autoDesc;
+  if (!description) {
+    const descriptionRes = await prompts({
+      type: 'text',
+      name: 'value',
+      message: 'Enter release description (optional)',
+      initial: 'Maintenance update',
+    });
+    description = descriptionRes.value;
+  }
 
   console.log(`\nUpgrading to: ${newVersion}\n`);
 

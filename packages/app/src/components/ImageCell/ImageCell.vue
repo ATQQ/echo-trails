@@ -1,19 +1,16 @@
 <template>
-  <van-image v-if="cachedSrc" @click="emit('click')" @mousedown="start" @mouseup="cancel" @mouseleave="cancel"
+  <van-image @click="emit('click')" @mousedown="start" @mouseup="cancel" @mouseleave="cancel"
     @touchstart="start" @touchend="cancel" @touchmove="cancel" fit="cover" position="center" width="100%" height="100%"
-    lazy-load :src="cachedSrc" class="image-cell-wrapper">
+    lazy-load :src="cachedSrc" class="image-cell-wrapper image-fade-in">
     <slot />
     <template v-slot:loading>
-      <van-loading type="spinner" size="20" />
+      <div class="loading-container">
+        <van-loading type="spinner" size="20" />
+      </div>
     </template>
     <!-- 重复标识的蓝色小三角 -->
     <div v-if="isRepeat" class="repeat-indicator"></div>
   </van-image>
-  <div v-else-if="props.src" class="image-cell-wrapper loading-container" @click="emit('click')">
-    <van-loading type="spinner" size="20" />
-  </div>
-  <van-image v-else fit="cover" position="center" width="100%" height="100%"></van-image>
-
 </template>
 
 <script lang="ts" setup>
@@ -59,6 +56,15 @@ const cancel = () => {
   height: 100%;
 }
 
+.image-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .repeat-indicator {
   position: absolute;
   top: 0;
@@ -75,5 +81,7 @@ const cancel = () => {
   justify-content: center;
   align-items: center;
   background-color: #f7f8fa;
+  width: 100%;
+  height: 100%;
 }
 </style>
