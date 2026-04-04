@@ -186,76 +186,85 @@ const onSaveBitifulConfig = async () => {
 </script>
 
 <template>
-  <van-nav-bar title="服务配置" left-text="返回" left-arrow @click-left="onClickLeft" placeholder class="safe-padding-top" />
-  <van-form @submit="onSubmit">
-    <van-cell-group inset>
-      <!-- 模式选择 -->
-      <van-field v-model="mode" is-link readonly name="mode" label="模式" placeholder="点击切换模式"
-        @click="showModeSelect = true" />
+  <div class="set-view-container">
+    <van-nav-bar title="服务配置" left-text="返回" left-arrow @click-left="onClickLeft" placeholder class="safe-padding-top" />
+    <van-form @submit="onSubmit">
+      <van-cell-group inset>
+        <!-- 模式选择 -->
+        <van-field v-model="mode" is-link readonly name="mode" label="模式" placeholder="点击切换模式"
+          @click="showModeSelect = true" />
 
-      <template v-if="selectMode === 'server'">
-        <van-field v-model="serverUrl" name="serverUrl" label="服务地址" placeholder="服务地址"
-          :rules="[{ required: true, message: '请填写服务地址' }]" />
-        <!-- <van-field v-model="token" type="password" name="token" label="令牌" placeholder="验证身份" s
-          :rules="[{ required: true, message: '请填写令牌' }]" /> -->
-      </template>
+        <template v-if="selectMode === 'server'">
+          <van-field v-model="serverUrl" name="serverUrl" label="服务地址" placeholder="服务地址"
+            :rules="[{ required: true, message: '请填写服务地址' }]" />
+          <!-- <van-field v-model="token" type="password" name="token" label="令牌" placeholder="验证身份" s
+            :rules="[{ required: true, message: '请填写令牌' }]" /> -->
+        </template>
 
-    </van-cell-group>
-    <!-- <van-cell-group inset>
-      <van-cell title="家庭" :value="userInfo.username" />
-      <van-cell title="操作账号" :value="userInfo.operator" />
-    </van-cell-group> -->
+      </van-cell-group>
+      <!-- <van-cell-group inset>
+        <van-cell title="家庭" :value="userInfo.username" />
+        <van-cell title="操作账号" :value="userInfo.operator" />
+      </van-cell-group> -->
 
-    <!-- Bitiful 配置区域 -->
-    <van-cell-group inset v-if="showExit">
-      <van-cell title="Bitiful 配置" is-link :value="showBitifulConfig ? '收起' : '展开'"
-        @click="showBitifulConfig = !showBitifulConfig" />
-      <template v-if="showBitifulConfig">
-        <van-field v-model="bitifulConfig.accessKey" name="accessKey" label="Access Key" placeholder="默认不回显展示" />
-        <van-field v-model="bitifulConfig.secretKey" type="password" name="secretKey" label="Secret Key"
-          placeholder="默认不回显展示" />
-        <van-field v-model="bitifulConfig.cdnToken" name="cdnToken" label="CDN Token" placeholder="默认不回显展示" />
-        <van-field v-model="bitifulConfig.bucket" name="bucket" label="Bucket" placeholder="请输入 Bucket 名称" />
-        <van-field v-model="bitifulConfig.region" name="region" label="Region" placeholder="请输入 Region" />
-        <van-field v-model="bitifulConfig.endpoint" name="endpoint" label="Endpoint" placeholder="请输入 Endpoint" />
-        <van-field v-model="bitifulConfig.domain" name="domain" label="CDN Domain" placeholder="自定义域名" />
-        <!-- 添加提示 -->
-        <van-cell title="💡 提示" value="配置样式节约流量" title-class="text-blue-600" value-class="text-gray-500 text-sm" />
-        <van-field v-model="bitifulConfig.coverStyle" name="coverStyle" label="封面样式" placeholder="（选填）封面样式" />
-        <van-field v-model="bitifulConfig.previewStyle" name="previewStyle" label="预览样式" placeholder="（选填）预览样式" />
-        <van-field v-model="bitifulConfig.albumStyle" name="albumStyle" label="相册样式" placeholder="（选填）相册样式" />
-        <div class="btn-wrapper">
-          <van-button round block type="primary" @click="onSaveBitifulConfig">
-            保存 Bitiful 配置
-          </van-button>
-        </div>
-      </template>
-    </van-cell-group>
-    <div class="btn-wrapper">
-      <van-button round block type="success" native-type="submit">
-        确定
-      </van-button>
+      <!-- Bitiful 配置区域 -->
+      <van-cell-group inset v-if="showExit">
+        <van-cell title="Bitiful 配置" is-link :value="showBitifulConfig ? '收起' : '展开'"
+          @click="showBitifulConfig = !showBitifulConfig" />
+        <template v-if="showBitifulConfig">
+          <van-field v-model="bitifulConfig.accessKey" name="accessKey" label="Access Key" placeholder="默认不回显展示" />
+          <van-field v-model="bitifulConfig.secretKey" type="password" name="secretKey" label="Secret Key"
+            placeholder="默认不回显展示" />
+          <van-field v-model="bitifulConfig.cdnToken" name="cdnToken" label="CDN Token" placeholder="默认不回显展示" />
+          <van-field v-model="bitifulConfig.bucket" name="bucket" label="Bucket" placeholder="请输入 Bucket 名称" />
+          <van-field v-model="bitifulConfig.region" name="region" label="Region" placeholder="请输入 Region" />
+          <van-field v-model="bitifulConfig.endpoint" name="endpoint" label="Endpoint" placeholder="请输入 Endpoint" />
+          <van-field v-model="bitifulConfig.domain" name="domain" label="CDN Domain" placeholder="自定义域名" />
+          <!-- 添加提示 -->
+          <van-cell title="💡 提示" value="配置样式节约流量" title-class="text-blue-600" value-class="text-gray-500 text-sm" />
+          <van-field v-model="bitifulConfig.coverStyle" name="coverStyle" label="封面样式" placeholder="（选填）封面样式" />
+          <van-field v-model="bitifulConfig.previewStyle" name="previewStyle" label="预览样式" placeholder="（选填）预览样式" />
+          <van-field v-model="bitifulConfig.albumStyle" name="albumStyle" label="相册样式" placeholder="（选填）相册样式" />
+          <div class="btn-wrapper">
+            <van-button round block type="primary" @click="onSaveBitifulConfig">
+              保存 Bitiful 配置
+            </van-button>
+          </div>
+        </template>
+      </van-cell-group>
+      <div class="btn-wrapper">
+        <van-button round block type="success" native-type="submit">
+          确定
+        </van-button>
+      </div>
+      <div class="btn-wrapper">
+        <van-button round block type="primary" @click="onReset">
+          初始化所有配置
+        </van-button>
+      </div>
+
+      <div class="btn-wrapper" v-if="showExit">
+        <van-button round block type="danger" @click="onLogout">
+          退出登录
+        </van-button>
+      </div>
+    </van-form>
+    <div class="mode-select">
+      <van-popup v-model:show="showModeSelect" destroy-on-close position="bottom">
+        <van-picker :columns="columns" :model-value="modeValue" @confirm="onModeChanged"
+          @cancel="showModeSelect = false" />
+      </van-popup>
     </div>
-    <div class="btn-wrapper">
-      <van-button round block type="primary" @click="onReset">
-        初始化所有配置
-      </van-button>
-    </div>
-
-    <div class="btn-wrapper" v-if="showExit">
-      <van-button round block type="danger" @click="onLogout">
-        退出登录
-      </van-button>
-    </div>
-  </van-form>
-  <div class="mode-select">
-    <van-popup v-model:show="showModeSelect" destroy-on-close position="bottom">
-      <van-picker :columns="columns" :model-value="modeValue" @confirm="onModeChanged"
-        @cancel="showModeSelect = false" />
-    </van-popup>
   </div>
 </template>
 <style scoped>
+.set-view-container {
+  min-height: 100vh;
+  background-color: #f7f8fa;
+  padding-bottom: 40px;
+  box-sizing: border-box;
+}
+
 .mode-select :deep(.van-popup) {
   padding-top: 0 !important;
 }
