@@ -454,7 +454,6 @@ const clearAllSafe = () => {
               <van-collapse-item title="查看详情" :name="category.id">
                 <template v-for="item in category.items" :key="item.key">
                   <van-cell
-                    v-if="item.key !== MEMORY_CACHE_STORAGE_KEY"
                     :value="item.sizeStr"
                     :label="`占用空间`"
                   >
