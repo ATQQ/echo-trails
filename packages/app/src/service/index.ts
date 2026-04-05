@@ -116,7 +116,9 @@ export function getPhotos(page: number, pageSize: number, options: {
   likedMode?: boolean,
   albumId?: string,
   isDelete?: boolean,
-  type?: string
+  type?: string,
+  startDate?: string,
+  endDate?: string
 }) {
   return api.get<ServerResponse<Photo[]>>('file/photo/list', {
     searchParams: {
@@ -125,7 +127,9 @@ export function getPhotos(page: number, pageSize: number, options: {
       ...(options.likedMode ? { likedMode: true } : {}),
       ...(options.albumId ? { albumId: options.albumId } : {}),
       ...(options.isDelete ? { isDelete: true } : {}),
-      ...(options.type ? { type: options.type } : {})
+      ...(options.type ? { type: options.type } : {}),
+      ...(options.startDate ? { startDate: options.startDate } : {}),
+      ...(options.endDate ? { endDate: options.endDate } : {})
     }
   }).json()
     .then((v) => {
@@ -249,14 +253,18 @@ export function getPhotoListInfo(options: {
   likedMode?: boolean,
   albumId?: string,
   isDelete?: boolean,
-  type?: string
+  type?: string,
+  startDate?: string,
+  endDate?: string
 }) {
   return api.get<ServerResponse<InfoItem[]>>('file/photo/listInfo', {
     searchParams: {
       ...(options.likedMode ? { likedMode: true } : {}),
       ...(options.albumId ? { albumId: options.albumId } : {}),
       ...(options.isDelete ? { isDelete: true } : {}),
-      ...(options.type ? { type: options.type } : {})
+      ...(options.type ? { type: options.type } : {}),
+      ...(options.startDate ? { startDate: options.startDate } : {}),
+      ...(options.endDate ? { endDate: options.endDate } : {})
     }
   }).json()
     .then((v) => {

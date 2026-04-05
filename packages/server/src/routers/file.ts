@@ -155,7 +155,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       })
     }
 
-    const { pageSize = 20, page = 1, likedMode, albumId, isDelete, type } = ctx.req.query()
+    const { pageSize = 20, page = 1, likedMode, albumId, isDelete, type, startDate, endDate } = ctx.req.query()
     const isLiked = likedMode === 'true'
     const skip = (+page - 1) * +pageSize;
     const query: any = {
@@ -163,6 +163,16 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       deleted: !!isDelete,
       ...(isLiked ? { isLiked } : {}),
       ...(albumId ? { albumId } : {}),
+    }
+
+    if (startDate || endDate) {
+      query.lastModified = {}
+      if (startDate) {
+        query.lastModified.$gte = new Date(startDate)
+      }
+      if (endDate) {
+        query.lastModified.$lte = new Date(endDate)
+      }
     }
 
     if (type) {
@@ -454,13 +464,23 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
   router.get('photo/listInfo', async (ctx) => {
     const username = ctx.get('username')
-    const { likedMode, albumId, isDelete, type } = ctx.req.query()
+    const { likedMode, albumId, isDelete, type, startDate, endDate } = ctx.req.query()
     const isLiked = likedMode === 'true'
     const query: any = {
       username,
       deleted: !!isDelete,
       ...(isLiked ? { isLiked } : {}),
       ...(albumId ? { albumId } : {})
+    }
+
+    if (startDate || endDate) {
+      query.lastModified = {}
+      if (startDate) {
+        query.lastModified.$gte = new Date(startDate)
+      }
+      if (endDate) {
+        query.lastModified.$lte = new Date(endDate)
+      }
     }
 
     if (type) {

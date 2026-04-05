@@ -12,25 +12,14 @@
     content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
   <title>记忆的回响 | Echo Trails</title>
   <style>
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #fafaf9; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; }
+    
     #loading-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: #ffffff;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      transition: opacity 0.5s ease-out;
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .fade-out {
-      opacity: 0;
-      pointer-events: none;
-    }
+    /* 退出动画：照片轻微放大，产生一种“进入记忆”的沉浸感 */
+    .fade-out { opacity: 0; transform: scale(1.08); pointer-events: none; }
 
     #app {
       opacity: 0;
@@ -41,37 +30,109 @@
       opacity: 1;
     }
 
-    .loader {
-      width: fit-content;
-      font-size: 40px;
-      font-family: system-ui, sans-serif;
-      font-weight: bold;
-      text-transform: uppercase;
-      color: #0000;
-      -webkit-text-stroke: 1px #000;
-      background:
-        radial-gradient(0.71em at 50% 1em, #000 99%, #0000 101%) calc(50% - 1em) 1em/2em 200% repeat-x text,
-        radial-gradient(0.71em at 50% -0.5em, #0000 99%, #000 101%) 50% 1.5em/2em 200% repeat-x text;
-      animation:
-        l10-0 0.8s linear infinite alternate,
-        l10-1 4s linear infinite;
+    .stack-container { position: relative; width: 140px; height: 160px; perspective: 1000px; margin-bottom: 20px; }
+    
+    /* 拍立得相框样式 */
+    .photo { 
+        position: absolute; width: 100px; height: 120px; background: #fff; border-radius: 8px; 
+        box-shadow: 0 12px 30px rgba(0,0,0,0.06); padding: 6px; padding-bottom: 24px;
+        left: 14px; top: 10px; opacity: 0; transform-origin: center bottom;
+    }
+    
+    /* 内部抽象占位图，采用温和治愈的色彩 */
+    .photo-inner { width: 100%; height: 100%; background: #f8fafc; border-radius: 4px; overflow: hidden; position: relative; }
+    .photo-inner::after { content: ''; position: absolute; bottom: -10px; right: -10px; width: 60px; height: 60px; background: #e0f2fe; border-radius: 50%; }
+    .photo-inner::before { content: ''; position: absolute; bottom: 10px; left: -20px; width: 80px; height: 80px; background: #f1f5f9; border-radius: 50%; }
+    
+    /* 照片掉落动画：带阻尼弹簧效果 */
+    @keyframes dropIn {
+        0% { opacity: 0; transform: translateY(-60px) rotate(0deg) scale(1.1); }
+        60% { opacity: 1; transform: translateY(8px) rotate(var(--r)) scale(0.95); }
+        100% { opacity: 1; transform: translateY(0) rotate(var(--r)) scale(1); }
     }
 
-    .loader:before {
-      content: 'Loading';
+    /* 3张照片不同的角度和延迟 */
+    .photo:nth-child(1) { --r: -14deg; animation: dropIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; animation-delay: 0.1s; }
+    .photo:nth-child(2) { --r: 8deg; animation: dropIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; animation-delay: 0.3s; z-index: 2; }
+    .photo:nth-child(3) { --r: -5deg; animation: dropIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; animation-delay: 0.5s; z-index: 3; }
+    
+    /* 为最上层照片增加一点暖色调点缀 */
+    .photo:nth-child(3) .photo-inner::after { background: #ffedd5; }
+    .photo:nth-child(3) .photo-inner::before { background: #fef3c7; }
+
+    /* 整体轻微浮动，仿佛记忆在呼吸 */
+    .stack-container { animation: stackFloat 5s ease-in-out infinite; }
+    @keyframes stackFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+    .text-wrap { margin-top: 30px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+    
+    /* App 名称：记忆的回响 */
+    .title { 
+        font-size: 24px; 
+        color: #1c1917; 
+        font-weight: 600; 
+        letter-spacing: 2px; 
+        margin-bottom: 8px;
+        opacity: 0;
+        animation: fadeIn 1s ease forwards 0.8s;
+    }
+    
+    /* 诗意文案轮播 */
+    .slogan-container {
+        height: 24px;
+        overflow: hidden;
+        position: relative;
+        opacity: 0;
+        animation: fadeIn 1s ease forwards 1s;
     }
 
-    @keyframes l10-0 {
-      to {
-        background-position-x: 50%, calc(50% + 1em);
-      }
+    .slogan-list {
+        display: flex;
+        flex-direction: column;
+        /* 3句文案轮播，每句停留2秒，过渡0.5秒 */
+        animation: slideUp 7.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     }
 
-    @keyframes l10-1 {
-      to {
-        background-position-y: -0.5em, 0;
-      }
+    .slogan { 
+        height: 24px;
+        line-height: 24px;
+        font-size: 13px; 
+        color: #78716c; 
+        letter-spacing: 3px; 
+        font-weight: 300;
     }
+    
+    @keyframes slideUp {
+        0%, 25% { transform: translateY(0); }             /* 第一句停留 */
+        33.33%, 58.33% { transform: translateY(-24px); }  /* 第二句停留 */
+        66.66%, 91.66% { transform: translateY(-48px); }  /* 第三句停留 */
+        100% { transform: translateY(-72px); }            /* 回到起点 (需要复制第一句以实现无缝) */
+    }
+
+    @keyframes fadeIn {
+        to { opacity: 1; }
+    }
+    
+    /* 优雅的细线进度条 */
+    .progress-bar { 
+        width: 120px; 
+        height: 2px; 
+        background: #f5f5f4; 
+        border-radius: 2px; 
+        margin-top: 24px; 
+        overflow: hidden; 
+        position: relative; 
+        opacity: 0;
+        animation: fadeIn 1s ease forwards 1.2s;
+    }
+    .progress-inner { 
+        width: 30%; 
+        height: 100%; 
+        background: #d6d3d1; /* 温和的暖灰色，不抢戏 */
+        border-radius: 2px; 
+        animation: loading 2s ease-in-out infinite; 
+    }
+    @keyframes loading { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
   </style>
 </head>
 
@@ -112,7 +173,29 @@
     // }
   </script>
   <div id="loading-screen">
-    <div class="loader"></div>
+    <!-- 照片堆叠区 -->
+    <div class="stack-container">
+      <div class="photo"><div class="photo-inner"></div></div>
+      <div class="photo"><div class="photo-inner"></div></div>
+      <div class="photo"><div class="photo-inner"></div></div>
+    </div>
+    
+    <!-- 文字与文案区 -->
+    <div class="text-wrap">
+      <div class="title">记忆的回响</div>
+      
+      <div class="slogan-container">
+          <div class="slogan-list">
+              <div class="slogan">每一帧，皆是光阴的琥珀</div>
+              <div class="slogan">唤醒，那些被岁月珍藏的瞬间</div>
+              <div class="slogan">在云端，倾听时光的回声</div>
+              <!-- 无缝循环补位 -->
+              <div class="slogan">每一帧，皆是光阴的琥珀</div>
+          </div>
+      </div>
+      
+      <div class="progress-bar"><div class="progress-inner"></div></div>
+    </div>
   </div>
   <script>
     window.hideLoadingScreen = () => {

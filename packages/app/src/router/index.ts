@@ -66,6 +66,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/album/all',
+      name: 'album-all',
+      component: () => import('../views/AllAlbumView.vue'),
+      meta: {
+        keepAlive: true,
+        nav: false,
+        componentName: 'AllAlbumView'
+      }
+    },
+    {
       path: '/album/:albumId',
       name: 'album-photo',
       component: () => import('../views/AlbumPhotoView.vue'),
