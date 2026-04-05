@@ -1,10 +1,9 @@
 <script lang="ts" setup>
-import { createAlbum, getAlbums } from '@/service';
-import { showToast } from 'vant';
+import { getAlbums } from '@/service';
 import { ref, reactive, onActivated, computed } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
-import EditAlbumCard from '@/components/EditAlbumCard/EditAlbumCard.vue';
+import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
 import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton/AddButton.vue';
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
@@ -164,34 +163,52 @@ onActivated(() => {
 })
 
 const showAddModal = ref(false)
+const currentEditId = ref('')
+const currentEditData = ref<Album | undefined>(undefined)
 
-const addData = reactive({
-  name: '',
-  description: '',
-  isLarge: false,
-  tags: [] as string[]
-})
-
-const reset = () => {
-  showAddModal.value = false
-  addData.name = ''
-  addData.description = ''
-  addData.isLarge = false
-  addData.tags = []
+const handleLongPress = (album: Album) => {
+  currentEditId.value = album._id
+  currentEditData.value = album
+  showAddModal.value = true
 }
 
-const onSubmit = () => {
-  createAlbum(addData.name, addData.description, addData.isLarge, addData.tags).then(async () => {
-    showToast('创建成功')
-    reset()
-    loadAlbum()
-  })
+const handleContextMenu = (e: Event, album: Album) => {
+  e.preventDefault()
+  handleLongPress(album)
+}
+
+const handleAddClick = () => {
+  currentEditId.value = ''
+  currentEditData.value = undefined
+  showAddModal.value = true
 }
 
 const router = useRouter()
 const goToDetail = (albumId: string) => {
+  if (isLongPressTriggered) {
+    isLongPressTriggered = false
+    return
+  }
   addRecent(albumId)
   router.push({ name: 'album-photo', params: { albumId } })
+}
+
+let touchTimer: any = null
+let isLongPressTriggered = false
+
+const handleTouchStart = (album: Album) => {
+  isLongPressTriggered = false
+  if (touchTimer) clearTimeout(touchTimer)
+  touchTimer = setTimeout(() => {
+    isLongPressTriggered = true
+    handleLongPress(album)
+  }, 500)
+}
+const handleTouchEnd = () => {
+  if (touchTimer) {
+    clearTimeout(touchTimer)
+    touchTimer = null
+  }
 }
 
 const goToAllAlbums = () => {
@@ -234,7 +251,12 @@ preventBack(showAddModal)
         <!-- 大卡片 -->
         <van-grid :column-num="1" :border="false" :gutter="16">
           <van-grid-item v-for="album in displayAlbumList.large" :key="album._id">
-            <div class="large-card" @click.stop.prevent="goToDetail(album._id)">
+            <div class="large-card" @click.stop.prevent="goToDetail(album._id)"
+                 @contextmenu="handleContextMenu($event, album)"
+                 @touchstart="handleTouchStart(album)"
+                 @touchend="handleTouchEnd"
+                 @touchcancel="handleTouchEnd"
+                 @touchmove="handleTouchEnd">
               <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
               <!-- 标题和描述 -->
               <div class="title-desc" :class="{
@@ -258,7 +280,12 @@ preventBack(showAddModal)
           </div>
           <van-grid :gutter="10" :column-num="3" :border="false" class="small-card-grid">
             <van-grid-item v-for="album in displayAlbumList.allSmall" :key="album._id">
-              <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
+              <div class="small-card" @click.stop.prevent="goToDetail(album._id)"
+                   @contextmenu="handleContextMenu($event, album)"
+                   @touchstart="handleTouchStart(album)"
+                   @touchend="handleTouchEnd"
+                   @touchcancel="handleTouchEnd"
+                   @touchmove="handleTouchEnd">
                 <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
                 <div class="title-desc">
                   <h2>{{ album.name }}</h2>
@@ -276,7 +303,12 @@ preventBack(showAddModal)
             <van-icon name="exchange" @click.stop="changeTagStyle(group.tag)" />
           </div>
           <div class="horizontal-scroll">
-            <div class="scroll-item" :class="group.style" v-for="album in group.albums" :key="album._id" @click.stop.prevent="goToDetail(album._id)">
+            <div class="scroll-item" :class="group.style" v-for="album in group.albums" :key="album._id" @click.stop.prevent="goToDetail(album._id)"
+                 @contextmenu="handleContextMenu($event, album)"
+                 @touchstart="handleTouchStart(album)"
+                 @touchend="handleTouchEnd"
+                 @touchcancel="handleTouchEnd"
+                 @touchmove="handleTouchEnd">
               <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
               <div class="title-desc">
                 <h2>{{ album.name }}</h2>
@@ -294,14 +326,23 @@ preventBack(showAddModal)
     '--van-back-top-size': '36px',
   }" />
   <!-- 添加相册 -->
-  <AddButton class="add-position" @click="showAddModal = true" v-show="!showAddModal" />
-  <van-popup @close="showAddModal = false" v-model:show="showAddModal" round position="bottom"
-    :style="{ height: '50%' }" @closed="reset">
-    <EditAlbumCard @submit="onSubmit" :data="addData" btn-type="primary" />
-  </van-popup>
+  <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal" />
+  <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="loadAlbum()" />
 </template>
 
 <style scoped lang="scss">
+.popup-content {
+  padding: 16px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.popup-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
 .album {
   padding-bottom: var(--footer-area-height);
 }
@@ -411,20 +452,20 @@ preventBack(showAddModal)
 
     &.square {
       width: 32vw;
-      display: flex;
-      flex-direction: column;
-
-      :deep(.van-image) {
-        aspect-ratio: 1 / 1;
-        height: auto !important;
-      }
+      aspect-ratio: 1 / 1.15;
 
       .title-desc {
-        margin-top: 6px;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 24px 10px 10px;
+        background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.5));
+
         h2 {
           margin: 0;
-          color: #333;
-          font-size: 14px;
+          color: #fff;
+          font-size: 15px;
           font-weight: 500;
           white-space: nowrap;
           overflow: hidden;
@@ -432,9 +473,7 @@ preventBack(showAddModal)
         }
 
         p {
-          margin: 2px 0 0 0;
-          font-size: 12px;
-          color: #999;
+          display: none;
         }
       }
     }

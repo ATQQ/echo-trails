@@ -1,10 +1,9 @@
 <script lang="ts" setup>
-import { createAlbum, getAlbums } from '@/service';
-import { showToast } from 'vant';
+import { getAlbums } from '@/service';
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
-import EditAlbumCard from '@/components/EditAlbumCard/EditAlbumCard.vue';
+import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
 import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton/AddButton.vue';
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
@@ -137,93 +136,138 @@ onMounted(() => {
 })
 
 const showAddModal = ref(false)
+const currentEditId = ref('')
+const currentEditData = ref<Album | undefined>(undefined)
 
-const addData = reactive({
-  name: '',
-  description: '',
-  isLarge: false,
-  tags: [] as string[]
-})
-
-const reset = () => {
-  showAddModal.value = false
-  addData.name = ''
-  addData.description = ''
-  addData.isLarge = false
-  addData.tags = []
+const handleLongPress = (album: Album) => {
+  currentEditId.value = album._id
+  currentEditData.value = album
+  showAddModal.value = true
 }
 
-const onSubmit = () => {
-  createAlbum(addData.name, addData.description, addData.isLarge, addData.tags).then(async () => {
-    showToast('创建成功')
-    reset()
-    loadAlbum()
-  })
+const handleContextMenu = (e: Event, album: Album) => {
+  e.preventDefault()
+  handleLongPress(album)
+}
+
+const handleAddClick = () => {
+  currentEditId.value = ''
+  currentEditData.value = undefined
+  showAddModal.value = true
 }
 
 const router = useRouter()
 const goToDetail = (albumId: string) => {
+  if (isLongPressTriggered) {
+    isLongPressTriggered = false
+    return
+  }
   addRecent(albumId)
   router.push({ name: 'album-photo', params: { albumId } })
+}
+
+let touchTimer: any = null
+let isLongPressTriggered = false
+
+const handleTouchStart = (album: Album) => {
+  isLongPressTriggered = false
+  if (touchTimer) clearTimeout(touchTimer)
+  touchTimer = setTimeout(() => {
+    isLongPressTriggered = true
+    handleLongPress(album)
+  }, 500)
+}
+const handleTouchEnd = () => {
+  if (touchTimer) {
+    clearTimeout(touchTimer)
+    touchTimer = null
+  }
 }
 
 preventBack(showAddModal)
 </script>
 
 <template>
-  <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)">
-    <PageTitle title="全部相册" :info="false" back>
-      <template #action>
-        <van-popover v-model:show="showSortPopover" :actions="sortActions" @select="onSelectSort"
-          placement="bottom-end">
-          <template #reference>
-            <van-icon style="margin-right: 16px;" name="sort" size="18" color="#333" />
-          </template>
-        </van-popover>
-      </template>
-    </PageTitle>
-    <div class="album">
-      <div v-if="loading && !displayAlbumList.small?.length"
-        class="skeleton-container">
-        <div class="skeleton-grid">
-          <div class="skeleton-small skeleton-bg" v-for="i in 4" :key="i"></div>
+  <div class="app-wrapper">
+    <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)" class="pull-refresh-container">
+      <PageTitle title="全部相册" :info="false" back>
+        <template #action>
+          <van-popover v-model:show="showSortPopover" :actions="sortActions" @select="onSelectSort"
+            placement="bottom-end">
+            <template #reference>
+              <van-icon style="margin-right: 16px;" name="sort" size="18" color="#333" />
+            </template>
+          </van-popover>
+        </template>
+      </PageTitle>
+      <div class="album">
+        <div v-if="loading && !displayAlbumList.small?.length"
+          class="skeleton-container">
+          <div class="skeleton-grid">
+            <div class="skeleton-small skeleton-bg" v-for="i in 4" :key="i"></div>
+          </div>
         </div>
-      </div>
-      <template v-else>
-        <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
-        <!-- 小卡片分类 -->
-        <van-grid :gutter="10" :column-num="2" :border="false">
-          <van-grid-item v-for="album in displayAlbumList.small" :key="album._id">
-            <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
-              <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
-              <div class="title-desc">
-                <h2>{{ album.name }}
-                  <span v-if="album.tags?.length" class="tags">
-                    <span v-for="tag in album.tags" :key="tag" class="tag">{{ tag }}</span>
-                  </span>
-                </h2>
-                <p>{{ album.count }}</p>
+        <template v-else>
+          <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
+          <!-- 小卡片分类 -->
+          <van-grid :gutter="10" :column-num="2" :border="false">
+            <van-grid-item v-for="album in displayAlbumList.small" :key="album._id">
+              <div class="small-card" @click.stop.prevent="goToDetail(album._id)"
+                   @contextmenu="handleContextMenu($event, album)"
+                   @touchstart="handleTouchStart(album)"
+                   @touchend="handleTouchEnd"
+                   @touchcancel="handleTouchEnd"
+                   @touchmove="handleTouchEnd">
+                <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
+                <div class="title-desc">
+                  <h2>{{ album.name }}
+                    <span v-if="album.tags?.length" class="tags">
+                      <span v-for="tag in album.tags" :key="tag" class="tag">{{ tag }}</span>
+                    </span>
+                  </h2>
+                  <p>{{ album.count }}</p>
+                </div>
               </div>
-            </div>
-          </van-grid-item>
-        </van-grid>
-      </template>
-    </div>
-  </van-pull-refresh>
-  <!-- 回到顶部 -->
-  <van-back-top :bottom="'calc(var(--footer-area-height) + 48px)'" :right="20" :style="{
-    '--van-back-top-icon-size': '16px',
-    '--van-back-top-size': '36px',
-  }" />
-  <!-- 添加相册 -->
-  <AddButton class="add-position" @click="showAddModal = true" v-show="!showAddModal" />
-  <van-popup @close="showAddModal = false" v-model:show="showAddModal" round position="bottom"
-    :style="{ height: '50%' }" @closed="reset">
-    <EditAlbumCard @submit="onSubmit" :data="addData" btn-type="primary" />
-  </van-popup>
+            </van-grid-item>
+          </van-grid>
+        </template>
+      </div>
+    </van-pull-refresh>
+    <!-- 回到顶部 -->
+    <van-back-top :bottom="'calc(var(--footer-area-height) + 48px)'" :right="20" :style="{
+      '--van-back-top-icon-size': '16px',
+      '--van-back-top-size': '36px',
+    }" />
+    <!-- 添加相册 -->
+    <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal" />
+    <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="loadAlbum()" />
+  </div>
 </template>
 
 <style scoped lang="scss">
+.popup-content {
+  padding: 16px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.popup-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+.app-wrapper {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.pull-refresh-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
 .album {
   padding-bottom: var(--footer-area-height);
 }

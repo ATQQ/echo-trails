@@ -15,7 +15,7 @@ export function useTagStyles() {
   }
 
   const getStyle = (tag: string): TagStyle => {
-    return tagStyles.value[tag] || 'square'
+    return tagStyles.value[tag] || 'portrait'
   }
 
   return {

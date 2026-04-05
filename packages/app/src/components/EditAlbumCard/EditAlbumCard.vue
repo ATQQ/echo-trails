@@ -1,63 +1,77 @@
 <template>
-  <van-form class="card-margin" @submit="() => emit('submit')">
-    <van-cell-group inset>
-      <van-field required v-model="addData.name" name="名称" label="名称" placeholder="请输入相册名"
-        :rules="[{ required: true, message: '请填写相册名' }]">
-        <template #left-icon></template>
-      </van-field>
-      <van-field v-model="addData.description" autosize show-word-limit rows="5" maxlength="100" type="textarea"
-        name="描述" label="描述" placeholder="描述" />
-      <van-field name="switch" label="大卡片">
-        <template #input>
-          <van-switch v-model="addData.isLarge" />
-        </template>
-      </van-field>
-      <!-- tags -->
-      <van-field name="标签" label="标签">
-        <template #input>
-          <div class="tags-editor">
-            <van-tag
-              v-for="(tag, index) in addData.tags"
-              :key="index"
-              closeable
-              size="medium"
-              type="primary"
-              class="tag-item"
-              @close="removeTag(index)"
-            >
-              {{ tag }}
-            </van-tag>
-            <input
-              v-model="newTag"
-              class="tag-input"
-              placeholder="输入标签(空格/回车确认)"
-              @keydown.enter.prevent="addTag"
-              @keydown.space.prevent="addTag"
-              @blur="addTag"
-            />
-          </div>
-        </template>
-      </van-field>
-      <div v-if="suggestedTags.length" class="suggested-tags-wrapper">
-        <span class="suggest-label">推荐标签：</span>
-        <van-tag
-          v-for="tag in suggestedTags"
-          :key="tag"
-          plain
-          type="primary"
-          class="suggest-tag"
-          @click="addSuggestedTag(tag)"
-        >
-          {{ tag }}
-        </van-tag>
+  <div class="edit-album-form">
+    <van-form @submit="() => emit('submit')">
+      <div class="form-section">
+        <div class="section-label">基本信息</div>
+        <van-field required v-model="addData.name" name="名称" label="名称" placeholder="请输入相册名"
+          :rules="[{ required: true, message: '请填写相册名' }]">
+        </van-field>
+        <van-field v-model="addData.description" autosize show-word-limit rows="3" maxlength="100" type="textarea"
+          name="描述" label="描述" placeholder="请输入描述信息" />
       </div>
-    </van-cell-group>
-    <div style="margin: 16px;">
-      <van-button size="small" round block :type="btnType" native-type="submit">
-        提交
-      </van-button>
-    </div>
-  </van-form>
+
+      <div class="form-section">
+        <div class="section-label">显示设置</div>
+        <van-field name="switch" label="大卡片显示">
+          <template #input>
+            <van-switch v-model="addData.isLarge" size="20px" />
+          </template>
+        </van-field>
+      </div>
+
+      <div class="form-section">
+        <div class="section-label">标签管理</div>
+        <!-- tags -->
+        <van-field name="标签">
+          <template #input>
+            <div class="tags-editor">
+              <van-tag
+                v-for="(tag, index) in addData.tags"
+                :key="index"
+                closeable
+                size="medium"
+                type="primary"
+                class="tag-item"
+                @close="removeTag(index)"
+              >
+                {{ tag }}
+              </van-tag>
+              <input
+                v-model="newTag"
+                class="tag-input"
+                placeholder="输入标签(空格/回车确认)"
+                @keydown.enter.prevent="addTag"
+                @keydown.space.prevent="addTag"
+                @blur="addTag"
+              />
+            </div>
+          </template>
+        </van-field>
+        <div v-if="suggestedTags.length" class="suggested-tags-wrapper">
+          <span class="suggest-label">推荐标签：</span>
+          <van-tag
+            v-for="tag in suggestedTags"
+            :key="tag"
+            plain
+            type="primary"
+            class="suggest-tag"
+            @click="addSuggestedTag(tag)"
+          >
+            {{ tag }}
+          </van-tag>
+        </div>
+      </div>
+
+      <div class="submit-btn-container">
+        <van-button size="large" round block :type="btnType" native-type="submit">
+          保存
+        </van-button>
+        <van-button class="cancel-btn" size="large" round block plain type="default" @click="() => emit('cancel')">
+          取消
+        </van-button>
+      </div>
+    </van-form>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -84,6 +98,7 @@ const addData = defineModel<{
 
 const emit = defineEmits<{
   (e: 'submit'): void
+  (e: 'cancel'): void
 }>()
 
 const newTag = ref('')
@@ -135,6 +150,19 @@ const removeTag = (index: number) => {
 </script>
 
 <style scoped>
+.edit-album-form {
+  padding-bottom: 20px;
+}
+.form-section {
+  margin-bottom: 24px;
+}
+.section-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
 .tags-editor {
   display: flex;
   flex-wrap: wrap;
@@ -157,9 +185,8 @@ const removeTag = (index: number) => {
   color: #c8c9cc;
 }
 .suggested-tags-wrapper {
-  padding: 10px 16px;
-  background: #fff;
-  border-top: 1px solid #ebedf0;
+  padding: 12px 4px;
+  background: transparent;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -171,5 +198,17 @@ const removeTag = (index: number) => {
 }
 .suggest-tag {
   cursor: pointer;
+}
+.submit-btn-container {
+  margin: 32px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cancel-btn {
+  border: none;
+  background: transparent;
+  color: #999;
 }
 </style>
