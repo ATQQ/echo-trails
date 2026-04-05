@@ -77,6 +77,7 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted } from 'vue';
 import { getAlbums } from '@/service';
+import { showToast } from 'vant';
 
 const { btnType = 'success' } = defineProps<{
   btnType?: 'success' | 'primary'
@@ -126,13 +127,20 @@ const addTag = () => {
       addData.value.tags = []
     }
     const tags = input.split(/\s+/).filter(Boolean)
+    let hasError = false
     tags.forEach(tag => {
-      if (!addData.value.tags!.includes(tag)) {
+      if (tag.length > 20) {
+        showToast('标签长度不能超过20个字符')
+        hasError = true
+      } else if (!addData.value.tags!.includes(tag)) {
         addData.value.tags!.push(tag)
       }
     })
+    // 只有在所有拆分出来的标签都没超出长度时才清空输入框
+    if (!hasError) {
+      newTag.value = ''
+    }
   }
-  newTag.value = ''
 }
 
 const addSuggestedTag = (tag: string) => {
