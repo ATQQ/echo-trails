@@ -93,7 +93,7 @@ const sortAlbums = (albums: Album[]) => {
 
 const displayAlbumList = computed(() => {
   const sortedSmall = sortAlbums(albumList.value.small)
-  
+
   // 分组标签
   const tagMap = new Map<string, Album[]>()
   sortedSmall.forEach(album => {
@@ -387,6 +387,8 @@ preventBack(showAddModal)
   overflow-x: auto;
   gap: 12px;
   padding: 0 16px;
+  scroll-padding-left: 16px;
+  scroll-padding-right: 16px;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   &::-webkit-scrollbar {
@@ -438,9 +440,9 @@ preventBack(showAddModal)
     }
 
     &.portrait {
-      width: 42vw;
+      width: 62vw;
       aspect-ratio: 3 / 4;
-      
+
       .title-desc {
         position: absolute;
         bottom: 0;
@@ -449,7 +451,7 @@ preventBack(showAddModal)
         padding: 24px 12px 12px;
         background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.7));
         color: #fff;
-        
+
         h2 {
           margin: 0;
           color: #fff;
