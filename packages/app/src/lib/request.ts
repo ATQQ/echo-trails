@@ -22,7 +22,7 @@ const hooks: Hooks = {
       if ([401, 400].includes(response.status)) {
         localStorage.removeItem('token')
         const { pathname } = new URL(_request.url)
-        if (pathname === '/api/check' || pathname === '/api/config/bitiful') {
+        if (pathname.endsWith('/api/check') || pathname.endsWith('/api/config/bitiful')) {
           throw new Error('Unauthorized')
         }
         goLogin()

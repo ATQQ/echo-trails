@@ -8,10 +8,8 @@ export async function login() {
 }
 
 export function goLogin() {
-  // if (isTauri) {
-  //   window.location.href = `${location.origin}/`
-  //   return
-  // }
-
+  if (window.location.pathname === '/login') {
+    return
+  }
   window.location.href = `${location.origin}/login`
 }
