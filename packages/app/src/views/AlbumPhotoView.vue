@@ -143,13 +143,14 @@ const onSubmit = () => {
         :style="{ width: '100%', height: '100%', background: '#eff2f5', padding: '20px 0' }">
         <div class="safe-padding-top" style="width: 100%"></div>
         <!-- 基本信息卡片展示 -->
-        <InfoCard :data="listData"/>
+        <InfoCard v-if="!editMode" :data="listData"/>
         <!-- 编辑卡片 -->
         <InfoCard v-if="!editMode" class="card-margin" :data="albumInfoData" />
-        <EditAlbumCard v-if="editMode" :data="addData" @submit="onSubmit" />
+        <div v-else class="edit-album-wrapper">
+          <EditAlbumCard :data="addData" @submit="onSubmit" @cancel="editMode = false" btn-type="primary" />
+        </div>
         <div class="operation card-margin">
           <van-button v-if="!editMode" @click="handleEdit" type="primary" block round size="small">编辑</van-button>
-          <van-button v-else @click="editMode = false" type="danger" block round size="small">取消</van-button>
           <van-button v-if="!editMode" class="card-margin" @click="showInfoPanel = false" plain block round size="small">关闭</van-button>
         </div>
       </van-popup>
@@ -235,6 +236,11 @@ const onSubmit = () => {
 }
 
 .card-margin {
+  margin-top: 20px;
+}
+
+.edit-album-wrapper {
+  padding: 0 16px;
   margin-top: 20px;
 }
 
