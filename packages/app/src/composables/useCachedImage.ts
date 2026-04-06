@@ -1,17 +1,22 @@
 
 import { ref, watchEffect, toValue, type MaybeRef } from 'vue';
 import { isTauri } from '@/constants';
-import { BaseDirectory, writeFile, lstat, mkdir } from '@tauri-apps/plugin-fs';
+import { BaseDirectory, writeFile, lstat, mkdir, remove } from '@tauri-apps/plugin-fs';
 import { fetch } from '@tauri-apps/plugin-http';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { appCacheDir, join } from '@tauri-apps/api/path';
 import SparkMD5 from 'spark-md5';
 import pLimit from 'p-limit';
+import { showToast } from 'vant';
 
 const limit = pLimit(4); // Limit concurrent file operations
 const downloadLimit = pLimit(1); // Limit concurrent background downloads
 const CACHE_DIR_NAME = 'image_cache';
 export const MEMORY_CACHE_STORAGE_KEY = 'image_memory_cache_v1';
+
+// Global debug switch for image cache
+export const isCacheDebugMode = ref(false);
+export const isCacheDisabled = ref(false);
 
 // Cache for in-memory URLs to avoid repeated checks for the same URL in the same session
 // Initialize from localStorage to persist across app restarts
@@ -93,8 +98,47 @@ const processingCache = new Map<string, Promise<string>>();
  * @param cacheKey Optional unique key for the image. If provided, it will be used for the filename hash instead of the URL.
  *                 Useful for signed URLs where the signature changes but the image is the same.
  */
+export async function deleteSingleImageCache(url: string, cacheKey?: string) {
+  if (!isTauri) return;
+  const memKey = cacheKey ? `key:${cacheKey}` : url;
+  
+  if (memoryCache.has(memKey)) {
+    const hashContent = cacheKey || url;
+    const hash = SparkMD5.hash(hashContent);
+    const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
+    const safeExt = ext.replace(/[^a-z0-9]/gi, '').substring(0, 4) || 'jpg';
+    const filename = `${hash}.${safeExt}`;
+    const filePath = `${CACHE_DIR_NAME}/${filename}`;
+
+    try {
+      await remove(filePath, { baseDir: BaseDirectory.AppCache });
+      console.log(`[ImageCache] Deleted physical cache file: ${filePath}`);
+    } catch (e) {
+      console.error(`[ImageCache] Failed to delete physical cache file: ${filePath}`, e);
+    }
+    
+    memoryCache.delete(memKey);
+    persistMemoryCache();
+    showToast('该图片缓存已删除');
+  }
+}
+
+export async function clearImageCache() {
+  if (!isTauri) return;
+  try {
+    await remove(CACHE_DIR_NAME, { baseDir: BaseDirectory.AppCache, recursive: true });
+    memoryCache.clear();
+    localStorage.removeItem(MEMORY_CACHE_STORAGE_KEY);
+    cacheDirPromise = null;
+    initImageCache();
+    showToast('Cache cleared');
+  } catch (e) {
+    console.error('[ImageCache] Failed to clear cache', e);
+  }
+}
+
 export async function cacheImage(url: string, cacheKey?: string): Promise<string> {
-  if (!isTauri) return url;
+  if (!isTauri || isCacheDisabled.value) return url;
   if (!url || !url.startsWith('http')) return url;
 
   const totalStart = performance.now();
@@ -223,6 +267,11 @@ export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: May
 
     if (!targetUrl) {
       cachedSrc.value = '';
+      return;
+    }
+
+    if (isCacheDisabled.value) {
+      cachedSrc.value = targetUrl;
       return;
     }
 

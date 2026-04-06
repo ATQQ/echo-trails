@@ -11,6 +11,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { api } from "@/lib/request";
+import { isCacheDebugMode, isCacheDisabled } from '@/composables/useCachedImage';
+import { preventBack } from '@/lib/router';
 
 const router = useRouter();
 
@@ -51,6 +53,25 @@ onMounted(async () => {
 
 // App 版本号
 const appVersion = ref(version);
+const clickVersionCount = ref(0);
+let clickTimer: any = null;
+const showDebugMenu = ref(false);
+preventBack(showDebugMenu);
+
+const handleVersionClick = () => {
+  clickVersionCount.value++;
+  
+  if (clickTimer) clearTimeout(clickTimer);
+  
+  if (clickVersionCount.value >= 5) {
+    showDebugMenu.value = true;
+    clickVersionCount.value = 0;
+  } else {
+    clickTimer = setTimeout(() => {
+      clickVersionCount.value = 0;
+    }, 1000);
+  }
+};
 
 // 退出登录
 const handleLogout = () => {
@@ -286,7 +307,7 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
 
       <!-- 版本信息 -->
       <div class="version-info">
-        <div>Echo Trails v{{ appVersion }}</div>
+        <div @click="handleVersionClick">Echo Trails v{{ appVersion }}</div>
         <div class="github-link" @click="openGithub">
           开源地址: https://github.com/ATQQ/echo-trails
         </div>
@@ -303,6 +324,27 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
         </div>
       </div>
     </van-overlay>
+
+    <!-- Debug Menu Popup -->
+    <van-popup v-model:show="showDebugMenu" position="bottom" round class="safe-padding-bottom">
+      <div class="debug-menu-header">
+        <h3>开发者调试模式</h3>
+      </div>
+      <div class="debug-menu-content">
+        <van-cell-group inset>
+          <van-cell title="图片缓存角标" label="在图片左上角显示「缓存」标识并支持点击删除单张缓存">
+            <template #right-icon>
+              <van-switch v-model="isCacheDebugMode" size="20" />
+            </template>
+          </van-cell>
+          <van-cell title="禁用图片缓存" label="强制所有图片从网络加载，不读取也不写入本地缓存">
+            <template #right-icon>
+              <van-switch v-model="isCacheDisabled" size="20" />
+            </template>
+          </van-cell>
+        </van-cell-group>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -336,5 +378,24 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
     color: var(--van-primary-color);
     cursor: pointer;
   }
+}
+
+.debug-menu-header {
+  padding: 16px;
+  text-align: center;
+  border-bottom: 1px solid #f2f3f5;
+  margin-bottom: 12px;
+  
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #323233;
+  }
+}
+
+.debug-menu-content {
+  padding-bottom: 24px;
+  background-color: #f7f8fa;
 }
 </style>

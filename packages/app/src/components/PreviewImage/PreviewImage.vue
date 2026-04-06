@@ -18,6 +18,10 @@
                 {{ coverTime }}
                 <span class="lunar-date"> / {{ lunarDate }}</span>
               </h4>
+              <!-- 缓存调试标识 -->
+              <div v-if="isCacheDebugMode && isUsingCache" class="cache-debug-badge" @click.stop="handleDeleteCache">
+                <van-icon name="delete-o" /> 缓存
+              </div>
               <div class="header-actions">
                 <van-icon v-show="showSetCover" class="set-cover-icon" @click.stop="handleSetCover" name="bookmark-o"
                   size="24" />
@@ -77,7 +81,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import BottomActions from '../BottomActions/BottomActions.vue';
-import { cacheImage } from '@/composables/useCachedImage';
+import { cacheImage, isCacheDebugMode, deleteSingleImageCache } from '@/composables/useCachedImage';
 import { isTauri } from '@/constants';
 
 const { images = [], start = 0, album, isDelete = false } = defineProps<{
@@ -117,6 +121,16 @@ watch(() => images, (newImages: Photo[]) => {
 }, { immediate: true, deep: true })
 
 const currentIdx = ref(start)
+const isUsingCache = computed(() => {
+  return urls.value[currentIdx.value] && urls.value[currentIdx.value].includes('image_cache');
+})
+
+const handleDeleteCache = async () => {
+  const target = activeImage.value;
+  if (!target) return;
+  await deleteSingleImageCache(target.preview, `${target.key}_preview`);
+  urls.value[currentIdx.value] = target.preview; // Fallback to remote url
+}
 
 const previewWrapper = ref<HTMLDivElement>()
 const showMoreOperate = ref(true)
@@ -446,6 +460,22 @@ const menus = computed(() => {
       margin-left: 24px;
     }
   }
+}
+
+.cache-debug-badge {
+  position: absolute;
+  top: 10px;
+  right: 150px; /* offset from the header actions */
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 100;
+  cursor: pointer;
 }
 
 .icon-btn {

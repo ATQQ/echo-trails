@@ -183,6 +183,14 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  /* 添加全局阻尼平滑滚动 */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* 为所有滚动容器添加平滑效果 */
+* {
+  -webkit-overflow-scrolling: touch;
 }
 
 :root {
