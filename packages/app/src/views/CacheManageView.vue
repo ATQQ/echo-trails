@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { showConfirmDialog, showToast, showImagePreview } from 'vant';
+import { showConfirmDialog, showToast } from 'vant';
 import { isTauri } from '@/constants';
-import { BaseDirectory, lstat, remove, readFile } from '@tauri-apps/plugin-fs';
-import { appCacheDir, join } from '@tauri-apps/api/path';
-import { invoke } from '@tauri-apps/api/core';
+import { BaseDirectory, lstat, remove  } from '@tauri-apps/plugin-fs';
 import { MEMORY_CACHE_STORAGE_KEY } from '@/composables/useCachedImage';
+import { preventBack } from '@/lib/router';
 
 const router = useRouter();
 
@@ -32,12 +31,50 @@ interface ImageCacheItem {
   src: string;
   size: number;
   sizeStr: string;
+  mtime: number;
 }
 
 const imageCaches = ref<ImageCacheItem[]>([]);
 const totalImageSize = ref(0);
 const totalImageSizeStr = ref('0 B');
-const selectedImages = ref<string[]>([]);
+const showClearSheet = ref(false);
+preventBack(showClearSheet);
+
+const clearActions = [
+  { name: '清理全部', subname: '释放所有图片缓存空间', value: 'all' },
+  { name: '清理大尺寸图片', subname: '清理大于 1MB 的图片', value: 'large' },
+  { name: '清理旧缓存', subname: '保留最新 200 张，清理其它较旧图片', value: 'old' }
+];
+
+const onSelectClearAction = (action: { name: string, value: string }) => {
+  showClearSheet.value = false;
+  let itemsToDelete: ImageCacheItem[] = [];
+
+  if (action.value === 'all') {
+    itemsToDelete = imageCaches.value;
+  } else if (action.value === 'large') {
+    itemsToDelete = imageCaches.value.filter(img => img.size > 1024 * 1024);
+  } else if (action.value === 'old') {
+    // Sort by mtime descending (newest first)
+    const sorted = [...imageCaches.value].sort((a, b) => b.mtime - a.mtime);
+    itemsToDelete = sorted.slice(200); // Keep first 200, delete the rest
+  }
+
+  if (itemsToDelete.length === 0) {
+    showToast('没有符合条件的图片可清理');
+    return;
+  }
+
+  const totalFreedSize = itemsToDelete.reduce((acc, img) => acc + img.size, 0);
+
+  showConfirmDialog({
+    title: '确认清理',
+    message: `【${action.name}】将清理 ${itemsToDelete.length} 张图片，共释放 ${formatSize(totalFreedSize)} 空间，确定继续吗？`,
+    confirmButtonColor: '#ee0a24',
+  }).then(() => {
+    deleteImageCaches(itemsToDelete);
+  }).catch(() => {});
+};
 
 const categories = ref<CacheCategory[]>([
   {
@@ -189,7 +226,8 @@ const calculateImageCache = async () => {
                       path: relPath,
                       src,
                       size: stat.size,
-                      sizeStr: formatSize(stat.size)
+                      sizeStr: formatSize(stat.size),
+                      mtime: stat.mtime ? new Date(stat.mtime).getTime() : 0
                     });
                  }
                } catch (e) {
@@ -295,102 +333,11 @@ const deleteImageCaches = async (items: ImageCacheItem[]) => {
   // Update memory cache
   localStorage.setItem(MEMORY_CACHE_STORAGE_KEY, JSON.stringify(memoryCache));
 
-  // Clear selection
-  selectedImages.value = [];
-
+  // Clear selection if any logic still uses it
   showToast(`成功清理 ${deletedCount} 张图片缓存`);
 
   // Re-calculate stats instead of full page load
   calculateImageCache();
-};
-
-const handleClearSelectedImages = () => {
-  if (selectedImages.value.length === 0) return;
-
-  const itemsToDelete = imageCaches.value.filter(img => selectedImages.value.includes(img.key));
-  const totalSelectedSize = itemsToDelete.reduce((acc, img) => acc + img.size, 0);
-
-  showConfirmDialog({
-    title: '确认清理',
-    message: `确定要清理选中的 ${itemsToDelete.length} 张图片吗？(共 ${formatSize(totalSelectedSize)})`,
-  }).then(() => {
-    deleteImageCaches(itemsToDelete);
-  }).catch(() => {});
-};
-
-const handleClearAllImages = () => {
-  if (imageCaches.value.length === 0) return;
-
-  showConfirmDialog({
-    title: '确认清理',
-    message: `确定要清理全部 ${imageCaches.value.length} 张缓存图片吗？(共 ${totalImageSizeStr.value})`,
-    confirmButtonColor: '#ee0a24',
-  }).then(() => {
-    deleteImageCaches(imageCaches.value);
-  }).catch(() => {});
-};
-
-let pressTimer: ReturnType<typeof setTimeout> | null = null;
-let isLongPressTriggered = false;
-
-const startPress = (img: ImageCacheItem) => {
-  isLongPressTriggered = false;
-  if (pressTimer) clearTimeout(pressTimer);
-  pressTimer = setTimeout(() => {
-    isLongPressTriggered = true;
-    handleLongPress(img);
-  }, 600); // 600ms for long press
-};
-
-const endPress = () => {
-  if (pressTimer) {
-    clearTimeout(pressTimer);
-    pressTimer = null;
-  }
-};
-
-const previewImage = (startIndex: number, event: Event) => {
-  event.stopPropagation(); // 阻止事件冒泡，避免触发勾选
-  if (isLongPressTriggered) return; // 如果已经触发了长按，就不再触发点击预览
-
-  const images = imageCaches.value.map(img => img.src);
-
-  const previewInstance = showImagePreview({
-    images,
-    startPosition: startIndex,
-    closeable: true,
-  });
-};
-
-const handleLongPress = async (img: ImageCacheItem) => {
-  if (!isTauri) return;
-
-  try {
-    const confirm = await showConfirmDialog({
-      title: '保存图片',
-      message: '是否将该图片保存到系统相册？',
-    }).catch(() => false);
-
-    if (!confirm) return;
-
-    // Read the file from cache dir
-    const fileData = await readFile(img.path, { baseDir: BaseDirectory.AppCache });
-
-    // Save to gallery via rust command
-    // Convert Uint8Array to regular array for Rust backend
-    const dataArray = Array.from(fileData);
-
-    // 有bug TODO: 保存失败
-    const res = await invoke('save_to_pictures', {
-      fileName: img.key.split('/').pop() || `cache_image_${Date.now()}.jpg`,
-      data: dataArray
-    });
-
-    showToast('已保存到相册');
-  } catch (e) {
-    console.error('Failed to save image:', e);
-    showToast('保存失败');
-  }
 };
 
 const clearAllSafe = () => {
@@ -488,72 +435,26 @@ const clearAllSafe = () => {
                   点击计算
                 </van-button>
                 <template v-else-if="imageCaches.length > 0">
-                  <van-button
-                    v-if="selectedImages.length > 0"
-                    size="mini"
-                    type="danger"
-                    style="margin-right: 8px;"
-                    @click="handleClearSelectedImages"
-                  >
-                    清理选中 ({{ selectedImages.length }})
-                  </van-button>
-                  <van-button size="mini" type="danger" plain @click="handleClearAllImages">
-                    清理全部
+                  <van-button size="mini" type="danger" plain @click="showClearSheet = true">
+                    清理选项
                   </van-button>
                 </template>
               </div>
             </div>
             <div class="group-desc">浏览应用时自动缓存的图片文件，清理后可释放大量存储空间。</div>
           </template>
-
-          <van-collapse v-if="imageCacheCalculated && imageCaches.length > 0" v-model="activeNames">
-            <van-collapse-item title="查看图片详情" name="image-cache-details">
-              <van-checkbox-group v-model="selectedImages">
-                <van-cell
-                  v-for="(img, index) in imageCaches"
-                  :key="img.key"
-                  clickable
-                  @click="selectedImages.includes(img.key) ? selectedImages = selectedImages.filter(k => k !== img.key) : selectedImages.push(img.key)"
-                >
-                  <template #title>
-                    <div class="image-cache-item">
-                      <van-image
-                        :src="img.src"
-                        width="40"
-                        height="40"
-                        fit="cover"
-                        radius="4"
-                        @click="previewImage(index, $event)"
-                        @touchstart="startPress(img)"
-                        @touchend="endPress"
-                        @touchcancel="endPress"
-                        @mousedown="startPress(img)"
-                        @mouseup="endPress"
-                        @mouseleave="endPress"
-                        style="cursor: pointer;"
-                      />
-                      <div class="image-cache-info">
-                        <div class="image-cache-key">{{ img.key.split('/').pop() }}</div>
-                        <div class="image-cache-size">{{ img.sizeStr }}</div>
-                      </div>
-                    </div>
-                  </template>
-                  <template #right-icon>
-                    <van-checkbox :name="img.key" @click.stop />
-                  </template>
-                </van-cell>
-              </van-checkbox-group>
-            </van-collapse-item>
-          </van-collapse>
-
-          <van-cell v-else-if="imageCacheCalculated && imageCaches.length === 0">
-            <template #title>
-              <div style="text-align: center; color: #969799; padding: 16px 0;">暂无缓存图片</div>
-            </template>
-          </van-cell>
         </van-cell-group>
       </div>
     </div>
+
+    <van-action-sheet
+      v-model:show="showClearSheet"
+      :actions="clearActions"
+      cancel-text="取消"
+      description="选择清理策略"
+      @select="onSelectClearAction"
+      class="safe-padding-bottom"
+    />
   </div>
 </template>
 
@@ -634,35 +535,4 @@ const clearAllSafe = () => {
   color: #323233;
 }
 
-.image-cache-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.image-cache-info {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  flex: 1;
-  min-width: 0;
-}
-
-.image-cache-key {
-  font-size: 13px;
-  color: #323233;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.image-cache-size {
-  font-size: 12px;
-  color: #969799;
-  margin-top: 4px;
-}
-
-:deep(.van-checkbox) {
-  justify-content: flex-end;
-}
 </style>

@@ -17,6 +17,8 @@ bun install
   - `src/views/*`: 页面逻辑。
   - `src/components/*`: 可复用的 UI 组件。
   - `src/lib/*`: 工具函数和 API 客户端。
+- **关键规则**:
+  - **弹窗与路由拦截**: 所有的弹窗状态（如 `van-popup`、`van-action-sheet` 的 `v-model:show` 变量）必须使用 `@/lib/router` 提供的 `preventBack` 进行包裹。这样当用户点击 Android 物理返回键或浏览器后退时，会优先关闭弹窗而不是直接返回上一个页面。
 
 ## 2. 客户端开发 (`packages/native`)
 **角色**: 系统集成与原生能力
