@@ -237,12 +237,12 @@ onUnmounted(() => {
 // 滚动事件监听
 const checkScrollBottom = () => {
   if (!isActive.value) return
-  const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-  const windowHeight = window.innerHeight
-  const documentHeight = document.documentElement.scrollHeight
+  if (!containerRef.value) return
+
+  const { scrollTop, clientHeight, scrollHeight } = containerRef.value
 
   // 距离半个屏幕就触发
-  if (scrollTop + windowHeight >= documentHeight - windowHeight / 3) {
+  if (scrollTop + clientHeight >= scrollHeight - clientHeight / 3) {
     loadNext()
   }
 }
@@ -252,8 +252,16 @@ let scrollListener: (() => void) | null = null
 
 const registerScrollListener = () => {
   if (scrollListener) return
-  scrollListener = useEventListener(window, 'scroll', checkScrollBottom, { passive: true })
+  if (containerRef.value) {
+    scrollListener = useEventListener(containerRef.value, 'scroll', checkScrollBottom, { passive: true })
+  }
 }
+
+watch(containerRef, (el) => {
+  if (el && isActive.value) {
+    registerScrollListener()
+  }
+})
 
 const unregisterScrollListener = () => {
   if (scrollListener) {
@@ -822,7 +830,7 @@ const handleOpenFile = async () => {
 </script>
 
 <template>
-  <div class="photo-list">
+  <div class="photo-list" ref="containerRef">
     <van-pull-refresh v-model="loading" @refresh="pullRefresh">
       <main>
         <slot name="header"></slot>

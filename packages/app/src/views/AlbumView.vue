@@ -163,6 +163,14 @@ const showAddModal = ref(false)
 const currentEditId = ref('')
 const currentEditData = ref<Album | undefined>(undefined)
 
+const isScrolled = ref(false)
+const handleScroll = (e: Event) => {
+  const target = e.target as HTMLElement
+  if (target) {
+    isScrolled.value = target.scrollTop > 20
+  }
+}
+
 const handleLongPress = (album: Album) => {
   currentEditId.value = album._id
   currentEditData.value = album
@@ -222,7 +230,9 @@ preventBack(showAddModal)
 </script>
 
 <template>
-  <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)" ref="scrollContainer">
+  <div class="app-wrapper">
+    <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div>
+    <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)" ref="scrollContainer" class="pull-refresh-container" @scroll="handleScroll">
     <PageTitle title="相册" :info="false">
       <template #action>
         <!-- 我喜欢入口 -->
@@ -316,7 +326,7 @@ preventBack(showAddModal)
         </div>
       </template>
     </div>
-  </van-pull-refresh>
+    </van-pull-refresh>
   <!-- 回到顶部 -->
   <van-back-top :bottom="'calc(var(--footer-area-height) + 48px)'" :right="20" :style="{
     '--van-back-top-icon-size': '16px',
@@ -324,10 +334,43 @@ preventBack(showAddModal)
   }" />
   <!-- 添加相册 -->
   <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal" />
-  <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="loadAlbum()" />
+    <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="loadAlbum()" />
+  </div>
 </template>
 
 <style scoped lang="scss">
+.app-wrapper {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.pull-refresh-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.top-blur-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  pointer-events: none;
+  z-index: 10;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.top-blur-mask.is-visible {
+  opacity: 1;
+}
+
 .popup-content {
   padding: 16px;
   padding-bottom: env(safe-area-inset-bottom);

@@ -1,21 +1,29 @@
-import { onActivated, onDeactivated, onMounted, onUnmounted, ref } from 'vue'
+import { onActivated, onDeactivated, onMounted, onUnmounted, ref, nextTick } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 
 export function useScrollRestore(containerRef: any) {
   const scrollTop = ref(0)
   let el: HTMLElement | null = null
+  let isActive = false
 
   const handleScroll = (e: Event) => {
+    if (!isActive) return
     scrollTop.value = (e.target as HTMLElement).scrollTop
   }
 
-  const restore = () => {
+  const restore = async () => {
+    await nextTick()
     if (el) {
       el.scrollTop = scrollTop.value
+      // Fallback: requestAnimationFrame to ensure it applies after render
+      requestAnimationFrame(() => {
+        if (el) el.scrollTop = scrollTop.value
+      })
     }
   }
 
   const bind = () => {
+    isActive = true
     if (containerRef.value) {
       el = containerRef.value.$el || containerRef.value
       if (el) {
@@ -25,6 +33,7 @@ export function useScrollRestore(containerRef: any) {
   }
 
   const unbind = () => {
+    isActive = false
     if (el) {
       el.removeEventListener('scroll', handleScroll)
     }
@@ -40,9 +49,6 @@ export function useScrollRestore(containerRef: any) {
   })
 
   onDeactivated(() => {
-    if (el) {
-      scrollTop.value = el.scrollTop
-    }
     unbind()
   })
 
@@ -51,9 +57,7 @@ export function useScrollRestore(containerRef: any) {
   })
 
   onBeforeRouteLeave(() => {
-    if (el) {
-      scrollTop.value = el.scrollTop
-    }
+    // no-op
   })
 
   return {
