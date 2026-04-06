@@ -56,6 +56,13 @@
 
           </div>
         </transition>
+        <!-- 查看原图按钮 -->
+        <transition name="van-fade">
+          <div v-show="showMoreOperate && !isUsingOriginal && !editMode" class="view-original-btn" @click.stop="handleViewOriginal">
+            查看原图 {{ filesize }}
+          </div>
+        </transition>
+
         <!-- 底部操作栏 -->
         <transition name="van-slide-up">
           <BottomActions v-show="showMoreOperate" :menus="menus" />
@@ -95,8 +102,11 @@ const show = defineModel("show", { type: Boolean, default: false })
 
 
 const urls = ref<string[]>([])
+const currentIdx = ref(start)
+const originalLoadedIndices = ref(new Set<number>())
 
 watch(() => images, (newImages: Photo[]) => {
+  originalLoadedIndices.value.clear();
   if (!newImages?.length) {
     urls.value = []
     return
@@ -114,13 +124,41 @@ watch(() => images, (newImages: Photo[]) => {
       // Update if the image at this index hasn't changed (by reference check or key check)
       // Since images array might be mutated, we check if the current images[index] matches the one we processed
       if (images[index] === img || images[index]?.key === img.key) {
-        urls.value[index] = localUrl
+        if (!originalLoadedIndices.value.has(index)) {
+          urls.value[index] = localUrl
+        }
       }
     })
   }
 }, { immediate: true, deep: true })
 
-const currentIdx = ref(start)
+const isUsingOriginal = computed(() => {
+  if (!activeImage.value) return false;
+  return originalLoadedIndices.value.has(currentIdx.value) || urls.value[currentIdx.value] === activeImage.value.url;
+})
+
+const handleViewOriginal = async () => {
+  const idx = currentIdx.value;
+  const img = activeImage.value;
+  if (!img) return;
+
+  urls.value[idx] = img.url; // Switch to high-res remote URL immediately
+  originalLoadedIndices.value.add(idx);
+
+  // Silently cache original image, overwriting preview cache
+  if (isTauri) {
+    try {
+      const localUrl = await cacheImage(img.url, `${img.key}_preview`, true);
+      // Update with local file URL if still on the same image
+      if (urls.value[idx] === img.url) {
+        urls.value[idx] = localUrl;
+      }
+    } catch (e) {
+      console.error('Background cache of original image failed:', e);
+    }
+  }
+}
+
 const isUsingCache = computed(() => {
   return urls.value[currentIdx.value] && urls.value[currentIdx.value].includes('image_cache');
 })
@@ -331,7 +369,9 @@ const downloadImage = () => {
     duration: 0,
   });
 
-  downloadFile(activeImage.value.preview, generateDownloadFileName(activeImage.value.name, activeImage.value.type))
+  const downloadUrl = isUsingOriginal.value ? activeImage.value.url : activeImage.value.preview;
+
+  downloadFile(downloadUrl, generateDownloadFileName(activeImage.value.name, activeImage.value.type))
     .finally(() => {
       closeToast();
     })
@@ -484,6 +524,24 @@ const menus = computed(() => {
   padding: 8px;
   border-radius: 50%;
   color: #fff;
+}
+
+.view-original-btn {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + 80px);
+  left: 10px;
+  background-color: rgba(30, 30, 30, 0.4);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  z-index: 100;
+  cursor: pointer;
+  white-space: nowrap;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-weight: 300;
 }
 
 .edit-btn {

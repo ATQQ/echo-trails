@@ -137,7 +137,7 @@ export async function clearImageCache() {
   }
 }
 
-export async function cacheImage(url: string, cacheKey?: string): Promise<string> {
+export async function cacheImage(url: string, cacheKey?: string, forceRefresh = false): Promise<string> {
   if (!isTauri || isCacheDisabled.value) return url;
   if (!url || !url.startsWith('http')) return url;
 
@@ -146,18 +146,18 @@ export async function cacheImage(url: string, cacheKey?: string): Promise<string
   // Use cacheKey for memory cache if available, otherwise URL
   const memKey = cacheKey ? `key:${cacheKey}` : url;
 
-  if (memoryCache.has(memKey)) {
+  if (!forceRefresh && memoryCache.has(memKey)) {
     return memoryCache.get(memKey)!;
   }
 
   // If this exact image is already being processed, wait for that promise instead of starting a new one
-  if (processingCache.has(memKey)) {
+  if (!forceRefresh && processingCache.has(memKey)) {
     return processingCache.get(memKey)!;
   }
 
   const processPromise = limit(async () => {
     // Double check memory cache in case it was populated while waiting in the limit queue
-    if (memoryCache.has(memKey)) {
+    if (!forceRefresh && memoryCache.has(memKey)) {
       return memoryCache.get(memKey)!;
     }
 
@@ -183,11 +183,13 @@ export async function cacheImage(url: string, cacheKey?: string): Promise<string
       // Check if file exists
       let fileExists = false;
       const statStart = performance.now();
-      try {
-        await lstat(filePath, { baseDir: BaseDirectory.AppCache });
-        fileExists = true;
-      } catch (e) {
-        fileExists = false;
+      if (!forceRefresh) {
+        try {
+          await lstat(filePath, { baseDir: BaseDirectory.AppCache });
+          fileExists = true;
+        } catch (e) {
+          fileExists = false;
+        }
       }
       const statEnd = performance.now();
 
