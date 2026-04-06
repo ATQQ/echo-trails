@@ -903,7 +903,7 @@ const { list, containerProps, wrapperProps } = useVirtualList(virtualListSource,
     const item = virtualListSource.value[index]
     return getItemHeight(item)
   },
-  overscan: 20
+  overscan: 10
 })
 
 const isPullRefreshDisabled = ref(false)
@@ -1106,6 +1106,9 @@ watch(containerRef, (el) => {
 .virtual-list-container {
   height: 100%;
   overflow-y: auto;
+  /* 增加 GPU 加速 */
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
 }
 
 .virtual-row {
