@@ -66,7 +66,11 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       const { name, description, coverKey, style, createdAt, tags } = album
       const count = stat.count
 
-      const coverFn = style === AlbumStyle.Large ? createAlbumLink : createCoverLink
+      // 如果相册包含标签，则使用 createCoverLink 以保证显示更清晰，否则按原逻辑
+      let coverFn = style === AlbumStyle.Large ? createAlbumLink : createCoverLink
+      if (tags && tags.length > 0) {
+        coverFn = createCoverLink
+      }
 
       // 封面逻辑：优先使用设定的封面，否则使用第一张照片
       let keyToUse = ''

@@ -11,7 +11,13 @@ async function parseAlbum(album: Document<unknown, any, Album>) {
     albumId: _id
   }, ['key']) || []
   const count = photos.length
-  const coverFn = style === AlbumStyle.Large ? createAlbumLink : createCoverLink
+  
+  // 如果相册包含标签，则使用 createCoverLink 以保证显示更清晰，否则按原逻辑
+  let coverFn = style === AlbumStyle.Large ? createAlbumLink : createCoverLink
+  if (tags && tags.length > 0) {
+    coverFn = createCoverLink
+  }
+  
   const cover = (coverKey && count) ? await coverFn(coverKey) : (count > 0 ? await coverFn(photos[0].key) : '')
 
   return {
