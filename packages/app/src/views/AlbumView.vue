@@ -10,6 +10,10 @@ import ImageCell from '@/components/ImageCell/ImageCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useTagStyles, type TagStyle } from '@/composables/useTagStyles';
+import { useScrollRestore } from '@/composables/useScrollRestore';
+
+const scrollContainer = ref<any>(null)
+useScrollRestore(scrollContainer)
 
 const { addRecent, getRecentIndex } = useRecentAlbums()
 const { tagStyles, setStyle, getStyle } = useTagStyles()
@@ -48,13 +52,6 @@ const sortAlbums = (albums: Album[]) => {
   const list = [...albums]
 
   return list.sort((a, b) => {
-    // 规则0: 最近打开过的排在最前面
-    const idxA = getRecentIndex(a._id)
-    const idxB = getRecentIndex(b._id)
-    if (idxA !== idxB) {
-      return idxA - idxB
-    }
-
     // 规则1: 空相册置底
     if (a.count === 0 && b.count !== 0) return 1
     if (a.count !== 0 && b.count === 0) return -1
@@ -154,7 +151,7 @@ onActivated(() => {
       // 缓存加载成功，更新empty状态
       showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
 
-      // 异步更新一下数据
+      // 异步更新一下数据，不设置全局 loading，避免闪烁
       loadAlbum(false).catch(e => {
         console.warn('Silent refresh failed (might be offline):', e)
       })
@@ -225,7 +222,7 @@ preventBack(showAddModal)
 </script>
 
 <template>
-  <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)">
+  <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)" ref="scrollContainer">
     <PageTitle title="相册" :info="false">
       <template #action>
         <!-- 我喜欢入口 -->
@@ -511,10 +508,22 @@ preventBack(showAddModal)
   }
 }
 
+.small-card-grid {
+  :deep(.van-grid-item) {
+    flex-basis: 33.333333% !important;
+    max-width: 33.333333% !important;
+  }
+  :deep(.van-grid-item__content) {
+    padding: 0;
+    background-color: transparent;
+  }
+}
+
 .small-card {
   width: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 
   :deep(.van-image) {
     border-radius: 12px;
@@ -526,6 +535,8 @@ preventBack(showAddModal)
 
   .title-desc {
     margin-top: 6px;
+    width: 100%;
+    overflow: hidden;
     h2 {
       margin: 0;
       color: #333;

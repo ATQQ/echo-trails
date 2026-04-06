@@ -5,10 +5,59 @@ import { useLocalStorage } from '@vueuse/core';
 import { showNotify } from 'vant';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { saveConfig } from '@/lib/configStorage';
+import { QrcodeStream } from 'vue-qrcode-reader';
+import { preventBack } from '@/lib/router';
 
 const password = ref('');
 const isPasswordVisible = ref(false);
 const router = useRouter();
+
+const showScanner = ref(false);
+preventBack(showScanner)
+const onDecode = async (detectedCodes: any[]) => {
+  if (detectedCodes && detectedCodes.length > 0) {
+    const result = detectedCodes[0].rawValue;
+    if (result) {
+      try {
+        const data = JSON.parse(result);
+        if (data.serverUrl && data.token) {
+          await saveConfig({
+            mode: 'server',
+            serverUrl: data.serverUrl,
+            token: data.token
+          });
+          password.value = data.token;
+          showScanner.value = false;
+          checkLogin();
+        } else if (data.token) {
+          password.value = data.token;
+          showScanner.value = false;
+          checkLogin();
+        } else {
+          showNotify({ type: 'warning', message: '无效的二维码内容' });
+        }
+      } catch (e) {
+        // 尝试直接作为 token 使用
+        password.value = result;
+        showScanner.value = false;
+        checkLogin();
+      }
+    }
+  }
+};
+
+const onCameraError = (error: any) => {
+  console.error('Camera error', error);
+  if (error.name === 'NotAllowedError') {
+    showNotify({ type: 'danger', message: '无相机权限，请在设置中允许访问相机' });
+  } else if (error.name === 'NotFoundError') {
+    showNotify({ type: 'danger', message: '未找到相机设备' });
+  } else {
+    showNotify({ type: 'danger', message: '相机加载失败' });
+  }
+  showScanner.value = false;
+};
 
 const { value: userInfo } = useLocalStorage('userInfo', {
   username: '',
@@ -54,8 +103,13 @@ onMounted(() => {
 <template>
   <div class="login-container safe-padding-top">
     <div class="header">
-      <div class="settings-icon" @click="goToSettings">
-        <van-icon name="setting-o" size="24" color="#333" />
+      <div class="header-actions">
+        <div class="settings-icon" @click="showScanner = true">
+          <van-icon name="scan" size="24" color="#333" />
+        </div>
+        <div class="settings-icon" @click="goToSettings">
+          <van-icon name="setting-o" size="24" color="#333" />
+        </div>
       </div>
     </div>
 
@@ -100,6 +154,16 @@ onMounted(() => {
     <div class="footer">
       <p>Secure & Private Storage</p>
     </div>
+
+    <!-- 扫码弹窗 -->
+    <van-popup v-model:show="showScanner" position="bottom" :style="{ height: '100%' }" class="safe-padding-top">
+      <div style="height: 100%; display: flex; flex-direction: column;">
+        <van-nav-bar title="扫码登录" left-arrow @click-left="showScanner = false" />
+        <div style="flex: 1; position: relative; background: #000;">
+          <qrcode-stream v-if="showScanner" @detect="onDecode" @error="onCameraError"></qrcode-stream>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -117,6 +181,11 @@ onMounted(() => {
   padding: 16px;
   display: flex;
   justify-content: flex-end;
+
+  .header-actions {
+    display: flex;
+    gap: 12px;
+  }
 
   .settings-icon {
     padding: 8px;

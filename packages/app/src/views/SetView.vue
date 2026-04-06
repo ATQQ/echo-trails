@@ -7,6 +7,7 @@ import router from '@/router';
 import { useLocalStorage } from '@vueuse/core';
 import { showConfirmDialog, showNotify } from 'vant';
 import { computed, onMounted, ref } from 'vue';
+import QrcodeVue from 'qrcode.vue';
 
 const mode = ref('');
 const modeValue = ref<string[]>([]);
@@ -183,6 +184,18 @@ const onSaveBitifulConfig = async () => {
     showNotify({ type: 'danger', message: err?.message || 'Bitiful 配置更新失败' })
   }
 }
+
+const showShareQrCode = ref(false);
+const qrCodeValue = ref('');
+
+const onShareLogin = () => {
+  const config = {
+    serverUrl: serverUrl.value,
+    token: token.value
+  };
+  qrCodeValue.value = JSON.stringify(config);
+  showShareQrCode.value = true;
+};
 </script>
 
 <template>
@@ -244,6 +257,12 @@ const onSaveBitifulConfig = async () => {
       </div>
 
       <div class="btn-wrapper" v-if="showExit">
+        <van-button round block type="primary" @click="onShareLogin">
+          分享登录凭证
+        </van-button>
+      </div>
+
+      <div class="btn-wrapper" v-if="showExit">
         <van-button round block type="danger" @click="onLogout">
           退出登录
         </van-button>
@@ -255,6 +274,13 @@ const onSaveBitifulConfig = async () => {
           @cancel="showModeSelect = false" />
       </van-popup>
     </div>
+    <van-popup v-model:show="showShareQrCode" round :style="{ padding: '24px' }">
+      <div style="text-align: center;">
+        <h3 style="margin-top: 0;">扫码登录</h3>
+        <qrcode-vue :value="qrCodeValue" :size="200" level="M" />
+        <p style="color: #666; font-size: 14px; margin-bottom: 0; margin-top: 16px;">请使用另一设备的 Echo Trails 扫描此二维码</p>
+      </div>
+    </van-popup>
   </div>
 </template>
 <style scoped>

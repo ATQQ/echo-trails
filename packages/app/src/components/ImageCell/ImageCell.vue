@@ -1,7 +1,7 @@
 <template>
   <van-image @click="emit('click')" @mousedown="start" @mouseup="cancel" @mouseleave="cancel"
     @touchstart="start" @touchend="cancel" @touchmove="cancel" fit="cover" position="center" width="100%" height="100%"
-    lazy-load :src="cachedSrc" class="image-cell-wrapper image-fade-in">
+    lazy-load :src="cachedSrc" class="image-cell-wrapper">
     <slot />
     <template v-slot:loading>
       <div class="loading-container">
@@ -54,15 +54,6 @@ const cancel = () => {
   position: relative;
   width: 100%;
   height: 100%;
-}
-
-.image-fade-in {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .repeat-indicator {

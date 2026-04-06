@@ -17,6 +17,10 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import VideoCell from '../VideoCell/VideoCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
+import { useScrollRestore } from '@/composables/useScrollRestore';
+
+const containerRef = ref<HTMLElement | null>(null)
+useScrollRestore(containerRef)
 
 const isActive = ref(true)
 let unlistenProgress: UnlistenFn | null = null

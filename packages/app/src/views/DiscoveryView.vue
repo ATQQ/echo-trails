@@ -1,5 +1,5 @@
 <template>
-  <div class="discovery-view">
+  <div class="discovery-view" ref="scrollContainer">
     <div class="header safe-padding-top">
       <div>
         <h2>发现</h2>
@@ -64,10 +64,14 @@ import { showToast, showConfirmDialog } from 'vant';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFooterStore } from '@/stores/footer';
+import { useScrollRestore } from '@/composables/useScrollRestore';
 
 defineOptions({
   name: 'DiscoveryView'
 });
+
+const scrollContainer = ref<HTMLElement | null>(null)
+useScrollRestore(scrollContainer)
 
 const router = useRouter();
 const footerStore = useFooterStore();

@@ -76,25 +76,35 @@ const handleSaveAlbumSelect = () => {
 </script>
 <style lang="scss" scoped>
 .small-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 
   :deep(.van-image) {
-    border-radius: 10px;
-    height: 40vw !important;
-    width: 40vw !important;
+    border-radius: 12px;
+    width: 100% !important;
+    aspect-ratio: 1 / 1;
+    height: auto !important;
     overflow: hidden;
   }
 
   .title-desc {
+    margin-top: 6px;
+    width: 100%;
+    overflow: hidden;
     h2 {
       margin: 2px 0;
-      color: #000;
+      color: #333;
       font-size: 14px;
-      font-weight: normal;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     p {
-      margin-top: 0;
+      margin: 0;
       font-size: 10px;
       color: #666;
     }
@@ -105,7 +115,6 @@ const handleSaveAlbumSelect = () => {
 
     .selected {
       position: absolute;
-
       right: 10px;
       bottom: 10px;
     }

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { getAlbums } from '@/service';
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, onActivated } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
@@ -9,6 +9,14 @@ import AddButton from '@/components/AddButton/AddButton.vue';
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
+import { useScrollRestore } from '@/composables/useScrollRestore';
+
+defineOptions({
+  name: 'AllAlbumView'
+})
+
+const scrollContainer = ref<HTMLElement | null>(null)
+useScrollRestore(scrollContainer)
 
 const { addRecent, getRecentIndex } = useRecentAlbums()
 
@@ -46,13 +54,6 @@ const sortAlbums = (albums: Album[]) => {
   const list = [...albums]
 
   return list.sort((a, b) => {
-    // 规则0: 最近打开过的排在最前面
-    const idxA = getRecentIndex(a._id)
-    const idxB = getRecentIndex(b._id)
-    if (idxA !== idxB) {
-      return idxA - idxB
-    }
-
     // 规则1: 空相册置底
     if (a.count === 0 && b.count !== 0) return 1
     if (a.count !== 0 && b.count === 0) return -1
@@ -107,7 +108,7 @@ const loadAlbum = (_loading = false) => {
   })
 }
 
-onMounted(() => {
+onActivated(() => {
   // 在这里如果有预请求数据直接回填，不用再发起请求
   if ((window as any).__PREFETCHED_ALBUMS__) {
     const data = (window as any).__PREFETCHED_ALBUMS__
@@ -127,7 +128,7 @@ onMounted(() => {
       // 缓存加载成功，更新empty状态
       showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
 
-      // 异步更新一下数据
+      // 异步更新一下数据，不设置全局 loading，避免闪烁
       loadAlbum(false).catch(e => {
         console.warn('Silent refresh failed (might be offline):', e)
       })
@@ -188,7 +189,7 @@ preventBack(showAddModal)
 </script>
 
 <template>
-  <div class="app-wrapper">
+  <div class="app-wrapper" ref="scrollContainer">
     <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)" class="pull-refresh-container">
       <PageTitle title="全部相册" :info="false" back>
         <template #action>
@@ -210,7 +211,7 @@ preventBack(showAddModal)
         <template v-else>
           <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
           <!-- 小卡片分类 -->
-          <van-grid :gutter="10" :column-num="2" :border="false">
+          <van-grid :gutter="10" :column-num="3" :border="false" class="small-card-grid">
             <van-grid-item v-for="album in displayAlbumList.small" :key="album._id">
               <div class="small-card" @click.stop.prevent="goToDetail(album._id)"
                    @contextmenu="handleContextMenu($event, album)"
@@ -330,10 +331,22 @@ preventBack(showAddModal)
   }
 }
 
+.small-card-grid {
+  :deep(.van-grid-item) {
+    flex-basis: 33.333333% !important;
+    max-width: 33.333333% !important;
+  }
+  :deep(.van-grid-item__content) {
+    padding: 0;
+    background-color: transparent;
+  }
+}
+
 .small-card {
   width: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 
   :deep(.van-image) {
     border-radius: 12px;
@@ -345,6 +358,8 @@ preventBack(showAddModal)
 
   .title-desc {
     margin-top: 6px;
+    width: 100%;
+    overflow: hidden;
     h2 {
       margin: 0;
       color: #333;

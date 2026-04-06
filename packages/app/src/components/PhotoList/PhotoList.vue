@@ -18,6 +18,7 @@ import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTTLStorage } from '@/composables/useTTLStorage';
+import { useScrollRestore } from '@/composables/useScrollRestore';
 
 const isActive = ref(true)
 let unlistenProgress: UnlistenFn | null = null
@@ -223,6 +224,7 @@ const gridItemHeight = computed(() => windowWidth.value / 4)
 const headerRef = ref<HTMLElement | null>(null)
 const { height: headerHeight } = useElementSize(headerRef)
 const containerRef = ref<HTMLElement | null>(null)
+useScrollRestore(containerRef)
 
 // 滚动事件监听
 const checkScrollBottom = () => {
