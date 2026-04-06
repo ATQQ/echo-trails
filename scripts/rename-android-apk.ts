@@ -1,5 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 // Define paths relative to the project root (assuming this script is in scripts/ folder)
 const projectRoot = resolve(import.meta.dir, '..');
@@ -47,6 +48,11 @@ function main() {
     copyFileSync(sourceApkPath, targetPath);
     console.log(`✅ APK successfully copied to:`);
     console.log(`   ${targetPath}`);
+    
+    // Reveal in Finder (macOS)
+    if (process.platform === 'darwin') {
+      spawnSync('open', ['-R', targetPath]);
+    }
   } catch (error) {
     console.error('❌ Failed to copy APK:', error);
     process.exit(1);
