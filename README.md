@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://github.com/ATQQ/echo-trails">
-    <img src="./logo.png" alt="Logo" width="120" height="120">
+    <img src="./icon.png" alt="Logo" width="120" height="120">
   </a>
 
   <h3>记忆的回响 | echo-trails</h3>

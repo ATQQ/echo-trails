@@ -19,7 +19,8 @@
     "dev:android": "bun --filter echo-trails-native dev:android",
     "dev": "run-p dev:server dev:android",
     "build:android": "bun --filter echo-trails-native build:android",
-    "build:test": "bun run scripts/build-test-android.ts"
+    "build:test": "bun run scripts/build-test-android.ts",
+    "export:splash-icon": "bun run scripts/export-splash-icon.ts"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",
