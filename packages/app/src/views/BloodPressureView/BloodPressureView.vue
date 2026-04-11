@@ -28,7 +28,11 @@
         </div>
       </div>
 
-      <van-empty v-if="filteredRecords.length === 0" description="暂无数据" />
+      <div v-if="loading && filteredRecords.length === 0" class="loading-state">
+        <van-skeleton title :row="3" />
+        <van-skeleton title :row="3" style="margin-top: 16px;" />
+      </div>
+      <van-empty v-else-if="filteredRecords.length === 0" description="暂无数据" />
 
       <template v-else>
         <!-- Latest Record / Summary -->

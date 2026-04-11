@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { useLocalStorage } from '@vueuse/core';
 import { api } from '@/lib/request';
 import { useFamilyStore } from './family';
 import { useFamily } from '@/composables/useFamily';
@@ -17,12 +18,24 @@ export interface BloodPressureRecord {
 
 export const useBloodPressureStore = defineStore('blood-pressure', () => {
   const records = ref<BloodPressureRecord[]>([]);
+  // Add local cache keyed by query parameters
+  const recordsCache = useLocalStorage<Record<string, BloodPressureRecord[]>>('bp-records-cache', {});
+
   const { refreshFamilies } = useFamily()
   const familyStore = useFamilyStore();
 
   const fetchRecords = async (startTime?: number, endTime?: number, familyId?: string) => {
     try {
       const fid = familyId || familyStore.currentFamily.familyId || 'default';
+      const cacheKey = `${fid}_${startTime || 0}_${endTime || 0}`;
+
+      // Optimistic update from cache
+      if (recordsCache.value[cacheKey]) {
+        records.value = recordsCache.value[cacheKey];
+      } else {
+        records.value = []; // Clear previous data to prevent flashing old data
+      }
+
       const searchParams: any = { familyId: fid };
       if (startTime && endTime) {
         searchParams.startTime = startTime;
@@ -33,7 +46,7 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
       }).json();
 
       if (res.code === 0) {
-        records.value = res.data.map((item: any) => ({
+        const newData = res.data.map((item: any) => ({
           id: item._id,
           sbp: item.sbp,
           dbp: item.dbp,
@@ -43,6 +56,10 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
           timestamp: new Date(item.date).getTime(),
           note: item.note
         }));
+        
+        records.value = newData;
+        // Update cache
+        recordsCache.value[cacheKey] = newData;
       }
     } catch (e) {
       console.error('Failed to fetch blood pressure records', e);
