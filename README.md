@@ -76,7 +76,7 @@ bun run dev
 ```
 
 ## 🙏 Acknowledgements
-
+- [Lovart](https://www.lovart.ai/zh/home): generate the logo
 - [SLEA.AI](https://slea.ai/zh-CN): generate the icon
 - [Loading Animation](https://css-loaders.com/filling/): The Filling CSS Loaders Collection
 - [图标工场](https://icon.wuruihong.com/) - 移动应用图标/启动图生成工具
