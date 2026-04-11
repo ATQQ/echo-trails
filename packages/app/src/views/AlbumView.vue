@@ -72,6 +72,11 @@ const sortAlbums = (albums: Album[]) => {
       // 按标签名聚类 (相同标签名在一起)
       const tagCompare = tagA.localeCompare(tagB, 'zh-CN')
       if (tagCompare !== 0) return tagCompare
+
+      // 同一标签下，按照片数量多的排在前面
+      if (a.count !== b.count) {
+        return (b.count || 0) - (a.count || 0)
+      }
     }
 
     const timeA = new Date(a.createdAt || 0).getTime()
@@ -107,8 +112,15 @@ const displayAlbumList = computed(() => {
     return {
       tag,
       albums,
-      style: getStyle(tag)
+      style: getStyle(tag),
+      totalCount: albums.reduce((acc, a) => acc + (a.count || 0), 0)
     }
+  }).sort((a, b) => {
+    // 数量多的标签排在前面：优先比较包含的相册数，相册数相同比较照片总数
+    if (a.albums.length !== b.albums.length) {
+      return b.albums.length - a.albums.length
+    }
+    return b.totalCount - a.totalCount
   })
 
   return {

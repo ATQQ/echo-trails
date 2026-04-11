@@ -79,7 +79,12 @@ let startY = 0;
 let deltaX = 0;
 let isDirectionX: boolean | null = null;
 
+let isIgnoredTarget = false;
+
 const onTouchStart = (e: TouchEvent) => {
+  isIgnoredTarget = !!(e.target as HTMLElement)?.closest('.horizontal-scroll');
+  if (isIgnoredTarget) return;
+
   startX = e.touches[0].clientX;
   startY = e.touches[0].clientY;
   isDragging = true;
@@ -89,7 +94,7 @@ const onTouchStart = (e: TouchEvent) => {
 };
 
 const onTouchMove = (e: TouchEvent) => {
-  if (!isDragging) return;
+  if (!isDragging || isIgnoredTarget) return;
 
   const currentX = e.touches[0].clientX;
   const currentY = e.touches[0].clientY;
@@ -147,6 +152,10 @@ const switchTab = (index: number) => {
 // 拦截原生的 touchmove 事件，彻底防止 iOS 和部分安卓浏览器在横滑时触发返回/前进的系统级滑动
 const preventDefaultSwipe = (e: TouchEvent) => {
   if (isDirectionX && e.cancelable) {
+    // 允许内部的横向滚动元素（如标签相册）自由滚动，不拦截默认事件
+    if ((e.target as HTMLElement)?.closest('.horizontal-scroll')) {
+      return;
+    }
     e.preventDefault();
   }
 };
