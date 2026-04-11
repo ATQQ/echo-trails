@@ -14,8 +14,21 @@ const footerStore = useFooterStore();
 
 const handleTabClick = (path: string, replace = false) => {
   if (route.path === path) {
-    // 查找当前页面的滚动容器：优先虚拟列表容器，其次是默认的页面根容器
-    const scrollContainer = document.querySelector('.virtual-list-container') || document.querySelector('.app-wrapper > *:first-child');
+    // 查找当前页面的滚动容器
+    let activeContainer: Document | Element = document;
+    
+    // 如果在带有横向滑动的 MainLayout 中（/home 或 /），限定查找范围为当前 active 的视图容器
+    const swipeItems = ['/home', '/'];
+    const swipeIndex = swipeItems.indexOf(path);
+    if (swipeIndex !== -1) {
+      const swiperItems = document.querySelectorAll('.custom-swiper-item');
+      if (swiperItems[swipeIndex]) {
+        activeContainer = swiperItems[swipeIndex];
+      }
+    }
+
+    // 优先虚拟列表容器，其次是普通的带滚动条的下拉刷新容器，最后兜底页面根容器
+    const scrollContainer = activeContainer.querySelector('.virtual-list-container') || activeContainer.querySelector('.pull-refresh-container') || document.querySelector('.app-wrapper > *:first-child');
     if (scrollContainer) {
       scrollContainer.scrollTo({
         top: 0,

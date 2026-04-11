@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import FooterNav from '@/components/FooterNav/FooterNav.vue';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { showToast } from 'vant';
 import { isTauri } from '@/constants';
 import { version } from '../package.json';
@@ -11,9 +11,11 @@ import { listen } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { api } from "@/lib/request";
 import NotificationBanner from '@/components/NotificationBanner/NotificationBanner.vue';
+import MainLayout from '@/components/MainLayout.vue';
 
 const route = useRoute();
 const showNav = computed(() => route.meta.nav === true)
+const isSwipePage = computed(() => ['/home', '/'].includes(route.path))
 
 // Notification state
 const showBanner = ref(false);
@@ -141,11 +143,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="app-wrapper">
+  <div class="app-wrapper" ref="appWrapperRef">
     <router-view v-slot="{ Component, route }">
-      <KeepAlive :include="['HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
-        <component :is="Component" :key="route.fullPath"></component>
-      </KeepAlive>
+      <transition :name="showNav ? '' : 'van-fade'" mode="out-in">
+        <KeepAlive :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
+          <component :is="isSwipePage ? MainLayout : Component" :key="isSwipePage ? 'main-layout' : route.fullPath"></component>
+        </KeepAlive>
+      </transition>
     </router-view>
   </div>
   <!-- 底部菜单 -->
@@ -168,11 +172,15 @@ onMounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  overflow: hidden;
 }
 
 .app-wrapper > *:first-child {
   flex: 1;
   overflow-y: auto; /* Default to scrollable */
+  width: 100%;
+  height: 100%;
 }
 
 html,
