@@ -2,6 +2,8 @@
   <div class="preview-image" ref="previewWrapper" :class="{
     'show-detail': showMoreOperate
   }">
+    <!-- We don't have a direct @error on van-image-preview for individual images, 
+         but we can try to intercept or just let the user re-download -->
     <van-image-preview :close-on-popstate="false" @change="handleChange" v-model:show="show" :images="urls"
       :start-position="start" swipeDuration="100" :showIndex="false" :onClose="handleOnClose" :closeOnClickImage="false"
       transition="zoom">
@@ -125,6 +127,8 @@ watch(() => images, (newImages: Photo[]) => {
       // Since images array might be mutated, we check if the current images[index] matches the one we processed
       if (images[index] === img || images[index]?.key === img.key) {
         if (!originalLoadedIndices.value.has(index)) {
+          // If the cached image fails to load, we can't easily catch it on the van-image-preview
+          // But we can verify if the file is readable right here, or just trust the cache
           urls.value[index] = localUrl
         }
       }
@@ -156,6 +160,17 @@ const handleViewOriginal = async () => {
     } catch (e) {
       console.error('Background cache of original image failed:', e);
     }
+  }
+}
+
+const handleImageError = async (index: number) => {
+  const targetUrl = urls.value[index];
+  const img = images[index];
+  
+  if (targetUrl && targetUrl.includes('image_cache') && img) {
+    console.warn(`[PreviewImage] Failed to load cached preview image, falling back to original: ${img.preview}`);
+    await deleteSingleImageCache(img.preview, `${img.key}_preview`);
+    urls.value[index] = img.preview;
   }
 }
 
@@ -198,6 +213,20 @@ useEventListener(previewWrapper, 'touchstart', (e: TouchEvent) => {
   touchStart.value = e.touches[0]
 })
 useEventListener(previewWrapper, 'touchend', checkImageDetail)
+
+// Setup global error listener on preview container to catch image load errors
+useEventListener(previewWrapper, 'error', (e: Event) => {
+  const target = e.target as HTMLImageElement;
+  if (target && target.tagName === 'IMG' && target.src && target.src.includes('image_cache')) {
+    // Find which image failed. 
+    // asset://localhost/path/to/cache vs path/to/cache
+    const targetPath = decodeURIComponent(target.src.replace('asset://localhost', ''));
+    const index = urls.value.findIndex(url => decodeURIComponent(url).endsWith(targetPath));
+    if (index !== -1) {
+      handleImageError(index);
+    }
+  }
+}, { capture: true }) // Must use capture phase for error events
 
 const handleChange = (index: number) => {
   currentIdx.value = index

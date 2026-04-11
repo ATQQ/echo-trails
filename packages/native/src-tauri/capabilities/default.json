@@ -49,6 +49,9 @@
         },
         {
           "path": "$APPCACHE/**"
+        },
+        {
+          "path": "$APPLOCALDATA/**"
         }
       ]
     },
@@ -56,14 +59,16 @@
       "identifier": "fs:allow-lstat",
       "allow": [
         "$APPDATA/**",
-        "$APPCACHE/**"
+        "$APPCACHE/**",
+        "$APPLOCALDATA/**"
       ]
     },
     {
       "identifier": "fs:allow-mkdir",
       "allow": [
         "$APPDATA/**",
-        "$APPCACHE/**"
+        "$APPCACHE/**",
+        "$APPLOCALDATA/**"
       ]
     },
     "fs:allow-app-write",
@@ -78,14 +83,16 @@
       "identifier": "fs:allow-read-file",
       "allow": [
         "$APPDATA/**",
-        "$APPCACHE/**"
+        "$APPCACHE/**",
+        "$APPLOCALDATA/**"
       ]
     },
     {
       "identifier": "fs:allow-write-file",
       "allow": [
         "$APPDATA/**",
-        "$APPCACHE/**"
+        "$APPCACHE/**",
+        "$APPLOCALDATA/**"
       ]
     },
     {
@@ -94,7 +101,9 @@
         "$APPDATA",
         "$APPDATA/*",
         "$APPCACHE",
-        "$APPCACHE/*"
+        "$APPCACHE/*",
+        "$APPLOCALDATA",
+        "$APPLOCALDATA/*"
       ]
     },
     "log:default",

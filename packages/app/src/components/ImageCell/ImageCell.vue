@@ -33,7 +33,7 @@ const props = defineProps<{
   cacheKey?: string
 }>()
 
-const cachedSrc = useCachedImage(toRef(props, 'src'), toRef(props, 'cacheKey'))
+const { cachedSrc, handleLoadError } = useCachedImage(toRef(props, 'src'), toRef(props, 'cacheKey'))
 
 const isUsingCache = computed(() => {
   return cachedSrc.value && cachedSrc.value.includes('image_cache');
@@ -56,6 +56,7 @@ const handleLoad = () => {
 }
 
 const handleError = () => {
+  handleLoadError();
   emit('error');
 }
 

@@ -4,7 +4,7 @@ import { isTauri } from '@/constants';
 import { BaseDirectory, writeFile, lstat, mkdir, remove } from '@tauri-apps/plugin-fs';
 import { fetch } from '@tauri-apps/plugin-http';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { appCacheDir, join } from '@tauri-apps/api/path';
+import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import SparkMD5 from 'spark-md5';
 import pLimit from 'p-limit';
 import { showToast } from 'vant';
@@ -71,8 +71,8 @@ export async function initImageCache() {
   console.log('[ImageCache] Initializing cache dir...');
   cacheDirPromise = (async () => {
     try {
-      await mkdir(CACHE_DIR_NAME, { baseDir: BaseDirectory.AppCache, recursive: true });
-      cachedBaseDir = await appCacheDir();
+      await mkdir(CACHE_DIR_NAME, { baseDir: BaseDirectory.AppLocalData, recursive: true });
+      cachedBaseDir = await appLocalDataDir();
       console.log('[ImageCache] Initialized successfully. Base:', cachedBaseDir);
       return CACHE_DIR_NAME;
     } catch (e) {
@@ -101,7 +101,7 @@ const processingCache = new Map<string, Promise<string>>();
 export async function deleteSingleImageCache(url: string, cacheKey?: string) {
   if (!isTauri) return;
   const memKey = cacheKey ? `key:${cacheKey}` : url;
-  
+
   if (memoryCache.has(memKey)) {
     const hashContent = cacheKey || url;
     const hash = SparkMD5.hash(hashContent);
@@ -111,22 +111,22 @@ export async function deleteSingleImageCache(url: string, cacheKey?: string) {
     const filePath = `${CACHE_DIR_NAME}/${filename}`;
 
     try {
-      await remove(filePath, { baseDir: BaseDirectory.AppCache });
+      await remove(filePath, { baseDir: BaseDirectory.AppLocalData });
       console.log(`[ImageCache] Deleted physical cache file: ${filePath}`);
     } catch (e) {
       console.error(`[ImageCache] Failed to delete physical cache file: ${filePath}`, e);
     }
-    
+
     memoryCache.delete(memKey);
     persistMemoryCache();
-    showToast('该图片缓存已删除');
+    // showToast('该图片缓存已删除');
   }
 }
 
 export async function clearImageCache() {
   if (!isTauri) return;
   try {
-    await remove(CACHE_DIR_NAME, { baseDir: BaseDirectory.AppCache, recursive: true });
+    await remove(CACHE_DIR_NAME, { baseDir: BaseDirectory.AppLocalData, recursive: true });
     memoryCache.clear();
     localStorage.removeItem(MEMORY_CACHE_STORAGE_KEY);
     cacheDirPromise = null;
@@ -175,8 +175,8 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
       const filePath = `${CACHE_DIR_NAME}/${filename}`;
 
       // Calculate absolute path using the cached base dir
-      // Fallback to appCacheDir() just in case it failed to cache
-      const cacheBase = cachedBaseDir || await appCacheDir();
+      // Fallback to appLocalDataDir() just in case it failed to cache
+      const cacheBase = cachedBaseDir || await appLocalDataDir();
       const absolutePath = await join(cacheBase, CACHE_DIR_NAME, filename);
       const hashEnd = performance.now();
 
@@ -185,7 +185,7 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
       const statStart = performance.now();
       if (!forceRefresh) {
         try {
-          await lstat(filePath, { baseDir: BaseDirectory.AppCache });
+          await lstat(filePath, { baseDir: BaseDirectory.AppLocalData });
           fileExists = true;
         } catch (e) {
           fileExists = false;
@@ -219,7 +219,7 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
             const fetchEnd = performance.now();
 
             const writeStart = performance.now();
-            await writeFile(filePath, new Uint8Array(arrayBuffer), { baseDir: BaseDirectory.AppCache });
+            await writeFile(filePath, new Uint8Array(arrayBuffer), { baseDir: BaseDirectory.AppLocalData });
             const writeEnd = performance.now();
 
             const convertStart = performance.now();
@@ -256,11 +256,26 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
 export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: MaybeRef<string | undefined>) {
   const cachedSrc = ref<string>('');
 
+  const handleLoadError = async () => {
+    const targetUrl = toValue(url);
+    const key = toValue(cacheKey);
+    if (!targetUrl) return;
+
+    // Only fallback if we are currently using a cached image
+    if (cachedSrc.value && cachedSrc.value.includes('image_cache')) {
+      console.warn(`[ImageCache] Failed to load cached image, falling back to original: ${targetUrl}`);
+      // Clean up the corrupted cache entry
+      await deleteSingleImageCache(targetUrl, key);
+      // Fallback to original url
+      cachedSrc.value = targetUrl;
+    }
+  };
+
   if (!isTauri) {
     watchEffect(() => {
       cachedSrc.value = toValue(url) || '';
     });
-    return cachedSrc;
+    return { cachedSrc, handleLoadError };
   }
 
   watchEffect(async () => {
@@ -291,5 +306,5 @@ export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: May
     cachedSrc.value = await cacheImage(targetUrl, key);
   });
 
-  return cachedSrc;
+  return { cachedSrc, handleLoadError };
 }

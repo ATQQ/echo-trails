@@ -23,7 +23,8 @@
         "enable": true,
         "scope": [
           "$APPDATA/**",
-          "$APPCACHE/**"
+          "$APPCACHE/**",
+          "$APPLOCALDATA/**"
         ]
       }
     },
