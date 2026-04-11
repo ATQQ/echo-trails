@@ -3,7 +3,6 @@
     @touchstart="start" @touchend="cancel" @touchmove="cancel" fit="cover" position="center" width="100%" height="100%"
     lazy-load :src="cachedSrc" class="image-cell-wrapper" @load="handleLoad" @error="handleError">
     <slot />
-    <!-- 极简加载占位：纯色背景，无动画，避免多图卡顿 -->
     <template v-slot:loading>
       <div class="loading-container placeholder-pure"></div>
     </template>
@@ -13,10 +12,8 @@
         <van-icon name="photo-fail" size="24" color="#dcdee0" />
       </div>
     </template>
-    <!-- 重复标识的蓝色小三角 -->
     <div v-if="isRepeat" class="repeat-indicator"></div>
     
-    <!-- 缓存调试标识与删除操作 -->
     <div v-if="isCacheDebugMode && isUsingCache" class="cache-debug-badge" @click.stop="handleDeleteCache">
       <van-icon name="delete-o" /> 缓存
     </div>
@@ -41,7 +38,6 @@ const isUsingCache = computed(() => {
 
 const handleDeleteCache = async () => {
   await deleteSingleImageCache(props.src, props.cacheKey);
-  // Optional: could force reload the image here, but since it's debug mode, toast is enough
 }
 
 const emit = defineEmits<{
@@ -66,7 +62,7 @@ const start = () => {
   if (pressTimer === null) {
     pressTimer = setTimeout(() => {
       emit('longpress');
-    }, 500); // 500ms 是长按的触发时间
+    }, 500);
   }
 };
 
@@ -83,36 +79,20 @@ const cancel = () => {
   position: relative;
   width: 100%;
   height: 100%;
-  /* 开启 GPU 加速，缓解滚动卡顿 */
   transform: translateZ(0);
   will-change: transform;
   
-  /* Vant 的 lazyload 默认带 0.3s 的 opacity 动画 */
-  /* 这里保证图片加载完成时能自然渐显 */
   :deep(.van-image__img) {
     transition: opacity 0.5s ease-out;
-    /* 同样为图片内容开启 GPU 加速 */
     transform: translateZ(0);
     will-change: opacity;
   }
 }
 
-.placeholder-bg {
+.placeholder-pure {
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, #f2f3f5 25%, #e6e8eb 37%, #f2f3f5 63%);
-  background-size: 400% 100%;
-  animation: skeleton-loading 1.4s ease infinite;
-}
-
-@keyframes skeleton-loading {
-  0% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0 50%;
-  }
+  background-color: #f2f3f5;
 }
 
 .loading-container, .error-container {

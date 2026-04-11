@@ -2,8 +2,6 @@
   <div class="preview-image" ref="previewWrapper" :class="{
     'show-detail': showMoreOperate
   }">
-    <!-- We don't have a direct @error on van-image-preview for individual images, 
-         but we can try to intercept or just let the user re-download -->
     <van-image-preview :close-on-popstate="false" @change="handleChange" v-model:show="show" :images="urls"
       :start-position="start" swipeDuration="100" :showIndex="false" :onClose="handleOnClose" :closeOnClickImage="false"
       transition="zoom">
@@ -58,7 +56,6 @@
 
           </div>
         </transition>
-        <!-- 查看原图按钮 -->
         <transition name="van-fade">
           <div v-show="showMoreOperate && !isUsingOriginal && !editMode" class="view-original-btn" @click.stop="handleViewOriginal">
             查看原图 {{ filesize }}
@@ -118,17 +115,11 @@ watch(() => images, (newImages: Photo[]) => {
   urls.value = newImages.map(i => i.preview)
 
   if (isTauri) {
-    // Cache images
     newImages.forEach(async (img, index) => {
-      // Use _preview suffix to distinguish from cover
       const localUrl = await cacheImage(img.preview, `${img.key}_preview`)
 
-      // Update if the image at this index hasn't changed (by reference check or key check)
-      // Since images array might be mutated, we check if the current images[index] matches the one we processed
       if (images[index] === img || images[index]?.key === img.key) {
         if (!originalLoadedIndices.value.has(index)) {
-          // If the cached image fails to load, we can't easily catch it on the van-image-preview
-          // But we can verify if the file is readable right here, or just trust the cache
           urls.value[index] = localUrl
         }
       }
@@ -146,14 +137,12 @@ const handleViewOriginal = async () => {
   const img = activeImage.value;
   if (!img) return;
 
-  urls.value[idx] = img.url; // Switch to high-res remote URL immediately
+  urls.value[idx] = img.url;
   originalLoadedIndices.value.add(idx);
 
-  // Silently cache original image, overwriting preview cache
   if (isTauri) {
     try {
       const localUrl = await cacheImage(img.url, `${img.key}_preview`, true);
-      // Update with local file URL if still on the same image
       if (urls.value[idx] === img.url) {
         urls.value[idx] = localUrl;
       }
@@ -214,19 +203,16 @@ useEventListener(previewWrapper, 'touchstart', (e: TouchEvent) => {
 })
 useEventListener(previewWrapper, 'touchend', checkImageDetail)
 
-// Setup global error listener on preview container to catch image load errors
 useEventListener(previewWrapper, 'error', (e: Event) => {
   const target = e.target as HTMLImageElement;
   if (target && target.tagName === 'IMG' && target.src && target.src.includes('image_cache')) {
-    // Find which image failed. 
-    // asset://localhost/path/to/cache vs path/to/cache
     const targetPath = decodeURIComponent(target.src.replace('asset://localhost', ''));
     const index = urls.value.findIndex(url => decodeURIComponent(url).endsWith(targetPath));
     if (index !== -1) {
       handleImageError(index);
     }
   }
-}, { capture: true }) // Must use capture phase for error events
+}, { capture: true })
 
 const handleChange = (index: number) => {
   currentIdx.value = index
