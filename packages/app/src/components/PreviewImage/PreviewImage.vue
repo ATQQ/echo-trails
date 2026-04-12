@@ -155,7 +155,7 @@ const handleViewOriginal = async () => {
 const handleImageError = async (index: number) => {
   const targetUrl = urls.value[index];
   const img = images[index];
-  
+
   if (targetUrl && targetUrl.includes('image_cache') && img) {
     console.warn(`[PreviewImage] Failed to load cached preview image, falling back to original: ${img.preview}`);
     await deleteSingleImageCache(img.preview, `${img.key}_preview`);
@@ -220,6 +220,7 @@ const handleChange = (index: number) => {
 }
 
 import { getLunarDate } from '@/lib/lunar';
+import { preventBack } from '@/lib/router';
 
 const activeImage = computed(() => images[currentIdx.value] || {})
 const coverDate = computed(() => dayjs(activeImage.value.lastModified).format('YYYY年MM月DD日'))
@@ -359,19 +360,8 @@ const handleDeleteImage = async () => {
   })
 }
 
-onBeforeRouteLeave((to, from, next) => {
-  if (showAlbumSelect.value) {
-    showAlbumSelect.value = false
-    next(false)
-    return false
-  }
-  if (show.value) {
-    show.value = false
-    next(false)
-    return false
-  }
-  next()
-})
+preventBack(show)
+preventBack(showAlbumSelect)
 
 const restorePhotos = () => {
   photoListStore?.restorePhotos?.([activeImage.value._id])

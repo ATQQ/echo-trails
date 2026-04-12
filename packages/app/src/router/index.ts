@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import AlbumView from '../views/AlbumView.vue'
+import { executeBackHandlers } from '../lib/router'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -197,7 +198,16 @@ const router = createRouter({
         }
       ]
     }
-  ],
+  ]
+})
+
+// 添加全局前置守卫，拦截路由跳转以处理弹窗后退
+router.beforeEach((to, from, next) => {
+  if (executeBackHandlers()) {
+    next(false) // 有弹窗打开时拦截跳转，交由 handler 关闭弹窗
+  } else {
+    next()
+  }
 })
 
 export default router

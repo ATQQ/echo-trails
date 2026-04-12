@@ -145,7 +145,20 @@ const switchTab = (index: number) => {
   setTrackTransform(0, true); // 启动弹性切换动画
   const targetPath = swipeItems[index].path;
   if (route.path !== targetPath) {
-    router.replace(targetPath);
+    if (route.path === '/' && targetPath === '/home') {
+      // 从相册滑动到全部页面时，使用 push 建立历史记录
+      router.push(targetPath);
+    } else if (route.path === '/home' && targetPath === '/') {
+      // 从全部页面滑动回相册页时，使用 back() 消耗掉刚刚 push 的记录
+      // 如果没有上一页记录，降级使用 replace
+      if (window.history.length > 1) {
+        router.back();
+      } else {
+        router.replace(targetPath);
+      }
+    } else {
+      router.replace(targetPath);
+    }
   }
 };
 
