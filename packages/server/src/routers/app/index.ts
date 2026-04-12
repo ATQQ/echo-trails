@@ -62,26 +62,52 @@ export default function appRouter(app: Hono) {
 
     let versionConfig: PlatformVersion | null = null;
 
-    // 轮询尝试所有 URL
+    // 轮询尝试所有 URL，直到找到包含更新的配置
     for (const url of urls) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
 
         const response = await fetch(`${url}?t=${Date.now()}`, {
-          signal: controller.signal
+          signal: controller.signal,
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
         });
         clearTimeout(timeoutId);
 
         if (response.ok) {
           const data = await response.json() as any;
-           // 兼容可能的返回结构
-           if (data && typeof data.code === 'number' && data.data) {
-             versionConfig = data.data;
+          let currentConfig: PlatformVersion | null = null;
+          // 兼容可能的返回结构
+          if (data && typeof data.code === 'number' && data.data) {
+             currentConfig = data.data;
           } else {
-             versionConfig = data;
+             currentConfig = data;
           }
-          break;
+
+          if (!currentConfig || !currentConfig[platform] || !Array.isArray(currentConfig[platform])) {
+            continue; // 无效配置，继续尝试下一个
+          }
+
+          // 保存第一个有效的配置作为兜底
+          if (!versionConfig) {
+            versionConfig = currentConfig;
+          }
+
+          // 获取该平台的所有版本信息
+          const platformVersions = [...(currentConfig[platform] as VersionInfo[])];
+          // 按版本号降序排序
+          platformVersions.sort((a, b) => compareVersion(b.version, a.version));
+          const latestVersionInfo = platformVersions[0];
+
+          // 如果当前配置中的最新版本大于客户端当前版本，说明找到了更新，直接使用该配置并停止轮询
+          if (latestVersionInfo && compareVersion(latestVersionInfo.version, currentVersion) > 0) {
+            versionConfig = currentConfig;
+            break;
+          }
         }
       } catch (e) {
         console.error(`Failed to fetch version from ${url}`, e);
