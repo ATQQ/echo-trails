@@ -742,11 +742,23 @@ const toggleSelectAlbum = (idx: number) => {
   checkboxRefs.value[idx].toggle()
 }
 
-const previewImage = (idx: number) => {
+const previewImage = (idx: number, event?: Event) => {
   if (editData.active) {
     toggleSelectAlbum(idx)
     return
   }
+  
+  if (event) {
+    const target = (event.currentTarget as HTMLElement).closest('.virtual-col') as HTMLElement;
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      document.documentElement.style.setProperty('--preview-origin-x', `${x}px`);
+      document.documentElement.style.setProperty('--preview-origin-y', `${y}px`);
+    }
+  }
+
   showPreview.value = true
   startPosition.value = idx
 }
@@ -994,9 +1006,9 @@ watch(containerRef, (el) => {
 
             <!-- Photo Row -->
             <div v-else-if="item.data.type === 'photo-row'" class="virtual-row">
-               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }">
+               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }" :data-index="subItem.idx">
                   <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
-                    <ImageCell @click="previewImage(subItem.idx)" :src="subItem.cover" :is-repeat="subItem.isRepeat" :cache-key="subItem.key + '_cover'"
+                    <ImageCell @click="(e) => previewImage(subItem.idx, e)" :src="subItem.cover" :is-repeat="subItem.isRepeat" :cache-key="subItem.key + '_cover'"
                       @longpress="handleLongPress(subItem.idx)" />
                     <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[subItem.idx] = el" :name="subItem._id"
                       class="editSelected" />

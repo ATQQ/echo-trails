@@ -7,7 +7,7 @@
       transition="zoom">
       <template #cover>
         <!-- 顶部操作栏 -->
-        <transition name="van-slide-down">
+        <transition :name="show ? 'van-slide-down' : ''">
           <div v-show="showMoreOperate" class="cover-wrapper safe-padding-top">
             <header class="cover-header" @click="show = false">
               <h3>
@@ -56,14 +56,14 @@
 
           </div>
         </transition>
-        <transition name="van-fade">
+        <transition :name="show ? 'van-fade' : ''">
           <div v-show="showMoreOperate && !isUsingOriginal && !editMode" class="view-original-btn" @click.stop="handleViewOriginal">
             查看原图 {{ filesize }}
           </div>
         </transition>
 
         <!-- 底部操作栏 -->
-        <transition name="van-slide-up">
+        <transition :name="show ? 'van-slide-up' : ''">
           <BottomActions v-show="showMoreOperate" :menus="menus" />
         </transition>
       </template>
@@ -178,6 +178,18 @@ const previewWrapper = ref<HTMLDivElement>()
 const showMoreOperate = ref(true)
 const touchStart = ref<Touch>()
 const touchTimes = ref(0)
+
+// 监听预览组件显示状态，确保关闭时立刻隐藏工具栏
+watch(() => show.value, (newVal) => {
+  if (newVal) {
+    showMoreOperate.value = true;
+  } else {
+    showMoreOperate.value = false;
+    showInfoDetail.value = false;
+    editMode.value = false;
+  }
+})
+
 // 查看预览图片细节
 const checkImageDetail = (e: TouchEvent) => {
   // 手势滑动过滤
@@ -217,6 +229,19 @@ useEventListener(previewWrapper, 'error', (e: Event) => {
 const handleChange = (index: number) => {
   currentIdx.value = index
   editMode.value = false
+
+  // 尝试在 DOM 中找到对应索引的缩略图并更新坐标，以便缩小动画回到正确位置
+  // 使用 requestAnimationFrame 确保获取到最新的 DOM 位置
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`[data-index="${index}"]`);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      document.documentElement.style.setProperty('--preview-origin-x', `${x}px`);
+      document.documentElement.style.setProperty('--preview-origin-y', `${y}px`);
+    }
+  });
 }
 
 import { getLunarDate } from '@/lib/lunar';
@@ -424,18 +449,29 @@ const menus = computed(() => {
 </script>
 
 <style lang="scss">
-.zoom-enter-active,
-.zoom-leave-active {
-  transition: transform 0.5s ease;
+.zoom-enter-active {
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), opacity 0.3s ease-out;
 }
 
-.zoom-enter,
+.zoom-leave-active {
+  transition: transform 0.35s cubic-bezier(0.165, 0.84, 0.44, 1), opacity 0.3s ease-in;
+}
+
+.zoom-enter-active,
+.zoom-leave-active {
+  will-change: transform, opacity;
+  transform-origin: var(--preview-origin-x, center) var(--preview-origin-y, center);
+}
+
+.zoom-enter-from,
 .zoom-leave-to {
-  transform: scale(0);
+  opacity: 0;
+  transform: scale(0.3);
 }
 
 .zoom-enter-to,
-.zoom-leave {
+.zoom-leave-from {
+  opacity: 1;
   transform: scale(1);
 }
 
@@ -451,10 +487,6 @@ const menus = computed(() => {
 .safe-padding-top,
 .safe-padding-bottom {
   background-color: var(--safe-area-bg-color);
-}
-
-.preview-image :deep(.van-image-preview__overlay) {
-  transition: all 0.3s ease;
 }
 
 .preview-image :deep(.van-image-preview__cover) {
