@@ -12,8 +12,10 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { api } from "@/lib/request";
 import NotificationBanner from '@/components/NotificationBanner/NotificationBanner.vue';
 import MainLayout from '@/components/MainLayout.vue';
+import { useFooterStore } from '@/stores/footer';
 
 const route = useRoute();
+const footerStore = useFooterStore();
 const showNav = computed(() => route.meta.nav === true)
 const isSwipePage = computed(() => ['/home', '/'].includes(route.path))
 
@@ -153,7 +155,7 @@ onMounted(() => {
     </router-view>
   </div>
   <!-- 底部菜单 -->
-  <footer-nav v-show="showNav"></footer-nav>
+  <footer-nav v-show="showNav && footerStore.isVisible"></footer-nav>
 
   <!-- Notification Banner -->
   <NotificationBanner

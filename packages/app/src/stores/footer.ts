@@ -40,6 +40,7 @@ export const useFooterStore = defineStore('footer', () => {
   ]
 
   const items = ref<FooterItem[]>([])
+  const isVisible = ref(true)
 
   // Initialize from localStorage
   const init = () => {
@@ -86,7 +87,7 @@ export const useFooterStore = defineStore('footer', () => {
     if (['/home', '/', '/discovery'].includes(path)) {
       return false
     }
-    
+
     const index = items.value.findIndex(i => i.path === path)
     if (index > -1) {
       items.value.splice(index, 1)
@@ -102,6 +103,7 @@ export const useFooterStore = defineStore('footer', () => {
 
   return {
     items,
+    isVisible,
     addItem,
     removeItem,
     isAdded

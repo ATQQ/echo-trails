@@ -596,7 +596,14 @@ const afterRead = (files: any) => {
   startUpload(fileInfoList)
 }
 
+import { useFooterStore } from '@/stores/footer'
+
 const showPreview = ref(false)
+const footerStore = useFooterStore()
+
+watch(() => showPreview.value, (newVal) => {
+  footerStore.isVisible = !newVal
+})
 const editData = reactive({
   currentIdx: 0,
   active: false,
@@ -747,7 +754,7 @@ const previewImage = (idx: number, event?: Event) => {
     toggleSelectAlbum(idx)
     return
   }
-  
+
   if (event) {
     const target = (event.currentTarget as HTMLElement).closest('.virtual-col') as HTMLElement;
     if (target) {
@@ -1008,7 +1015,7 @@ watch(containerRef, (el) => {
             <div v-else-if="item.data.type === 'photo-row'" class="virtual-row">
                <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }" :data-index="subItem.idx">
                   <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
-                    <ImageCell @click="(e) => previewImage(subItem.idx, e)" :src="subItem.cover" :is-repeat="subItem.isRepeat" :cache-key="subItem.key + '_cover'"
+                    <ImageCell @click="(e: Event) => previewImage(subItem.idx, e)" :src="subItem.cover" :is-repeat="subItem.isRepeat" :cache-key="subItem.key + '_cover'"
                       @longpress="handleLongPress(subItem.idx)" />
                     <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[subItem.idx] = el" :name="subItem._id"
                       class="editSelected" />

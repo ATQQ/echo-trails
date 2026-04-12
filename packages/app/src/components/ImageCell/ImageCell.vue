@@ -1,5 +1,5 @@
 <template>
-  <van-image @click="emit('click')" @mousedown="start" @mouseup="cancel" @mouseleave="cancel"
+  <van-image @click="($event) => emit('click', $event)" @mousedown="start" @mouseup="cancel" @mouseleave="cancel"
     @touchstart="start" @touchend="cancel" @touchmove="cancel" fit="cover" position="center" width="100%" height="100%"
     lazy-load :src="cachedSrc" class="image-cell-wrapper" @load="handleLoad" @error="handleError">
     <slot />
@@ -41,7 +41,7 @@ const handleDeleteCache = async () => {
 }
 
 const emit = defineEmits<{
-  (e: 'click'): void,
+  (e: 'click', event: Event): void,
   (e: 'longpress'): void,
   (e: 'load'): void,
   (e: 'error'): void

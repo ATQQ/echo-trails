@@ -607,7 +607,14 @@ const afterRead = (files: any) => {
   startUpload(fileInfoList)
 }
 
+import { useFooterStore } from '@/stores/footer'
+
 const showPreview = ref(false)
+const footerStore = useFooterStore()
+
+watch(() => showPreview.value, (newVal) => {
+  footerStore.isVisible = !newVal
+})
 const editData = reactive({
   currentIdx: 0,
   active: false,
