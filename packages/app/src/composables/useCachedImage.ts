@@ -1,5 +1,5 @@
 
-import { ref, watchEffect, toValue, type MaybeRef } from 'vue';
+import { ref, watchEffect, watch, toValue, type MaybeRef } from 'vue';
 import { isTauri } from '@/constants';
 import { BaseDirectory, writeFile, lstat, mkdir, remove } from '@tauri-apps/plugin-fs';
 import { fetch } from '@tauri-apps/plugin-http';
@@ -272,39 +272,63 @@ export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: May
   };
 
   if (!isTauri) {
-    watchEffect(() => {
-      cachedSrc.value = toValue(url) || '';
-    });
+    watch(
+      () => [toValue(url), toValue(cacheKey)] as const,
+      (newValues, oldValues) => {
+        const [newUrl, newKey] = newValues || [undefined, undefined];
+        const [oldUrl, oldKey] = oldValues || [undefined, undefined];
+        const isSameImage = newKey && oldKey && newKey === oldKey;
+        // In Web, updating to a new presigned URL causes van-image to flicker.
+        // If we already have it loaded for the same cacheKey, we skip the update to avoid flicker.
+        if (isSameImage && cachedSrc.value) {
+          return;
+        }
+        cachedSrc.value = newUrl || '';
+      },
+      { immediate: true }
+    );
     return { cachedSrc, handleLoadError };
   }
 
-  watchEffect(async () => {
-    const targetUrl = toValue(url);
-    const key = toValue(cacheKey);
+  watch(
+    () => [toValue(url), toValue(cacheKey)] as const,
+    async (newValues, oldValues) => {
+      const [newUrl, newKey] = newValues || [undefined, undefined];
+      const [oldUrl, oldKey] = oldValues || [undefined, undefined];
+      if (!newUrl) {
+        cachedSrc.value = '';
+        return;
+      }
 
-    if (!targetUrl) {
-      cachedSrc.value = '';
-      return;
-    }
+      if (isCacheDisabled.value) {
+        cachedSrc.value = newUrl;
+        return;
+      }
 
-    if (isCacheDisabled.value) {
-      cachedSrc.value = targetUrl;
-      return;
-    }
+      // Check memory cache synchronously to avoid microtask flicker
+      const memKey = newKey ? `key:${newKey}` : newUrl;
+      if (memoryCache.has(memKey)) {
+        cachedSrc.value = memoryCache.get(memKey)!;
+        return;
+      }
 
-    // Check memory cache synchronously to avoid microtask flicker
-    const memKey = key ? `key:${key}` : targetUrl;
-    if (memoryCache.has(memKey)) {
-      cachedSrc.value = memoryCache.get(memKey)!;
-      return;
-    }
+      // Clear the previous image before starting async work
+      // ONLY if it's a completely different image (to prevent displaying old images when recycled in virtual lists).
+      // If it's the same image (same cacheKey), keep showing the old one while processing
+      const isSameImage = newKey && oldKey && newKey === oldKey;
+      if (!isSameImage) {
+        cachedSrc.value = '';
+      }
 
-    // Clear the previous image before starting async work
-    // to prevent displaying old images when recycled in virtual lists
-    cachedSrc.value = '';
+      const result = await cacheImage(newUrl, newKey);
 
-    cachedSrc.value = await cacheImage(targetUrl, key);
-  });
+      // Prevent race conditions if URL changed while caching
+      if (toValue(url) === newUrl) {
+        cachedSrc.value = result;
+      }
+    },
+    { immediate: true }
+  );
 
   return { cachedSrc, handleLoadError };
 }
