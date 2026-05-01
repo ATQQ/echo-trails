@@ -39,7 +39,7 @@ export function formatSize(
 ) {
   let unit
   units = units || ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-   
+
   while ((unit = units.shift()) && size > 1024) {
     size /= 1024
   }
@@ -340,23 +340,11 @@ export async function parseNativeImageFileUploadInfo(filePath: string) {
     const fileType = nativeInfo.fileType || 'image/jpeg'
 
     // 3. 解析 EXIF
-    let exif: any = {}
-    let exifDate: Date | null = null
+    const exif: any = await getImageExif(buffer) as any
+    const exifDate: Date | null = getExifDate(exif)
 
-    if (nativeInfo.width > 0 && nativeInfo.height > 0 && nativeInfo.lastModified > 0) {
-      exif = {
-        'Image Width': { value: nativeInfo.width },
-        'Image Height': { value: nativeInfo.height },
-        'FileType': { value: fileType }
-      }
-    }
-    if (!nativeInfo.creationTime) {
-      exif = await getImageExif(buffer) as any
-      exifDate = getExifDate(exif)
-    }
-
-    // 4. 确定最终时间: Native EXIF > JS EXIF > Native/lstat > Current
-    const lastModified = +(nativeInfo.creationTime || exifDate || nativeInfo.lastModified || new Date())
+    // 4. 确定最终时间: JS EXIF > Native EXIF > Native/lstat > Current
+    const lastModified = +(exifDate || nativeInfo.creationTime || nativeInfo.lastModified || new Date())
 
     // 5. 构建 File 对象
     const originalName = filePath2Name(filePath) || 'unknown'

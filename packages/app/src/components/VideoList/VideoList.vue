@@ -62,6 +62,10 @@ onDeactivated(() => {
   cleanupProgressListener()
 })
 
+onUnmounted(() => {
+  cleanupProgressListener()
+})
+
 const { likedMode = false, album, isDelete = false } = defineProps<{
   likedMode?: boolean
   album?: Album

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
+import { onMounted, reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
 import { addFileInfo, updateFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
 import { filePath2Name, generateFileKey, parseNativeImageFileUploadInfo, ensureUploadInfo } from '../../lib/file';
 import { isTauri, UploadStatus } from '../../constants/index'
@@ -23,11 +23,8 @@ import { useScrollRestore } from '@/composables/useScrollRestore';
 const isActive = ref(true)
 let unlistenProgress: UnlistenFn | null = null
 
-onActivated(async () => {
-  // 调用时机为首次挂载
-  // 以及每次从缓存中被重新插入时
-  isActive.value = true
-  if (isTauri) {
+const startListen = async () => {
+  if (isTauri && !unlistenProgress) {
     unlistenProgress = await listen<{ key: string, progress: number, total: number }>('upload://progress', (event) => {
       const { key, progress, total } = event.payload
       const item = waitUploadList.find(v => v.key === key)
@@ -36,17 +33,31 @@ onActivated(async () => {
       }
     })
   }
+}
+
+const stopListen = () => {
+  if (unlistenProgress) {
+    unlistenProgress()
+    unlistenProgress = null
+  }
+}
+
+onMounted(startListen)
+onActivated(async () => {
+  // 调用时机为首次挂载
+  // 以及每次从缓存中被重新插入时
+  isActive.value = true
+  startListen()
 })
 
 onDeactivated(() => {
   // 在从 DOM 上移除、进入缓存
   // 以及组件卸载时调用
   isActive.value = false
-  if (unlistenProgress) {
-    unlistenProgress()
-    unlistenProgress = null
-  }
+  stopListen()
 })
+
+onUnmounted(stopListen)
 
 const { likedMode = false, album, isDelete = false, startDate, endDate } = defineProps<{
   likedMode?: boolean
