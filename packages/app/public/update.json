@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.7.4",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.4.apk",
+      "forceUpdate": false,
+      "description": "修复上传进度显示异常，时间获取异常，首次访问图片闪烁等问题",
+      "md5": "7a7fc13e9dbe045cd214b8b4ef50c1ec"
+    },
+    {
       "version": "0.7.3",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.3.apk",
       "forceUpdate": false,
