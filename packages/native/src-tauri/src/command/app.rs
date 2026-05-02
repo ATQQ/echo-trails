@@ -147,7 +147,7 @@ pub async fn open_apk(app_handle: tauri::AppHandle, file_path: String) -> Result
     #[cfg(not(target_os = "android"))]
     {
         use tauri_plugin_opener::OpenerExt;
-        app_handle.opener().open_path(file_path, None::<&str>).await.map_err(|e| e.to_string())?;
+        app_handle.opener().open_path(file_path, None::<&str>).map_err(|e| e.to_string())?;
         Ok(())
     }
 }

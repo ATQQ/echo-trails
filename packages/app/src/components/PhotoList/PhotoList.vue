@@ -84,7 +84,7 @@ const getCacheKey = () => {
   return `photo_list_cache_${album?._id || 'all'}_${likedMode}_${isDelete ? 'deleted' : 'normal'}_${startDate || ''}_${endDate || ''}`
 }
 
-const { data: cacheData, load: loadStorage, save: saveStorage } = useTTLStorage<{
+const { data: cacheData, loadAsync: loadStorageAsync, saveAsync: saveStorageAsync } = useTTLStorage<{
   list: Photo[],
   pageIndex: number
 }>({
@@ -99,11 +99,11 @@ const saveCache = () => {
     list: photoList,
     pageIndex: pageInfo.pageIndex
   }
-  saveStorage()
+  saveStorageAsync()
 }
 
-const loadCache = () => {
-  const success = loadStorage()
+const loadCache = async () => {
+  const success = await loadStorageAsync()
   if (success && cacheData.value.list.length > 0) {
     const { list, pageIndex } = cacheData.value
     photoList.length = 0
@@ -272,7 +272,7 @@ const unregisterScrollListener = () => {
 watch(isActive, async (active) => {
   if (active) {
     // 尝试加载缓存
-    const restored = loadCache()
+    const restored = await loadCache()
     if (!restored) {
       await loadNext()
     } else {

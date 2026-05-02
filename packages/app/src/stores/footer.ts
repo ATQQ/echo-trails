@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { getLocalCache, setLocalCache } from '@/lib/storage'
 
 export interface FooterItem {
   icon: string
@@ -42,9 +43,9 @@ export const useFooterStore = defineStore('footer', () => {
   const items = ref<FooterItem[]>([])
   const isVisible = ref(true)
 
-  // Initialize from localStorage
-  const init = () => {
-    const saved = localStorage.getItem('footer_menus')
+  // Initialize from cache
+  const init = async () => {
+    const saved = await getLocalCache('footer_menus')
     if (saved) {
       try {
         items.value = JSON.parse(saved)
@@ -59,7 +60,7 @@ export const useFooterStore = defineStore('footer', () => {
   init()
 
   const save = () => {
-    localStorage.setItem('footer_menus', JSON.stringify(items.value))
+    setLocalCache('footer_menus', JSON.stringify(items.value))
   }
 
   const addItem = (item: FooterItem) => {

@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue'
 import { isTauri } from '@/constants'
+import { getLocalCache, setLocalCache, removeLocalCache } from '@/lib/storage'
 
 interface TTLStorageOptions<T> {
   ttl?: number // Time to live in ms, default 15 mins
@@ -19,6 +20,7 @@ export function useTTLStorage<T>(options: TTLStorageOptions<T>) {
     return typeof key === 'function' ? key() : key
   }
 
+  // Synchronous load (fallback/legacy for Web)
   const load = (): boolean => {
     try {
       const storageKey = getStorageKey()
@@ -28,8 +30,6 @@ export function useTTLStorage<T>(options: TTLStorageOptions<T>) {
       const parsed = JSON.parse(raw)
       const lastUpdate = parsed.lastUpdate || 0
 
-      // In Tauri environment, if persistInTauri is true, we ignore TTL and always load from cache
-      // This allows offline viewing of previously loaded data
       const isExpired = Date.now() - lastUpdate > ttl;
       const shouldIgnoreTTL = isTauri && persistInTauri;
 
@@ -46,11 +46,37 @@ export function useTTLStorage<T>(options: TTLStorageOptions<T>) {
     }
   }
 
+  // Asynchronous load (Recommended for Tauri with Turso DB)
+  const loadAsync = async (): Promise<boolean> => {
+    try {
+      const storageKey = getStorageKey()
+      const raw = await getLocalCache(storageKey)
+      if (!raw) return false
+
+      const parsed = JSON.parse(raw)
+      const lastUpdate = parsed.lastUpdate || 0
+
+      const isExpired = Date.now() - lastUpdate > ttl;
+      const shouldIgnoreTTL = isTauri && persistInTauri;
+
+      if (isExpired && !shouldIgnoreTTL) {
+        await removeLocalCache(storageKey)
+        return false
+      }
+
+      data.value = parsed.data
+      return true
+    } catch (e) {
+      console.error(`[useTTLStorage] Async load failed`, e)
+      return false
+    }
+  }
+
+  // Synchronous save (fallback/legacy)
   const save = (newValue?: T) => {
     try {
       const storageKey = getStorageKey()
       const valToSave = newValue !== undefined ? newValue : data.value
-      // Update local data ref if newValue is provided
       if (newValue !== undefined) {
         data.value = newValue
       }
@@ -65,15 +91,37 @@ export function useTTLStorage<T>(options: TTLStorageOptions<T>) {
     }
   }
 
+  // Asynchronous save (Recommended for Tauri with Turso DB)
+  const saveAsync = async (newValue?: T) => {
+    try {
+      const storageKey = getStorageKey()
+      const valToSave = newValue !== undefined ? newValue : data.value
+      if (newValue !== undefined) {
+        data.value = newValue
+      }
+
+      const storageData = {
+        data: valToSave,
+        lastUpdate: Date.now()
+      }
+      await setLocalCache(storageKey, JSON.stringify(storageData))
+    } catch (e) {
+      console.error(`[useTTLStorage] Async save failed`, e)
+    }
+  }
+
   const clear = () => {
     const storageKey = getStorageKey()
     localStorage.removeItem(storageKey)
+    removeLocalCache(storageKey)
   }
 
   return {
     data,
     load,
+    loadAsync,
     save,
+    saveAsync,
     clear
   }
 }

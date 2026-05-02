@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { useLocalStorage } from '@vueuse/core';
 import { api } from '@/lib/request';
 import { useFamilyStore } from './family';
 import { useFamily } from '@/composables/useFamily';
+import { getLocalCache, setLocalCache } from '@/lib/storage';
 
 export interface BloodPressureRecord {
   id: string;
@@ -18,8 +18,6 @@ export interface BloodPressureRecord {
 
 export const useBloodPressureStore = defineStore('blood-pressure', () => {
   const records = ref<BloodPressureRecord[]>([]);
-  // Add local cache keyed by query parameters
-  const recordsCache = useLocalStorage<Record<string, BloodPressureRecord[]>>('bp-records-cache', {});
 
   const { refreshFamilies } = useFamily()
   const familyStore = useFamilyStore();
@@ -27,11 +25,16 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
   const fetchRecords = async (startTime?: number, endTime?: number, familyId?: string) => {
     try {
       const fid = familyId || familyStore.currentFamily.familyId || 'default';
-      const cacheKey = `${fid}_${startTime || 0}_${endTime || 0}`;
+      const cacheKey = `bp_records_${fid}_${startTime || 0}_${endTime || 0}`;
 
       // Optimistic update from cache
-      if (recordsCache.value[cacheKey]) {
-        records.value = recordsCache.value[cacheKey];
+      const cached = await getLocalCache(cacheKey);
+      if (cached) {
+        try {
+          records.value = JSON.parse(cached);
+        } catch (e) {
+          records.value = [];
+        }
       } else {
         records.value = []; // Clear previous data to prevent flashing old data
       }
@@ -59,7 +62,7 @@ export const useBloodPressureStore = defineStore('blood-pressure', () => {
         
         records.value = newData;
         // Update cache
-        recordsCache.value[cacheKey] = newData;
+        await setLocalCache(cacheKey, JSON.stringify(newData));
       }
     } catch (e) {
       console.error('Failed to fetch blood pressure records', e);

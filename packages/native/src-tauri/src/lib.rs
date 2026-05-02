@@ -5,6 +5,9 @@ use tauri_plugin_log::{Target, TargetKind};
 mod command;
 use command::*;
 
+mod db;
+use db::*;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -26,6 +29,14 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .setup(|app| {
+            tauri::async_runtime::block_on(async {
+                if let Err(e) = db::init(app.handle()).await {
+                    log::error!("Failed to initialize database: {}", e);
+                }
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             save_to_pictures,
@@ -33,7 +44,9 @@ pub fn run() {
             upload_file,
             download_apk,
             open_apk,
-            get_file_info
+            get_file_info,
+            db_set_cache,
+            db_get_cache
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

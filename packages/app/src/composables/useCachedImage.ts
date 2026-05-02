@@ -9,6 +9,8 @@ import SparkMD5 from 'spark-md5';
 import pLimit from 'p-limit';
 import { showToast } from 'vant';
 
+import { getLocalCache, setLocalCache, removeLocalCache } from '@/lib/storage';
+
 const limit = pLimit(4); // Limit concurrent file operations
 const downloadLimit = pLimit(1); // Limit concurrent background downloads
 const CACHE_DIR_NAME = 'image_cache';
@@ -21,15 +23,18 @@ export const isCacheDisabled = ref(false);
 // Cache for in-memory URLs to avoid repeated checks for the same URL in the same session
 // Initialize from localStorage to persist across app restarts
 let memoryCache = new Map<string, string>();
-try {
-  const savedCache = localStorage.getItem(MEMORY_CACHE_STORAGE_KEY);
-  if (savedCache) {
-    const parsed = JSON.parse(savedCache);
-    memoryCache = new Map(Object.entries(parsed));
+const initMemoryCache = async () => {
+  try {
+    const savedCache = await getLocalCache(MEMORY_CACHE_STORAGE_KEY);
+    if (savedCache) {
+      const parsed = JSON.parse(savedCache);
+      memoryCache = new Map(Object.entries(parsed));
+    }
+  } catch (e) {
+    console.error('[ImageCache] Failed to load memory cache from storage', e);
   }
-} catch (e) {
-  console.error('[ImageCache] Failed to load memory cache from storage', e);
-}
+};
+initMemoryCache();
 
 // Helper to save memory cache to storage (debounced and idle-scheduled)
 let persistTimer: number | null = null;
@@ -39,10 +44,10 @@ function persistMemoryCache() {
   }
 
   persistTimer = window.setTimeout(() => {
-    const saveTask = () => {
+    const saveTask = async () => {
       try {
         const obj = Object.fromEntries(memoryCache.entries());
-        localStorage.setItem(MEMORY_CACHE_STORAGE_KEY, JSON.stringify(obj));
+        await setLocalCache(MEMORY_CACHE_STORAGE_KEY, JSON.stringify(obj));
         console.log('[ImageCache] Memory cache persisted to storage');
       } catch (e) {
         console.error('[ImageCache] Failed to save memory cache', e);
@@ -128,7 +133,7 @@ export async function clearImageCache() {
   try {
     await remove(CACHE_DIR_NAME, { baseDir: BaseDirectory.AppLocalData, recursive: true });
     memoryCache.clear();
-    localStorage.removeItem(MEMORY_CACHE_STORAGE_KEY);
+    await removeLocalCache(MEMORY_CACHE_STORAGE_KEY);
     cacheDirPromise = null;
     initImageCache();
     showToast('Cache cleared');
