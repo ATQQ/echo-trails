@@ -46,7 +46,9 @@ pub fn run() {
             open_apk,
             get_file_info,
             db_set_cache,
-            db_get_cache
+            db_get_cache,
+            db_get_all_cache_info,
+            db_delete_cache
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

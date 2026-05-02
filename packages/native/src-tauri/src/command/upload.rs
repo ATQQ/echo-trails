@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
-use std::path::{Path, PathBuf};
+use tauri::{AppHandle, Emitter};
+use std::path::PathBuf;
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 use reqwest::{Body, Url};

@@ -1,6 +1,13 @@
 use log::info;
+use serde::Serialize;
 use tauri::Manager;
 use turso::{Builder, Database};
+
+#[derive(Serialize)]
+pub struct CacheInfo {
+    pub key: String,
+    pub size: usize,
+}
 
 pub struct TursoDb(pub Database);
 
@@ -81,4 +88,38 @@ pub async fn db_get_cache(
     }
     
     Ok(None)
+}
+
+#[tauri::command]
+pub async fn db_get_all_cache_info(
+    state: tauri::State<'_, TursoDb>,
+) -> Result<Vec<CacheInfo>, String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+    let mut rows = conn.query("SELECT key, LENGTH(value) as size FROM kv_cache", ()).await.map_err(|e| e.to_string())?;
+    
+    let mut result = Vec::new();
+    while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+        let key = row.get_value(0).map_err(|e| e.to_string())?;
+        let size = row.get_value(1).map_err(|e| e.to_string())?;
+        
+        if let (Some(k), Some(s)) = (key.as_text(), size.as_integer()) {
+            // Note: LENGTH(value) in SQLite returns number of characters for TEXT, 
+            // bytes for BLOB. Assuming utf8 chars, size * 2 is roughly the bytes if we compare to JS length * 2.
+            result.push(CacheInfo {
+                key: k.to_string(),
+                size: (*s as usize) * 2,
+            });
+        }
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn db_delete_cache(
+    state: tauri::State<'_, TursoDb>,
+    key: String,
+) -> Result<(), String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM kv_cache WHERE key = ?1", (key,)).await.map_err(|e| e.to_string())?;
+    Ok(())
 }

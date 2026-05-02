@@ -1,4 +1,5 @@
 use tauri::{Emitter, Manager};
+use log::info;
 use serde::Serialize;
 use futures_util::StreamExt;
 use std::io::Write;
@@ -103,7 +104,8 @@ pub async fn download_apk(app_handle: tauri::AppHandle, url: String, version: St
 }
 
 #[tauri::command]
-pub async fn open_apk(app_handle: tauri::AppHandle, file_path: String) -> Result<(), String> {
+pub async fn open_apk(_app_handle: tauri::AppHandle, file_path: String) -> Result<(), String> {
+    info!("Opening APK from: {}", file_path);
     #[cfg(target_os = "android")]
     {
         let ctx = ndk_context::android_context();
@@ -147,7 +149,7 @@ pub async fn open_apk(app_handle: tauri::AppHandle, file_path: String) -> Result
     #[cfg(not(target_os = "android"))]
     {
         use tauri_plugin_opener::OpenerExt;
-        app_handle.opener().open_path(file_path, None::<&str>).map_err(|e| e.to_string())?;
+        _app_handle.opener().open_path(file_path, None::<&str>).map_err(|e: tauri_plugin_opener::Error| e.to_string())?;
         Ok(())
     }
 }

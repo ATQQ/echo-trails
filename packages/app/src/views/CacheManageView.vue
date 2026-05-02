@@ -6,6 +6,7 @@ import { isTauri } from '@/constants';
 import { BaseDirectory, lstat, remove  } from '@tauri-apps/plugin-fs';
 import { MEMORY_CACHE_STORAGE_KEY } from '@/composables/useCachedImage';
 import { preventBack } from '@/lib/router';
+import { getAllCacheInfo, removeLocalCache, getLocalCache, setLocalCache } from '@/lib/storage';
 
 const router = useRouter();
 
@@ -159,7 +160,7 @@ const getCategoryForKey = (key: string) => {
 const isCalculatingImages = ref(false);
 const imageCacheCalculated = ref(false);
 
-const loadCaches = () => {
+const loadCaches = async () => {
   // Reset items
   categories.value.forEach(c => {
     c.items = [];
@@ -167,14 +168,10 @@ const loadCaches = () => {
   });
 
   let totalAppSize = 0;
+  const allCacheInfos = await getAllCacheInfo();
 
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key) continue;
-
-    const value = localStorage.getItem(key) || '';
-    // UTF-16 character is 2 bytes
-    const size = key.length * 2 + value.length * 2;
+  for (const info of allCacheInfos) {
+    const { key, size } = info;
     totalAppSize += size;
 
     const categoryId = getCategoryForKey(key);
@@ -204,7 +201,7 @@ const calculateImageCache = async () => {
   isCalculatingImages.value = true;
 
   try {
-    const memoryCacheStr = localStorage.getItem(MEMORY_CACHE_STORAGE_KEY);
+    const memoryCacheStr = await getLocalCache(MEMORY_CACHE_STORAGE_KEY);
     if (memoryCacheStr) {
       const memoryCache = JSON.parse(memoryCacheStr);
 
@@ -275,10 +272,10 @@ const handleClearCategory = (category: CacheCategory) => {
       ? `清理【${category.name}】可能会导致退出登录或配置丢失，确定要清理吗？`
       : `确定要清理【${category.name}】的缓存数据吗？`,
     confirmButtonColor: category.danger ? '#ee0a24' : '#1989fa',
-  }).then(() => {
-    category.items.forEach(item => {
-      localStorage.removeItem(item.key);
-    });
+  }).then(async () => {
+    for (const item of category.items) {
+      await removeLocalCache(item.key);
+    }
     showToast('清理成功');
 
     // Special handling for auth
@@ -291,7 +288,7 @@ const handleClearCategory = (category: CacheCategory) => {
         window.location.reload();
       }, 500);
     } else {
-      loadCaches();
+      await loadCaches();
     }
   }).catch(() => {
     // on cancel
@@ -302,10 +299,10 @@ const handleClearItem = (item: CacheItem, category: CacheCategory) => {
   showConfirmDialog({
     title: '确认清理',
     message: `确定要清理【${item.key}】吗？`,
-  }).then(() => {
-    localStorage.removeItem(item.key);
+  }).then(async () => {
+    await removeLocalCache(item.key);
     showToast('清理成功');
-    loadCaches();
+    await loadCaches();
   }).catch(() => {
     // on cancel
   });
@@ -314,7 +311,7 @@ const handleClearItem = (item: CacheItem, category: CacheCategory) => {
 const deleteImageCaches = async (items: ImageCacheItem[]) => {
   if (!items.length) return;
 
-  const memoryCacheStr = localStorage.getItem(MEMORY_CACHE_STORAGE_KEY);
+  const memoryCacheStr = await getLocalCache(MEMORY_CACHE_STORAGE_KEY);
   const memoryCache = memoryCacheStr ? JSON.parse(memoryCacheStr) : {};
 
   let deletedCount = 0;
@@ -331,13 +328,13 @@ const deleteImageCaches = async (items: ImageCacheItem[]) => {
   }
 
   // Update memory cache
-  localStorage.setItem(MEMORY_CACHE_STORAGE_KEY, JSON.stringify(memoryCache));
+  await setLocalCache(MEMORY_CACHE_STORAGE_KEY, JSON.stringify(memoryCache));
 
   // Clear selection if any logic still uses it
   showToast(`成功清理 ${deletedCount} 张图片缓存`);
 
   // Re-calculate stats instead of full page load
-  calculateImageCache();
+  await calculateImageCache();
 };
 
 const clearAllSafe = () => {
@@ -352,14 +349,14 @@ const clearAllSafe = () => {
   showConfirmDialog({
     title: '一键清理',
     message: '确定要清理所有业务数据、用户偏好和其他缓存吗？（身份认证和系统配置将被保留）',
-  }).then(() => {
-    safeCategories.forEach(c => {
-      c.items.forEach(item => {
-        localStorage.removeItem(item.key);
-      });
-    });
+  }).then(async () => {
+    for (const c of safeCategories) {
+      for (const item of c.items) {
+        await removeLocalCache(item.key);
+      }
+    }
     showToast('一键清理成功');
-    loadCaches();
+    await loadCaches();
   }).catch(() => {});
 };
 

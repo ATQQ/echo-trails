@@ -1,7 +1,6 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fs;
 use std::io::Write;
-use log::{debug, error, info, trace, warn};
 
 #[cfg(target_os = "android")]
 use jni::objects::JValue;
