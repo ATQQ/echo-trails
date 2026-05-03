@@ -1644,6 +1644,7 @@ version = "0.7.4"
 dependencies = [
  "aws-sdk-s3",
  "aws-smithy-http-client",
+ "chrono",
  "dotenv",
  "futures-util",
  "jni",
@@ -1667,6 +1668,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "turso",
+ "uuid",
 ]
 
 [[package]]

@@ -40,6 +40,8 @@ futures-util = "0.3"
 md5 = "0.7"
 tokio-util = { version = "0.7.18", features = ["io", "codec"] }
 turso = { version = "0.5.3" }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"

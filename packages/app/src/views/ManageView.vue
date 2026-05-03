@@ -4,15 +4,16 @@ import { useRouter } from 'vue-router';
 import { useLocalStorage } from '@vueuse/core';
 import { showConfirmDialog, showToast, showLoadingToast, closeToast, showDialog } from 'vant';
 import { isTauri } from '@/constants';
-import { checkLogin } from '@/service';
+import { checkLogin, checkUpdate as checkUpdateApi } from '@/service';
+import { isLocalMode } from '@/lib/serviceRouter';
 import { version } from '../../package.json';
 import { type } from '@tauri-apps/plugin-os';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { api } from "@/lib/request";
 import { isCacheDebugMode, isCacheDisabled } from '@/composables/useCachedImage';
 import { isNativeUploadTokenEnabled } from '@/composables/useUploadTokenConfig';
+import { isAutoCheckUpdateEnabled } from '@/composables/useAutoCheckUpdate';
 import { preventBack } from '@/lib/router';
 
 const router = useRouter();
@@ -32,7 +33,7 @@ const { value: userInfo } = useLocalStorage('userInfo', {
 });
 
 const isAdmin = ref(userInfo.isAdmin || false);
-const isLogin = ref(!!localStorage.getItem('token'));
+const isLogin = ref(isLocalMode() || !!localStorage.getItem('token'));
 onMounted(async () => {
   try {
     const res = await checkLogin();
@@ -42,11 +43,13 @@ onMounted(async () => {
       isLogin.value = true;
     }
   } catch (e) {
-    userInfo.username = '';
-    userInfo.operator = '';
-    userInfo.isAdmin = false;
-    isLogin.value = false;
-    isAdmin.value = false;
+    if (!isLocalMode()) {
+      userInfo.username = '';
+      userInfo.operator = '';
+      userInfo.isAdmin = false;
+      isLogin.value = false;
+      isAdmin.value = false;
+    }
     console.error(e);
   }
 });
@@ -122,21 +125,10 @@ const handleCheckUpdate = async () => {
       else if (ua.includes('linux')) platform = 'linux';
     }
 
-    // 直接调用后端 API 检查更新
-    // 我们需要传入 version 和 platform
-    const res = await api.get('app/check-update', {
-      searchParams: {
-        version: appVersion.value,
-        platform: platform,
-        t: Date.now()
-      }
-    }).json<ServerResponse<any>>(); // 假设 ServerResponse 是通用的 { code, data }
-
-    if (res.code !== 0) {
-      throw new Error(res.message || 'Check update failed');
-    }
-
-    const updateInfo = res.data;
+    const updateInfo = await checkUpdateApi({
+      currentVersion: appVersion.value,
+      platform,
+    });
 
     if (updateInfo && updateInfo.hasUpdate) {
       closeToast();
@@ -280,7 +272,7 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
       </van-cell-group>
 
       <!-- 基础配置 -->
-      <van-cell-group title="基础配置" inset>
+      <van-cell-group v-if="!isLocalMode()" title="基础配置" inset>
         <van-cell title="家庭" :value="userInfo.username || '未登录'" />
         <van-cell title="用户" :value="userInfo.operator || '-'" />
         <!-- 账号管理菜单 -->
@@ -290,8 +282,8 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
       </van-cell-group>
 
       <!-- 服务配置 -->
-      <van-cell-group v-if="isAdmin" title="系统设置" inset>
-        <van-cell title="服务配置" is-link @click="goToServiceConfig" label="配置服务器地址和访问令牌" />
+      <van-cell-group title="系统设置" inset>
+        <van-cell title="服务配置" is-link @click="goToServiceConfig" :label="isLocalMode() ? '当前：本地模式' : '配置远程服务器地址和访问令牌'" />
       </van-cell-group>
 
       <!-- 功能 -->
@@ -303,6 +295,11 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
       <!-- 其他 -->
       <van-cell-group title="其他" inset>
         <van-cell v-if="isTauri" title="检查更新" is-link @click="handleCheckUpdate" />
+        <van-cell v-if="isTauri" title="自动检查更新" label="启动时自动检查新版本">
+          <template #right-icon>
+            <van-switch v-model="isAutoCheckUpdateEnabled" size="20" />
+          </template>
+        </van-cell>
         <van-cell title="关于项目" is-link @click="showAbout" />
       </van-cell-group>
 

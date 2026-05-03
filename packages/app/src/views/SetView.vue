@@ -10,16 +10,21 @@ import { computed, onMounted, ref } from 'vue';
 import QrcodeVue from 'qrcode.vue';
 import { QrcodeStream } from 'vue-qrcode-reader';
 import { preventBack } from '@/lib/router';
+import { isTauri } from '@/constants';
 
 const mode = ref('');
 const modeValue = ref<string[]>([]);
 const selectMode = computed(() => modeValue.value[0])
 const showModeSelect = ref(false);
-const columns = [
-  { text: 'Server', value: 'server' },
-  // 开发中
-  // { text: 'Native', value: 'native' },
-];
+const columns = computed(() => {
+  const cols = [
+    { text: '远程模式', value: 'server' },
+  ]
+  if (isTauri) {
+    cols.push({ text: '本地模式', value: 'offline' })
+  }
+  return cols
+})
 
 const onModeChanged = ({ selectedValues, selectedOptions }: { selectedValues: string[], selectedOptions: any[] }) => {
   mode.value = selectedOptions[0]?.text;
@@ -50,32 +55,38 @@ const bitifulConfig = ref<BitifulConfig>({
   endpoint: 'https://s3.bitiful.net',
 })
 
+const isOffline = computed(() => selectMode.value === 'offline')
+
 const onSubmit = async () => {
   const config = {
-    mode: selectMode.value,
-    serverUrl: serverUrl.value,
+    mode: selectMode.value as 'server' | 'offline',
+    serverUrl: isOffline.value ? '' : serverUrl.value,
     token: '',
   }
-  try {
-    // 校验数据合理性
-    await checkServiceHealth(config.serverUrl)
-    showNotify({ type: 'success', message: '服务地址校验通过，页面即将重载' })
+
+  if (isOffline.value) {
+    await saveConfig(config)
+    await refreshService(config)
+    showNotify({ type: 'success', message: '已切换到本地模式，页面即将重载' })
     setTimeout(() => {
-      window.location.reload()
+      window.location.href = location.origin
+    }, 2000)
+    return
+  }
+
+  try {
+    await checkServiceHealth(config.serverUrl)
+    await saveConfig(config)
+    await refreshService(config)
+    showNotify({ type: 'success', message: '远程地址校验通过，页面即将重载' })
+    setTimeout(() => {
+      window.location.href = location.origin
     }, 2000)
   } catch (err: any) {
-    // 清空用户信息
     userInfo.operator = ''
     userInfo.username = ''
-    // 更新无效配置页面状态
     showExit.value = false
-    config.token = ''
     showNotify({ type: 'danger', message: err?.message });
-  } finally {
-    // 存配置数据
-    await saveConfig(config)
-    // 更新服务
-    await refreshService(config)
   }
 
 };
@@ -97,17 +108,23 @@ onMounted(async () => {
   token.value = cfg.token || ''
   showExit.value = !!cfg.token
 
-  // 加载 bitiful 配置 - 优先使用远端配置
-  try {
-    const remoteBitifulConfig = await getBitifulConfig()
-    if (remoteBitifulConfig) {
-      bitifulConfig.value = remoteBitifulConfig
-    }
-  } catch (error) {
-    // 如果远端获取失败，尝试获取本地配置
+  // 加载 bitiful 配置 - 本地模式只用本地，远程模式优先远端
+  if (cfg.mode === 'offline') {
     const localBitifulConfig = await getBitifulConfigLocal()
     if (localBitifulConfig) {
       bitifulConfig.value = localBitifulConfig
+    }
+  } else {
+    try {
+      const remoteBitifulConfig = await getBitifulConfig()
+      if (remoteBitifulConfig) {
+        bitifulConfig.value = remoteBitifulConfig
+      }
+    } catch (error) {
+      const localBitifulConfig = await getBitifulConfigLocal()
+      if (localBitifulConfig) {
+        bitifulConfig.value = localBitifulConfig
+      }
     }
   }
 })
@@ -163,7 +180,7 @@ const onLogout = async () => {
   localStorage.clear()
   token.value = ''
   const config = {
-    mode: selectMode.value,
+    mode: selectMode.value as 'server' | 'offline',
     serverUrl: serverUrl.value,
     token: token.value
   }
@@ -252,8 +269,10 @@ const onCameraError = (error: any) => {
         <template v-if="selectMode === 'server'">
           <van-field v-model="serverUrl" name="serverUrl" label="服务地址" placeholder="服务地址"
             :rules="[{ required: true, message: '请填写服务地址' }]" />
-          <!-- <van-field v-model="token" type="password" name="token" label="令牌" placeholder="验证身份" s
-            :rules="[{ required: true, message: '请填写令牌' }]" /> -->
+        </template>
+
+        <template v-if="isOffline">
+          <van-cell title="本地模式" value="数据保存在本地" label="S3 上传功能仍可用" />
         </template>
 
       </van-cell-group>
@@ -263,7 +282,7 @@ const onCameraError = (error: any) => {
       </van-cell-group> -->
 
       <!-- Bitiful 配置区域 -->
-      <van-cell-group inset v-if="showExit">
+      <van-cell-group inset v-if="showExit || isOffline">
         <van-cell title="Bitiful 配置" is-link :value="showBitifulConfig ? '收起' : '展开'"
           @click="showBitifulConfig = !showBitifulConfig" />
         <template v-if="showBitifulConfig">
@@ -299,7 +318,7 @@ const onCameraError = (error: any) => {
       </van-cell-group>
       <div class="btn-wrapper">
         <van-button round block type="success" native-type="submit">
-          确定
+          {{ isOffline ? '进入本地模式' : '确定' }}
         </van-button>
       </div>
       <div class="btn-wrapper">
@@ -308,7 +327,7 @@ const onCameraError = (error: any) => {
         </van-button>
       </div>
 
-      <div class="btn-wrapper" v-if="showExit">
+      <div class="btn-wrapper" v-if="showExit && !isOffline">
         <van-button round block type="primary" @click="onShareLogin">
           分享登录凭证
         </van-button>

@@ -1,22 +1,27 @@
 import ky from 'ky'
 import { load } from '@tauri-apps/plugin-store';
 import { defaultOrigin, refreshApi } from './request';
-import { isTauri } from '@/constants';
+import { isTauri, OFFLINE_USERNAME } from '@/constants';
+import { setMode } from './serviceRouter';
 
 export interface StorageConfig {
-  mode: string
+  mode: 'server' | 'offline'
   serverUrl: string
   token: string
 }
 
 export async function validConfig(cfg: StorageConfig) {
   const { mode, serverUrl, token } = cfg
+
+  if (mode === 'offline') {
+    return { username: OFFLINE_USERNAME, operator: OFFLINE_USERNAME, isAdmin: false }
+  }
+
   if (!serverUrl) {
     throw new Error('无效服务地址')
   }
 
   if (mode === 'server') {
-    // 校验服务端地址是否能访问
     return ky.post<ServerResponse<{
       username: string,
       operator: string
@@ -41,10 +46,16 @@ export async function saveConfig(cfg: StorageConfig) {
 
 export async function refreshService(cfg: StorageConfig) {
   const { mode, serverUrl, token } = cfg
+
+  if (mode === 'offline') {
+    setMode('offline')
+    return
+  }
+
   if (mode === 'server') {
     refreshApi(`${serverUrl}/api`)
-    // 更新token
     localStorage.setItem('token', token)
+    setMode('server')
   }
 }
 
@@ -75,5 +86,5 @@ export async function getConfig() {
   mode = mode || 'server'
   serverUrl = serverUrl || defaultOrigin || ''
   token = token || localStorage.getItem('token') || ''
-  return { mode, serverUrl, token }
+  return { mode: mode as StorageConfig['mode'], serverUrl, token }
 }

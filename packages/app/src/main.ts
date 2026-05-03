@@ -13,6 +13,7 @@ import { PromiseWithResolver } from './lib/util';
 import { attachConsole } from '@tauri-apps/plugin-log'
 import { getConfig, refreshService } from './lib/configStorage';
 import { initImageCache } from './composables/useCachedImage';
+import { setMode } from './lib/serviceRouter';
 
 const app = createApp(App)
 

@@ -6,6 +6,8 @@ import { isNativeUploadTokenEnabled } from "@/composables/useUploadTokenConfig";
 import { getBitifulConfigLocal } from "@/lib/bitifulConfig";
 import { showConfirmDialog } from "vant";
 import router from "@/router";
+import { isLocalMode } from "@/lib/serviceRouter";
+import * as local from "./local";
 
 export function checkServiceHealth(baseUrl: string) {
   return ky.get(`${baseUrl}/api/ping`,{
@@ -14,6 +16,7 @@ export function checkServiceHealth(baseUrl: string) {
 }
 
 export function login() {
+  if (isLocalMode()) return local.login()
   return api.post<ServerResponse<{
     username: string
     operator: string
@@ -30,22 +33,27 @@ export interface User {
 }
 
 export function getUserList() {
+  if (isLocalMode()) return local.getUserList()
   return api.get<ServerResponse<User[]>>('user/list').json().then(v => v.data)
 }
 
 export function addUser(data: { username: string, operator: string, token: string }) {
+  if (isLocalMode()) return local.addUser(data)
   return api.post<ServerResponse>('user/add', { json: data }).json()
 }
 
 export function addOperator(data: { username: string, operator: string, token: string }) {
+  if (isLocalMode()) return local.addOperator(data)
   return api.post<ServerResponse>('user/operator/add', { json: data }).json()
 }
 
 export function updatePassword(data: { username: string, operator: string, token: string }) {
+  if (isLocalMode()) return local.updatePassword(data)
   return api.post<ServerResponse>('user/password', { json: data }).json()
 }
 
 export async function getUploadUrl(key: string) {
+  // S3 upload works in both modes via native command
   if (isTauri && isNativeUploadTokenEnabled.value) {
     const config = await getBitifulConfigLocal();
     console.log('config', config);
@@ -76,6 +84,11 @@ export async function getUploadUrl(key: string) {
     })
   }
 
+  // In offline mode without native upload, can't get upload URL
+  if (isLocalMode()) {
+    throw new Error('本地模式下需要启用原生上传 Token 生成')
+  }
+
   return api
     .get<{
       url: string
@@ -93,12 +106,14 @@ export async function getUploadUrl(key: string) {
 }
 
 export function addFileInfo(body: UploadInfo) {
+  if (isLocalMode()) return local.addFileInfo(body)
   return api.post<ServerResponse<Photo>>('file/add/info', {
     json: body
   }).json().then(((v: any) => v.data))
 }
 
 export function updateFileInfo(body: Partial<UploadInfo> & { id: string }) {
+  if (isLocalMode()) return local.updateFileInfo(body)
   return api.put<ServerResponse<Photo>>('file/update/info', {
     json: body
   }).json().then(((v: any) => v.data))
@@ -108,7 +123,6 @@ export function uploadFile(file: File, url: string, onProgress?: (progress: numb
   return new Promise<Response>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
 
-    // 上传进度监听
     if (onProgress) {
       xhr.upload.addEventListener('progress', (event) => {
         if (event.lengthComputable) {
@@ -146,6 +160,7 @@ export function getPhotos(page: number, pageSize: number, options: {
   startDate?: string,
   endDate?: string
 }) {
+  if (isLocalMode()) return local.getPhotos(page, pageSize, options)
   return api.get<ServerResponse<Photo[]>>('file/photo/list', {
     searchParams: {
       page,
@@ -164,6 +179,7 @@ export function getPhotos(page: number, pageSize: number, options: {
 }
 
 export function updateDescription(id: string, description: string) {
+  if (isLocalMode()) return local.updateDescription(id, description)
   return api.put<ServerResponse<Photo>>('file/photo/update/description', {
     json: {
       id,
@@ -173,6 +189,7 @@ export function updateDescription(id: string, description: string) {
 }
 
 export function updateLike(id: string) {
+  if (isLocalMode()) return local.updateLike(id)
   return api.put<ServerResponse<Photo>>('file/photo/update/like', {
     json: {
       id
@@ -181,6 +198,7 @@ export function updateLike(id: string) {
 }
 
 export function updatePhotoAlbum(id: string, albumIds: string[]) {
+  if (isLocalMode()) return local.updatePhotoAlbum(id, albumIds)
   return api.put<ServerResponse<Photo>>('file/photo/update/album', {
     json: {
       id,
@@ -190,6 +208,7 @@ export function updatePhotoAlbum(id: string, albumIds: string[]) {
 }
 
 export function updatePhotosAlbums(ids: string[], albumIds: string[]) {
+  if (isLocalMode()) return local.updatePhotosAlbums(ids, albumIds)
   return api.put<ServerResponse>('file/photos/update/albums', {
     json: {
       ids,
@@ -200,6 +219,7 @@ export function updatePhotosAlbums(ids: string[], albumIds: string[]) {
 
 
 export function getAlbums() {
+  if (isLocalMode()) return local.getAlbums()
   return api.get<ServerResponse<{
     large: Album[],
     small: Album[]
@@ -207,6 +227,7 @@ export function getAlbums() {
 }
 
 export function createAlbum(name: string, description: string, isLarge: boolean, tags: string[]) {
+  if (isLocalMode()) return local.createAlbum(name, description, isLarge, tags)
   return api.post<ServerResponse<Album>>('album/create', {
     json: {
       name,
@@ -223,6 +244,7 @@ export function updateAlbum(id: string, options: {
   isLarge: boolean,
   tags: string[]
 }) {
+  if (isLocalMode()) return local.updateAlbum(id, options)
   return api.put<ServerResponse<Album>>('album/update', {
     json: {
       id,
@@ -232,6 +254,7 @@ export function updateAlbum(id: string, options: {
 }
 
 export function getAlbumInfo(id: string) {
+  if (isLocalMode()) return local.getAlbumInfo(id)
   return api.get<ServerResponse<Album>>('album/info', {
     searchParams: {
       id
@@ -241,6 +264,7 @@ export function getAlbumInfo(id: string) {
 
 
 export function updateAlbumCover(id: string, key: string) {
+  if (isLocalMode()) return local.updateAlbumCover(id, key)
   return api.put<ServerResponse<Album>>('album/update/cover', {
     json: {
       id,
@@ -250,6 +274,7 @@ export function updateAlbumCover(id: string, key: string) {
 }
 
 export function deletePhoto(id: string, albumId?: string) {
+  if (isLocalMode()) return local.deletePhoto(id)
   return api.delete<ServerResponse>('file/photo/delete', {
     json: {
       id,
@@ -259,6 +284,7 @@ export function deletePhoto(id: string, albumId?: string) {
 }
 
 export function deletePhotos(ids: string[], albumId?: string) {
+  if (isLocalMode()) return local.deletePhotos(ids)
   return api.delete<ServerResponse>('file/photos/delete', {
     json: {
       ids,
@@ -268,6 +294,7 @@ export function deletePhotos(ids: string[], albumId?: string) {
 }
 
 export function restorePhotos(ids: string[]) {
+  if (isLocalMode()) return local.restorePhotos(ids)
   return api.put<ServerResponse>('file/photos/restore', {
     json: {
       ids
@@ -283,6 +310,7 @@ export function getPhotoListInfo(options: {
   startDate?: string,
   endDate?: string
 }) {
+  if (isLocalMode()) return local.getPhotoListInfo(options)
   return api.get<ServerResponse<InfoItem[]>>('file/photo/listInfo', {
     searchParams: {
       ...(options.likedMode ? { likedMode: true } : {}),
@@ -299,6 +327,7 @@ export function getPhotoListInfo(options: {
 }
 
 export function checkDuplicateByMd5(md5: string) {
+  if (isLocalMode()) return local.checkDuplicateByMd5(md5)
   return api.get<ServerResponse<{
     isDuplicate: boolean,
     existingPhoto?: Photo
@@ -316,10 +345,12 @@ export function addUsageRecord(data: {
   description?: string,
   data?: any
 }) {
+  if (isLocalMode()) return local.addUsageRecord(data)
   return api.post<ServerResponse>('usageRecord/add', { json: data }).json();
 }
 
 export function getUsageRecords(targetId: string, options?: { targetType?: string, actionType?: string }) {
+  if (isLocalMode()) return local.getUsageRecords(targetId, options)
   return api.get<ServerResponse<any[]>>(`usageRecord/list/${targetId}`, {
       searchParams: options as any
   }).json().then(v => v.data);
@@ -327,21 +358,40 @@ export function getUsageRecords(targetId: string, options?: { targetType?: strin
 
 // --- Memorial API ---
 export function getMemorials() {
+    if (isLocalMode()) return local.getMemorials()
     return api.get<ServerResponse<any[]>>('memorial/list').json().then(v => v.data);
 }
 
 export function createMemorial(data: any) {
+    if (isLocalMode()) return local.createMemorial(data)
     return api.post<ServerResponse<any>>('memorial/create', { json: data }).json().then(v => v.data);
 }
 
 export function updateMemorial(id: string, data: any) {
+    if (isLocalMode()) return local.updateMemorial(id, data)
     return api.put<ServerResponse<any>>('memorial/update', { json: { id, ...data } }).json();
 }
 
 export function deleteMemorial(id: string) {
+    if (isLocalMode()) return local.deleteMemorial(id)
     return api.delete<ServerResponse<any>>('memorial/delete', { json: { id } }).json();
 }
 
 export function getMemorialCovers() {
+    if (isLocalMode()) return local.getMemorialCovers()
     return api.get<ServerResponse<string[]>>('memorial/covers').json().then(v => v.data);
+}
+
+export function checkUpdate(params: {
+  currentVersion: string,
+  platform: string
+}) {
+    if (isLocalMode()) return local.checkUpdate(params)
+    return api.get<ServerResponse<any>>('app/check-update', {
+        searchParams: {
+            version: params.currentVersion,
+            platform: params.platform,
+            t: Date.now()
+        }
+    }).json().then(v => v.data)
 }

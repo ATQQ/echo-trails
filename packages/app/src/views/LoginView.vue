@@ -8,6 +8,7 @@ import { useRouter } from 'vue-router';
 import { saveConfig } from '@/lib/configStorage';
 import { QrcodeStream } from 'vue-qrcode-reader';
 import { preventBack } from '@/lib/router';
+import { isLocalMode } from '@/lib/serviceRouter';
 
 const password = ref('');
 const isPasswordVisible = ref(false);
@@ -94,6 +95,10 @@ const goToSettings = () => {
 };
 
 onMounted(() => {
+  if (isLocalMode()) {
+    router.replace({ name: 'album' });
+    return;
+  }
   if (localStorage.getItem('token')) {
     handleLogin(true);
   }

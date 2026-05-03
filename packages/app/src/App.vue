@@ -9,7 +9,8 @@ import { type } from '@tauri-apps/plugin-os';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { api } from "@/lib/request";
+import { checkUpdate as checkUpdateApi } from "@/service";
+import { isAutoCheckUpdateEnabled } from '@/composables/useAutoCheckUpdate';
 import NotificationBanner from '@/components/NotificationBanner/NotificationBanner.vue';
 import MainLayout from '@/components/MainLayout.vue';
 import { useFooterStore } from '@/stores/footer';
@@ -80,7 +81,7 @@ const handleBannerClick = () => {
   }
 };
 
-const checkUpdate = async () => {
+const doCheckUpdate = async () => {
   try {
     // 获取当前平台
     let platform = 'macos';
@@ -94,18 +95,10 @@ const checkUpdate = async () => {
       else if (ua.includes('linux')) platform = 'linux';
     }
 
-    // 直接调用后端 API 检查更新
-    const res = await api.get('app/check-update', {
-      searchParams: {
-        version: appVersion.value,
-        platform: platform,
-        t: Date.now()
-      }
-    }).json<any>();
-
-    if (res.code !== 0) return;
-
-    const updateInfo = res.data;
+    const updateInfo = await checkUpdateApi({
+      currentVersion: appVersion.value,
+      platform,
+    });
 
     if (updateInfo && updateInfo.hasUpdate) {
       updateInfoRef.value = updateInfo;
@@ -139,8 +132,8 @@ const checkUpdate = async () => {
 
 onMounted(() => {
   window?.hideLoadingScreen?.()
-  if(!isTauri) return;
-  checkUpdate();
+  if(!isTauri || !isAutoCheckUpdateEnabled.value) return;
+  doCheckUpdate();
 })
 </script>
 

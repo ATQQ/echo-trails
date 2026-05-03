@@ -243,7 +243,7 @@ preventBack(showAddModal)
 
 <template>
   <div class="app-wrapper">
-    <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div>
+    <!-- <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div> -->
     <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)" ref="scrollContainer" class="pull-refresh-container" @scroll="handleScroll">
     <PageTitle title="相册" :info="false">
       <template #action>
@@ -355,6 +355,7 @@ preventBack(showAddModal)
   height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .pull-refresh-container {
