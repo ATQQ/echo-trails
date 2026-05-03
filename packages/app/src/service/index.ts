@@ -54,7 +54,7 @@ export function updatePassword(data: { username: string, operator: string, token
 
 export async function getUploadUrl(key: string) {
   // S3 upload works in both modes via native command
-  if (isTauri && isNativeUploadTokenEnabled.value) {
+  if (isTauri && (isLocalMode() || isNativeUploadTokenEnabled.value)) {
     const config = await getBitifulConfigLocal();
     console.log('config', config);
 
@@ -82,11 +82,6 @@ export async function getUploadUrl(key: string) {
     }).then((v: any) => {
       return v.url
     })
-  }
-
-  // In offline mode without native upload, can't get upload URL
-  if (isLocalMode()) {
-    throw new Error('本地模式下需要启用原生上传 Token 生成')
   }
 
   return api
