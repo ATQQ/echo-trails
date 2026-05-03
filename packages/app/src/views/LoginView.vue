@@ -5,7 +5,7 @@ import { useLocalStorage } from '@vueuse/core';
 import { showNotify } from 'vant';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { saveConfig } from '@/lib/configStorage';
+import { saveConfig, refreshService } from '@/lib/configStorage';
 import { QrcodeStream } from 'vue-qrcode-reader';
 import { preventBack } from '@/lib/router';
 import { isLocalMode } from '@/lib/serviceRouter';
@@ -94,6 +94,14 @@ const goToSettings = () => {
   router.push({ name: 'set' });
 };
 
+const handleLocalMode = async () => {
+  const config = { mode: 'offline' as const, serverUrl: '', token: '' };
+  await saveConfig(config);
+  await refreshService(config);
+  showNotify({ type: 'success', message: '已切换到本地模式' });
+  router.replace({ name: 'album' });
+};
+
 onMounted(() => {
   if (isLocalMode()) {
     router.replace({ name: 'album' });
@@ -153,6 +161,9 @@ onMounted(() => {
         <van-button type="primary" block round class="login-btn" @click="checkLogin">
           确定
         </van-button>
+        <div v-if="isTauri" class="local-mode-entry" @click="handleLocalMode">
+          直接使用本地模式
+        </div>
       </div>
     </div>
 
@@ -299,6 +310,18 @@ onMounted(() => {
     font-size: 16px;
     font-weight: 600;
     box-shadow: 0 4px 12px rgba(25, 137, 250, 0.3);
+  }
+
+  .local-mode-entry {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 14px;
+    color: var(--van-primary-color);
+    cursor: pointer;
+
+    &:active {
+      opacity: 0.7;
+    }
   }
 }
 
