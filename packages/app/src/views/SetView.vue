@@ -8,6 +8,8 @@ import { useLocalStorage } from '@vueuse/core';
 import { showConfirmDialog, showNotify } from 'vant';
 import { computed, onMounted, ref } from 'vue';
 import QrcodeVue from 'qrcode.vue';
+import { QrcodeStream } from 'vue-qrcode-reader';
+import { preventBack } from '@/lib/router';
 
 const mode = ref('');
 const modeValue = ref<string[]>([]);
@@ -34,6 +36,7 @@ const { value: userInfo } = useLocalStorage('userInfo', {
 
 // Bitiful 配置相关
 const showBitifulConfig = ref(false)
+const showSecret = ref(false)
 const bitifulConfig = ref<BitifulConfig>({
   accessKey: '',
   secretKey: '',
@@ -196,6 +199,45 @@ const onShareLogin = () => {
   qrCodeValue.value = JSON.stringify(config);
   showShareQrCode.value = true;
 };
+
+const showScanner = ref(false);
+preventBack(showScanner);
+
+const onDecode = async (detectedCodes: any[]) => {
+  if (detectedCodes && detectedCodes.length > 0) {
+    const result = detectedCodes[0].rawValue;
+    if (result) {
+      try {
+        const data = JSON.parse(result);
+        if (data.type === 'bitiful_config' && data.config) {
+          bitifulConfig.value = {
+            ...bitifulConfig.value,
+            ...data.config
+          };
+          showScanner.value = false;
+          showNotify({ type: 'success', message: '已成功填入 S3 配置，请点击保存' });
+          showBitifulConfig.value = true;
+        } else {
+          showNotify({ type: 'warning', message: '无效的 S3 配置二维码内容' });
+        }
+      } catch (e) {
+        showNotify({ type: 'warning', message: '无法解析二维码内容' });
+      }
+    }
+  }
+};
+
+const onCameraError = (error: any) => {
+  console.error('Camera error', error);
+  if (error.name === 'NotAllowedError') {
+    showNotify({ type: 'danger', message: '无相机权限，请在设置中允许访问相机' });
+  } else if (error.name === 'NotFoundError') {
+    showNotify({ type: 'danger', message: '未找到相机设备' });
+  } else {
+    showNotify({ type: 'danger', message: '相机加载失败' });
+  }
+  showScanner.value = false;
+};
 </script>
 
 <template>
@@ -226,21 +268,31 @@ const onShareLogin = () => {
           @click="showBitifulConfig = !showBitifulConfig" />
         <template v-if="showBitifulConfig">
           <van-field v-model="bitifulConfig.accessKey" name="accessKey" label="Access Key" placeholder="默认不回显展示" />
-          <van-field v-model="bitifulConfig.secretKey" type="password" name="secretKey" label="Secret Key"
-            placeholder="默认不回显展示" />
-          <van-field v-model="bitifulConfig.cdnToken" name="cdnToken" label="CDN Token" placeholder="默认不回显展示" />
+          <van-field v-model="bitifulConfig.secretKey" :type="showSecret ? 'text' : 'password'" name="secretKey" label="Secret Key"
+            placeholder="默认不回显展示">
+            <template #right-icon>
+              <van-icon
+                :name="showSecret ? 'eye-o' : 'closed-eye'"
+                @click="showSecret = !showSecret"
+              />
+            </template>
+          </van-field>
           <van-field v-model="bitifulConfig.bucket" name="bucket" label="Bucket" placeholder="请输入 Bucket 名称" />
           <van-field v-model="bitifulConfig.region" name="region" label="Region" placeholder="请输入 Region" />
           <van-field v-model="bitifulConfig.endpoint" name="endpoint" label="Endpoint" placeholder="请输入 Endpoint" />
-          <van-field v-model="bitifulConfig.domain" name="domain" label="CDN Domain" placeholder="自定义域名" />
+          <van-field v-model="bitifulConfig.domain" name="domain" label="CDN Domain" placeholder="（选填）自定义域名" />
+          <van-field v-model="bitifulConfig.cdnToken" name="cdnToken" label="CDN Token" placeholder="（选填）默认不回显展示" />
           <!-- 添加提示 -->
           <van-cell title="💡 提示" value="配置样式节约流量" title-class="text-blue-600" value-class="text-gray-500 text-sm" />
           <van-field v-model="bitifulConfig.coverStyle" name="coverStyle" label="封面样式" placeholder="（选填）封面样式" />
           <van-field v-model="bitifulConfig.previewStyle" name="previewStyle" label="预览样式" placeholder="（选填）预览样式" />
           <van-field v-model="bitifulConfig.albumStyle" name="albumStyle" label="相册样式" placeholder="（选填）相册样式" />
-          <div class="btn-wrapper">
-            <van-button round block type="primary" @click="onSaveBitifulConfig">
-              保存 Bitiful 配置
+          <div class="btn-wrapper" style="display: flex; gap: 10px; justify-content: space-between;">
+            <van-button round block type="primary" @click="onSaveBitifulConfig" style="flex: 1;">
+              保存
+            </van-button>
+            <van-button round block type="success" @click="showScanner = true" style="flex: 1; margin: 0;">
+              扫码配置
             </van-button>
           </div>
         </template>
@@ -268,6 +320,30 @@ const onShareLogin = () => {
         </van-button>
       </div>
     </van-form>
+
+    <van-popup v-model:show="showScanner" position="bottom" :style="{ height: '100%' }" class="safe-padding-top">
+      <div style="height: 100%; display: flex; flex-direction: column;">
+        <van-nav-bar
+          title="扫描 S3 配置二维码"
+          left-text="取消"
+          left-arrow
+          @click-left="showScanner = false"
+        />
+        <div style="flex: 1; position: relative;">
+          <qrcode-stream
+            v-if="showScanner"
+            @detect="onDecode"
+            @error="onCameraError"
+            :formats="['qr_code']"
+          ></qrcode-stream>
+          <div class="scan-overlay">
+            <div class="scan-box"></div>
+            <p class="scan-text">将配置二维码放入框内</p>
+          </div>
+        </div>
+      </div>
+    </van-popup>
+
     <div class="mode-select">
       <van-popup v-model:show="showModeSelect" destroy-on-close position="bottom">
         <van-picker :columns="columns" :model-value="modeValue" @confirm="onModeChanged"
@@ -284,6 +360,34 @@ const onShareLogin = () => {
   </div>
 </template>
 <style scoped>
+.scan-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.scan-box {
+  width: 250px;
+  height: 250px;
+  border: 2px solid var(--van-primary-color);
+  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+.scan-text {
+  color: #fff;
+  margin-top: 20px;
+  font-size: 14px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
 .set-view-container {
   min-height: 100vh;
   background-color: #f7f8fa;

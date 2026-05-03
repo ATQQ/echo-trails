@@ -1,6 +1,11 @@
 import { api } from "@/lib/request";
-
 import ky from "ky";
+import { isTauri } from "@/constants";
+import { invoke } from "@tauri-apps/api/core";
+import { isNativeUploadTokenEnabled } from "@/composables/useUploadTokenConfig";
+import { getBitifulConfigLocal } from "@/lib/bitifulConfig";
+import { showConfirmDialog } from "vant";
+import router from "@/router";
 
 export function checkServiceHealth(baseUrl: string) {
   return ky.get(`${baseUrl}/api/ping`,{
@@ -40,15 +45,36 @@ export function updatePassword(data: { username: string, operator: string, token
   return api.post<ServerResponse>('user/password', { json: data }).json()
 }
 
-export function getUploadUrl(key: string) {
-  // if (isTauri) {
-  //   return invoke('upload_token', {
-  //     key
-  //   }).then((v: any) => {
-  //     console.log(v);
-  //     return v.url
-  //   })
-  // }
+export async function getUploadUrl(key: string) {
+  if (isTauri && isNativeUploadTokenEnabled.value) {
+    const config = await getBitifulConfigLocal();
+    console.log('config', config);
+
+    if (!config || !config.bucket || !config.region || !config.endpoint || !config.accessKey || !config.secretKey) {
+      showConfirmDialog({
+        title: '未配置 S3 参数',
+        message: '原生生成上传 Token 需要配置 Bitiful(S3) 参数，是否前往配置？',
+        confirmButtonText: '去配置',
+        cancelButtonText: '取消',
+      }).then(() => {
+        router.push('/set');
+      }).catch(() => {
+        // 取消
+      });
+      throw new Error('未配置 Bitiful (S3) 参数，无法在 Native 生成上传 Token');
+    }
+
+    return invoke('upload_token', {
+      key,
+      bucket: config.bucket,
+      region: config.region,
+      endpoint: config.endpoint,
+      accessKey: config.accessKey,
+      secretKey: config.secretKey,
+    }).then((v: any) => {
+      return v.url
+    })
+  }
 
   return api
     .get<{

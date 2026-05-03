@@ -48,7 +48,7 @@ function persistMemoryCache() {
       try {
         const obj = Object.fromEntries(memoryCache.entries());
         await setLocalCache(MEMORY_CACHE_STORAGE_KEY, JSON.stringify(obj));
-        console.log('[ImageCache] Memory cache persisted to storage');
+        // console.log('[ImageCache] Memory cache persisted to storage');
       } catch (e) {
         console.error('[ImageCache] Failed to save memory cache', e);
       }
@@ -73,18 +73,18 @@ export async function initImageCache() {
   if (cacheDirPromise) return cacheDirPromise;
 
   const start = performance.now();
-  console.log('[ImageCache] Initializing cache dir...');
+  // console.log('[ImageCache] Initializing cache dir...');
   cacheDirPromise = (async () => {
     try {
       await mkdir(CACHE_DIR_NAME, { baseDir: BaseDirectory.AppLocalData, recursive: true });
       cachedBaseDir = await appLocalDataDir();
-      console.log('[ImageCache] Initialized successfully. Base:', cachedBaseDir);
+      // console.log('[ImageCache] Initialized successfully. Base:', cachedBaseDir);
       return CACHE_DIR_NAME;
     } catch (e) {
       console.error('[ImageCache] Failed to init cache dir', e);
       return CACHE_DIR_NAME;
     } finally {
-      console.log('[ImageCache] Cache dir initialized in', performance.now() - start, 'ms');
+      // console.log('[ImageCache] Cache dir initialized in', performance.now() - start, 'ms');
     }
   })();
 
@@ -117,7 +117,7 @@ export async function deleteSingleImageCache(url: string, cacheKey?: string) {
 
     try {
       await remove(filePath, { baseDir: BaseDirectory.AppLocalData });
-      console.log(`[ImageCache] Deleted physical cache file: ${filePath}`);
+      // console.log(`[ImageCache] Deleted physical cache file: ${filePath}`);
     } catch (e) {
       console.error(`[ImageCache] Failed to delete physical cache file: ${filePath}`, e);
     }
@@ -205,7 +205,7 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
 
         memoryCache.set(memKey, src);
         persistMemoryCache();
-        console.log(`[Cache Hit] ${filename} - Total: ${(performance.now() - totalStart).toFixed(2)}ms (Hash&Path: ${(hashEnd-hashStart).toFixed(2)}ms, Stat: ${(statEnd-statStart).toFixed(2)}ms, Convert: ${(convertEnd-convertStart).toFixed(2)}ms)`);
+        // console.log(`[Cache Hit] ${filename} - Total: ${(performance.now() - totalStart).toFixed(2)}ms (Hash&Path: ${(hashEnd-hashStart).toFixed(2)}ms, Stat: ${(statEnd-statStart).toFixed(2)}ms, Convert: ${(convertEnd-convertStart).toFixed(2)}ms)`);
         return src;
       } else {
         // Asynchronous download, return original URL immediately
@@ -233,7 +233,7 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
 
             memoryCache.set(memKey, src);
             persistMemoryCache();
-            console.log(`[Cache Downloaded] ${filename} - Async Total: ${(performance.now() - fetchStart).toFixed(2)}ms (Fetch: ${(fetchEnd-fetchStart).toFixed(2)}ms, Write: ${(writeEnd-writeStart).toFixed(2)}ms, Convert: ${(convertEnd-convertStart).toFixed(2)}ms)`);
+            // console.log(`[Cache Downloaded] ${filename} - Async Total: ${(performance.now() - fetchStart).toFixed(2)}ms (Fetch: ${(fetchEnd-fetchStart).toFixed(2)}ms, Write: ${(writeEnd-writeStart).toFixed(2)}ms, Convert: ${(convertEnd-convertStart).toFixed(2)}ms)`);
           } catch (e) {
             console.error('[ImageCache] Async download failed:', e);
           }
@@ -242,7 +242,7 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
         // Fire and forget
         downloadLimit(() => fetchAndCache());
 
-        console.log(`[Cache Miss/Return URL] ${filename} - Returned in ${(performance.now() - totalStart).toFixed(2)}ms`);
+        // console.log(`[Cache Miss/Return URL] ${filename} - Returned in ${(performance.now() - totalStart).toFixed(2)}ms`);
         return url;
       }
     } catch (e) {

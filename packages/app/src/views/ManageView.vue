@@ -12,6 +12,7 @@ import { listen } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { api } from "@/lib/request";
 import { isCacheDebugMode, isCacheDisabled } from '@/composables/useCachedImage';
+import { isNativeUploadTokenEnabled } from '@/composables/useUploadTokenConfig';
 import { preventBack } from '@/lib/router';
 
 const router = useRouter();
@@ -332,6 +333,11 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
       </div>
       <div class="debug-menu-content">
         <van-cell-group inset>
+          <van-cell title="原生 S3 上传 Token" label="开启后在客户端内直接生成 S3 预签名 URL（需要配置了云端环境）">
+            <template #right-icon>
+              <van-switch v-model="isNativeUploadTokenEnabled" size="20" />
+            </template>
+          </van-cell>
           <van-cell title="图片缓存角标" label="在图片左上角显示「缓存」标识并支持点击删除单张缓存">
             <template #right-icon>
               <van-switch v-model="isCacheDebugMode" size="20" />

@@ -87,6 +87,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/tool/s3-qr',
+      name: 's3-qr',
+      component: () => import('../views/tool/S3QrToolView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'S3QrToolView',
+        nav: false
+      }
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('../views/LoginView.vue'),
