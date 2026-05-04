@@ -108,14 +108,10 @@ const loadCache = async () => {
     const { list, pageIndex } = cacheData.value
     photoList.length = 0
     existPhotoMap.clear()
-    repeatPhotoMap.clear()
 
     list.forEach((p: Photo) => {
       photoList.push(p)
       existPhotoMap.set(p._id, p)
-      if (p.isRepeat) {
-        // wrapperRepeat logic if needed
-      }
     })
 
     pageInfo.pageIndex = pageIndex || 1
@@ -128,17 +124,7 @@ const loadCache = async () => {
 const photoList = reactive<Photo[]>([])
 
 const existPhotoMap = new Map<string, Photo>()
-const repeatPhotoMap = new Map<string, Photo>()
 const albumPhotoStore = useAlbumPhotoStore()
-
-const wrapperRepeat = (photo: Photo) => {
-  if (repeatPhotoMap.has(photo.key) || photo.isRepeat) {
-    photo.isRepeat = true
-    return
-  }
-  repeatPhotoMap.set(photo.key, photo)
-  photo.isRepeat = false
-}
 
 const addPhoto2List = (photo: Photo) => {
   if (!existPhotoMap.has(photo._id)) {
@@ -181,17 +167,12 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
           const item = photoList[idx]
           photoList.splice(idx, 1)
           existPhotoMap.delete(id)
-          const repeatItem = repeatPhotoMap.get(item.key)
-          if (repeatItem && repeatItem._id === id) {
-            repeatPhotoMap.delete(item.key)
-          }
         }
       })
     }
     let addCount = 0
     // 数据去重
     res.forEach(v => {
-      wrapperRepeat(v)
       if (addPhoto2List(v)) {
         addCount += 1
       }
@@ -790,7 +771,6 @@ preventBack(editData, 'active')
 
 const loading = ref(false)
 const pullRefresh = () => {
-  repeatPhotoMap.clear()
   loading.value = true
   loadNext(1, photoList.length, true) // Add true for isRefresh
     ?.finally(() => {
@@ -815,11 +795,6 @@ const deletePhoto = (id: string) => {
     const item = photoList[deleteIndex]
     photoList.splice(deleteIndex, 1)
     existPhotoMap.delete(id)
-
-    const repeatItem = repeatPhotoMap.get(item.key)
-    if (repeatItem && repeatItem._id === id) {
-      repeatPhotoMap.delete(item.key)
-    }
 
     // 展示空文案
     if (photoList.length === 0) {
@@ -1026,7 +1001,7 @@ watch(containerRef, (el) => {
             <div v-else-if="item.data.type === 'photo-row'" class="virtual-row">
                <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }" :data-index="subItem.idx">
                   <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
-                    <ImageCell @click="(e: Event) => previewImage(subItem.idx, e)" :src="subItem.cover" :is-repeat="subItem.isRepeat" :cache-key="subItem.key + '_cover'"
+                    <ImageCell @click="(e: Event) => previewImage(subItem.idx, e)" :src="subItem.cover" :cache-key="subItem.key + '_cover'"
                       @longpress="handleLongPress(subItem.idx)" />
                     <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[subItem.idx] = el" :name="subItem._id"
                       class="editSelected" />

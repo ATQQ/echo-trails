@@ -17,9 +17,6 @@
     <div class="play-mask">
       <van-icon name="play-circle-o" size="24" color="#fff" />
     </div>
-
-    <!-- 重复标识 -->
-    <div v-if="isRepeat" class="repeat-indicator"></div>
   </div>
 </template>
 
@@ -29,7 +26,6 @@ import { computed } from 'vue';
 const props = defineProps<{
   src: string
   cover?: string
-  isRepeat?: boolean
 }>()
 
 const isBase64 = computed(() => props.cover?.startsWith('data:'))
@@ -87,16 +83,5 @@ const cancel = () => {
   z-index: 5;
   pointer-events: none;
   /* 让点击穿透 */
-}
-
-.repeat-indicator {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 0;
-  height: 0;
-  border-left: 16px solid transparent;
-  border-top: 16px solid #1989fa;
-  z-index: 10;
 }
 </style>

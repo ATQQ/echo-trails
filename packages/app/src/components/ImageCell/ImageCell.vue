@@ -12,7 +12,6 @@
         <van-icon name="photo-fail" size="24" color="#dcdee0" />
       </div>
     </template>
-    <div v-if="isRepeat" class="repeat-indicator"></div>
     
     <div v-if="isCacheDebugMode && isUsingCache" class="cache-debug-badge" @click.stop="handleDeleteCache">
       <van-icon name="delete-o" /> 缓存
@@ -26,7 +25,6 @@ import { toRef, computed } from 'vue';
 
 const props = defineProps<{
   src: string
-  isRepeat?: boolean
   cacheKey?: string
 }>()
 
@@ -105,17 +103,6 @@ const cancel = () => {
 
 .error-container {
   background-color: #f7f8fa;
-}
-
-.repeat-indicator {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 0;
-  height: 0;
-  border-left: 16px solid transparent;
-  border-top: 16px solid #1989fa;
-  z-index: 10;
 }
 
 .cache-debug-badge {

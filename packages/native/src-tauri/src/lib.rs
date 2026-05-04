@@ -1,5 +1,5 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use log::LevelFilter;
+use log::{info, LevelFilter};
 use tauri_plugin_log::{Target, TargetKind};
 
 mod command;
@@ -31,8 +31,12 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             tauri::async_runtime::block_on(async {
-                if let Err(e) = db::init(app.handle()).await {
-                    log::error!("Failed to initialize database: {}", e);
+                match db::init(app.handle()).await {
+                    Ok(()) => info!("Database initialized successfully"),
+                    Err(e) => {
+                        log::error!("Failed to initialize database: {}", e);
+                        // DB commands will fail with state-not-managed error
+                    }
                 }
             });
             Ok(())

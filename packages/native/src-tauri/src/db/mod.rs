@@ -42,27 +42,73 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
 
     info!("Initializing Turso database at {}", db_path_str);
 
-    let db = Builder::new_local(&db_path_str)
-        .build()
+    // Verify directory is accessible
+    match std::fs::metadata(&app_dir) {
+        Ok(meta) => info!("App data dir exists, permissions: {:?}", meta.permissions()),
+        Err(e) => log::error!("Cannot access app data dir: {}", e),
+    }
+
+    // Clean up stale WAL/SHM files from potential previous crashes
+    let wal_path = app_dir.join("echo_trails.db-wal");
+    let shm_path = app_dir.join("echo_trails.db-shm");
+    if wal_path.exists() {
+        info!("Found existing WAL file, will be reused by SQLite");
+    }
+    if shm_path.exists() {
+        info!("Found existing SHM file, will be reused by SQLite");
+    }
+
+    let db = match Builder::new_local(&db_path_str).build().await {
+        Ok(db) => db,
+        Err(e) => {
+            log::error!("Failed to build local db: {}, attempting recovery...", e);
+            // Try removing potentially corrupted WAL/SHM and retry
+            let _ = std::fs::remove_file(&wal_path);
+            let _ = std::fs::remove_file(&shm_path);
+            Builder::new_local(&db_path_str)
+                .build()
+                .await
+                .map_err(|e| format!("Failed to build local db after recovery: {}", e))?
+        }
+    };
+
+    // Register state IMMEDIATELY after db opens, before schema creation.
+    // This ensures commands won't hit "state not managed" even if schema
+    // creation has issues.
+    app.manage(TursoDb(db));
+
+    // Schema creation — errors here are logged but don't prevent state from
+    // being registered, so commands will get a better error message instead
+    // of the cryptic "state not managed" panic.
+    if let Err(e) = create_schema(app).await {
+        log::error!("Schema creation had errors: {}", e);
+    }
+
+    info!("Database initialized");
+    Ok(())
+}
+
+/// Create all tables and indexes. Returns Ok on success, Err with details on failure.
+async fn create_schema(app: &tauri::AppHandle) -> Result<(), String> {
+    let state: tauri::State<'_, TursoDb> = app.state();
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+
+    // Enable WAL mode and set busy timeout for better concurrency
+    conn.execute("PRAGMA journal_mode=WAL", ())
         .await
-        .map_err(|e| format!("Failed to build local db: {}", e))?;
+        .map_err(|e| e.to_string())?;
+    conn.execute("PRAGMA busy_timeout=5000", ())
+        .await
+        .map_err(|e| e.to_string())?;
 
-    let conn = db.connect().map_err(|e| e.to_string())?;
-
-    // Legacy KV cache table
-    conn.execute(
+    let stmts = [
+        // Legacy KV cache table
         "CREATE TABLE IF NOT EXISTS kv_cache (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-
-    // Photos
-    conn.execute(
+        // Photos
         "CREATE TABLE IF NOT EXISTS photos (
             id TEXT PRIMARY KEY,
             remote_id TEXT,
@@ -75,34 +121,16 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
             md5 TEXT,
             data TEXT NOT NULL DEFAULT '{}'
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_deleted ON photos(deleted)", ())
-        .await
-        .map_err(|e| e.to_string())?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_last_modified ON photos(last_modified)", ())
-        .await
-        .map_err(|e| e.to_string())?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_md5 ON photos(md5)", ())
-        .await
-        .map_err(|e| e.to_string())?;
-
-    // Photo-Album junction
-    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_photos_deleted ON photos(deleted)",
+        "CREATE INDEX IF NOT EXISTS idx_photos_last_modified ON photos(last_modified)",
+        "CREATE INDEX IF NOT EXISTS idx_photos_md5 ON photos(md5)",
+        // Photo-Album junction
         "CREATE TABLE IF NOT EXISTS photo_albums (
             photo_id TEXT NOT NULL,
             album_id TEXT NOT NULL,
             PRIMARY KEY (photo_id, album_id)
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-
-    // Albums
-    conn.execute(
+        // Albums
         "CREATE TABLE IF NOT EXISTS albums (
             id TEXT PRIMARY KEY,
             remote_id TEXT,
@@ -111,13 +139,7 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
             deleted INTEGER DEFAULT 0,
             data TEXT NOT NULL DEFAULT '{}'
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-
-    // Asset categories
-    conn.execute(
+        // Asset categories
         "CREATE TABLE IF NOT EXISTS asset_categories (
             id TEXT PRIMARY KEY,
             remote_id TEXT,
@@ -126,13 +148,7 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
             deleted INTEGER DEFAULT 0,
             data TEXT NOT NULL DEFAULT '{}'
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-
-    // Assets
-    conn.execute(
+        // Assets
         "CREATE TABLE IF NOT EXISTS assets (
             id TEXT PRIMARY KEY,
             remote_id TEXT,
@@ -141,13 +157,7 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
             deleted INTEGER DEFAULT 0,
             data TEXT NOT NULL DEFAULT '{}'
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-
-    // Memorials
-    conn.execute(
+        // Memorials
         "CREATE TABLE IF NOT EXISTS memorials (
             id TEXT PRIMARY KEY,
             remote_id TEXT,
@@ -156,13 +166,7 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
             deleted INTEGER DEFAULT 0,
             data TEXT NOT NULL DEFAULT '{}'
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-
-    // Families
-    conn.execute(
+        // Families
         "CREATE TABLE IF NOT EXISTS families (
             id TEXT PRIMARY KEY,
             remote_id TEXT,
@@ -172,13 +176,7 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
             family_id TEXT UNIQUE,
             data TEXT NOT NULL DEFAULT '{}'
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-
-    // Weights
-    conn.execute(
+        // Weights
         "CREATE TABLE IF NOT EXISTS weights (
             id TEXT PRIMARY KEY,
             remote_id TEXT,
@@ -188,16 +186,8 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
             family_id TEXT,
             data TEXT NOT NULL DEFAULT '{}'
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_weights_family ON weights(family_id)", ())
-        .await
-        .map_err(|e| e.to_string())?;
-
-    // Blood pressures
-    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_weights_family ON weights(family_id)",
+        // Blood pressures
         "CREATE TABLE IF NOT EXISTS blood_pressures (
             id TEXT PRIMARY KEY,
             remote_id TEXT,
@@ -208,16 +198,8 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
             date TEXT,
             data TEXT NOT NULL DEFAULT '{}'
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_bp_family ON blood_pressures(family_id)", ())
-        .await
-        .map_err(|e| e.to_string())?;
-
-    // Usage records
-    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_bp_family ON blood_pressures(family_id)",
+        // Usage records
         "CREATE TABLE IF NOT EXISTS usage_records (
             id TEXT PRIMARY KEY,
             remote_id TEXT,
@@ -228,16 +210,8 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
             action_type TEXT,
             data TEXT NOT NULL DEFAULT '{}'
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_target ON usage_records(target_id)", ())
-        .await
-        .map_err(|e| e.to_string())?;
-
-    // Sync log
-    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_usage_target ON usage_records(target_id)",
+        // Sync log
         "CREATE TABLE IF NOT EXISTS sync_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             entity_type TEXT NOT NULL,
@@ -249,17 +223,16 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
             error TEXT,
             created_at TEXT DEFAULT (datetime('now'))
         )",
-        (),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_log_status ON sync_log(status)", ())
-        .await
-        .map_err(|e| e.to_string())?;
+        "CREATE INDEX IF NOT EXISTS idx_sync_log_status ON sync_log(status)",
+    ];
 
-    app.manage(TursoDb(db));
+    for stmt in &stmts {
+        conn.execute(*stmt, ())
+            .await
+            .map_err(|e| format!("Failed to execute '{}': {}", stmt, e))?;
+    }
 
-    info!("Database initialized with all tables");
+    info!("All tables and indexes created successfully");
     Ok(())
 }
 

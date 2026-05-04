@@ -38,15 +38,19 @@ pub async fn db_photo_list(
     }
 
     if let Some(ref sd) = start_date {
-        conditions.push(format!("last_modified >= ?{}", param_idx));
-        params.push(TursoValue::Text(sd.clone()));
-        param_idx += 1;
+        if !sd.is_empty() {
+            conditions.push(format!("last_modified >= ?{}", param_idx));
+            params.push(TursoValue::Text(sd.clone()));
+            param_idx += 1;
+        }
     }
 
     if let Some(ref ed) = end_date {
-        conditions.push(format!("last_modified <= ?{}", param_idx));
-        params.push(TursoValue::Text(ed.clone()));
-        param_idx += 1;
+        if !ed.is_empty() {
+            conditions.push(format!("last_modified <= ?{}", param_idx));
+            params.push(TursoValue::Text(ed.clone()));
+            param_idx += 1;
+        }
     }
 
     // Album filter via junction table
@@ -270,14 +274,18 @@ pub async fn db_photo_list_info(
         param_idx += 1;
     }
     if let Some(ref sd) = start_date {
-        conditions.push(format!("last_modified >= ?{}", param_idx));
-        params.push(TursoValue::Text(sd.clone()));
-        param_idx += 1;
+        if !sd.is_empty() {
+            conditions.push(format!("last_modified >= ?{}", param_idx));
+            params.push(TursoValue::Text(sd.clone()));
+            param_idx += 1;
+        }
     }
     if let Some(ref ed) = end_date {
-        conditions.push(format!("last_modified <= ?{}", param_idx));
-        params.push(TursoValue::Text(ed.clone()));
-        param_idx += 1;
+        if !ed.is_empty() {
+            conditions.push(format!("last_modified <= ?{}", param_idx));
+            params.push(TursoValue::Text(ed.clone()));
+            param_idx += 1;
+        }
     }
     if let Some(ref aid) = album_id {
         conditions.push(format!(

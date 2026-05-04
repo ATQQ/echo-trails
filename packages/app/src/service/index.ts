@@ -56,8 +56,6 @@ export async function getUploadUrl(key: string) {
   // S3 upload works in both modes via native command
   if (isTauri && (isLocalMode() || isNativeUploadTokenEnabled.value)) {
     const config = await getBitifulConfigLocal();
-    console.log('config', config);
-
     if (!config || !config.bucket || !config.region || !config.endpoint || !config.accessKey || !config.secretKey) {
       showConfirmDialog({
         title: '未配置 S3 参数',

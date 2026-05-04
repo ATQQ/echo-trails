@@ -45,7 +45,32 @@ pub async fn db_album_list(state: State<'_, TursoDb>) -> Result<JsonValue, Strin
                 .map_err(|e| e.to_string())?;
             if let Some(cr) = cover_rows.next().await.map_err(|e| e.to_string())? {
                 let photo_id = cr.get_value(0).map_err(|e| e.to_string())?.as_text().map_or("", |v| v).to_string();
-                merged["coverKey"] = json!(photo_id);
+                // Try to extract S3 key from photo's data JSON for cover URL construction
+                let mut key_rows = conn
+                    .query(
+                        "SELECT data FROM photos WHERE id = ?1",
+                        (photo_id.clone(),),
+                    )
+                    .await
+                    .map_err(|e| e.to_string())?;
+                if let Some(kr) = key_rows.next().await.map_err(|e| e.to_string())? {
+                    let data_str = kr.get_value(0).map_err(|e| e.to_string())?.as_text().map_or("{}", |v| v).to_string();
+                    if let Ok(data_json) = serde_json::from_str::<JsonValue>(&data_str) {
+                        if let Some(s3_key) = data_json.get("key").and_then(|v| v.as_str()) {
+                            if !s3_key.is_empty() {
+                                merged["coverKey"] = json!(s3_key);
+                            } else {
+                                merged["coverKey"] = json!(photo_id);
+                            }
+                        } else {
+                            merged["coverKey"] = json!(photo_id);
+                        }
+                    } else {
+                        merged["coverKey"] = json!(photo_id);
+                    }
+                } else {
+                    merged["coverKey"] = json!(photo_id);
+                }
             }
         }
 

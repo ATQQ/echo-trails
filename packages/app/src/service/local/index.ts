@@ -1,12 +1,73 @@
 import { invoke } from '@tauri-apps/api/core'
+import { getBitifulConfigLocal } from '@/lib/bitifulConfig'
+import dayjs from 'dayjs'
+import SparkMD5 from 'spark-md5'
+
+// Cache for bitiful config to avoid repeated reads
+let _bitifulConfigCache: Awaited<ReturnType<typeof getBitifulConfigLocal>> = null
+async function getCachedBitifulConfig() {
+  if (!_bitifulConfigCache) {
+    _bitifulConfigCache = await getBitifulConfigLocal()
+  }
+  return _bitifulConfigCache
+}
+
+// Construct image URL from S3 key using Bitiful config
+// Matches server's createLink: signs URLs with CDN token when available
+async function buildFileUrl(s3Key: string, style?: string, queryParams?: string): Promise<string> {
+  const config = await getCachedBitifulConfig()
+  if (!config?.domain || !s3Key) return ''
+
+  const base = config.domain.replace(/\/$/, '')
+  const encodedParts = s3Key.split('/').map(p => encodeURIComponent(p)).join('/')
+  const fileName = `/${encodedParts}` + (style ? `!style:${style}` : '')
+  const fullKey = fileName + (queryParams ? `?${queryParams}` : '')
+
+  // If CDN token is available, sign the URL (matches server's createLink)
+  if (config.cdnToken) {
+    const deadLine = Math.floor(Date.now() / 1000) + 60 * 30
+    const rawString = config.cdnToken + fileName + deadLine
+    const md5Result = SparkMD5.hash(rawString)
+    const separator = fullKey.includes('?') ? '&' : '?'
+    return `${base}${fullKey}${separator}_btf_tk=${md5Result}&_ts=${deadLine}`
+  }
+
+  return `${base}${fullKey}`
+}
+
+async function buildCoverUrl(s3Key: string, isImage = true): Promise<string> {
+  const config = await getCachedBitifulConfig()
+  const params = !isImage ? 'frame=0' : undefined
+  const style = isImage ? config?.coverStyle : undefined
+  return buildFileUrl(s3Key, style, params)
+}
+
+// Compute date category label (matches server's formatDateTitle)
+function formatDateTitle(dateStr: string): string {
+  const date = dayjs(dateStr)
+  if (!date.isValid()) return ''
+  if (date.isSame(dayjs(), 'day')) return '今天'
+  if (date.isSame(dayjs().subtract(1, 'day'), 'day')) return '昨天'
+  if (date.isSame(dayjs(), 'year')) return date.format('MM月DD日')
+  return date.format('YYYY年MM月DD日')
+}
 
 // Helper: map local DB row to match server response shape
 function mapPhoto(row: any): any {
+  const lastModified = row.lastModified || row.last_modified || row.uploadDate || row.updated_at || new Date().toISOString()
   return {
     ...row,
     _id: row.id || row._id,
-    isLiked: !!row.is_liked,
+    isLiked: row.isLiked !== undefined ? row.isLiked : !!row.is_liked,
     albumId: row.albumId || [],
+    username: row.username || 'local',
+    uploadDate: row.uploadDate || row.updated_at || new Date().toISOString(),
+    updatedAt: row.updatedAt || row.updated_at || new Date().toISOString(),
+    lastModified,
+    category: formatDateTitle(lastModified),
+    size: row.size ?? 0,
+    width: row.width ?? 0,
+    height: row.height ?? 0,
   }
 }
 
@@ -17,6 +78,7 @@ function mapAlbum(row: any): any {
     tags: row.tags || [],
     cover: row.cover || '',
     coverKey: row.coverKey || '',
+    updatedAt: row.updatedAt || row.updated_at || '',
   }
 }
 
@@ -76,16 +138,22 @@ export async function addFileInfo(body: any) {
     albumId: body.albumId || [],
     md5: body.md5 || '',
     bucket: body.bucket || '',
+    username: 'local',
+    uploadDate: new Date().toISOString(),
   })
+  console.log('[Local] addFileInfo body:', JSON.stringify(body, null, 2))
+  console.log('[Local] addFileInfo data blob:', data)
 
-  return invoke<any>('db_photo_add', {
+  const added = await invoke<any>('db_photo_add', {
     id: crypto.randomUUID(),
     isLiked: body.likedMode || false,
     type: body.type || 'image/jpeg',
     lastModified: body.lastModified ? new Date(body.lastModified).toISOString() : new Date().toISOString(),
     md5: body.md5 || '',
     data,
-  }).then(mapPhoto)
+  })
+  console.log('[Local] db_photo_add raw result:', JSON.stringify(added, null, 2))
+  return mapPhoto(added)
 }
 
 export async function updateFileInfo(body: any) {
@@ -128,11 +196,31 @@ export async function getPhotos(page: number, pageSize: number, options: {
     likedMode: options.likedMode,
     albumId: options.albumId,
     isDelete: options.isDelete,
-    typeFilter: options.type,
-    startDate: options.startDate,
-    endDate: options.endDate,
+    // Server defaults to 'image' type filter when not specified
+    typeFilter: options.type || undefined,
+    startDate: options.startDate || undefined,
+    endDate: options.endDate || undefined,
   })
-  return (result.data || []).map(mapPhoto)
+  console.log('[Local] db_photo_list raw result:', JSON.stringify(result, null, 2))
+  const config = await getCachedBitifulConfig()
+  console.log('[Local] bitiful config:', JSON.stringify(config, null, 2))
+  const mapped = await Promise.all((result.data || []).map(async (row: any) => {
+    const photo = mapPhoto(row)
+    const s3Key = photo.key
+    if (s3Key && config?.domain) {
+      const isImage = (photo.type || '').startsWith('image/')
+      if (!photo.url) photo.url = await buildFileUrl(s3Key)
+      if (!photo.cover) photo.cover = await buildCoverUrl(s3Key, isImage)
+      if (!photo.preview) {
+        const params = !isImage ? 'frame=0' : undefined
+        const style = isImage ? config.previewStyle : undefined
+        photo.preview = await buildFileUrl(s3Key, style, params)
+      }
+    }
+    return photo
+  }))
+  console.log('[Local] mapped photos (first 2):', JSON.stringify(mapped.slice(0, 2), null, 2))
+  return mapped
 }
 
 export async function updateDescription(id: string, description: string) {
@@ -192,9 +280,9 @@ export async function getPhotoListInfo(options: {
     likedMode: options.likedMode,
     albumId: options.albumId,
     isDelete: options.isDelete,
-    typeFilter: options.type,
-    startDate: options.startDate,
-    endDate: options.endDate,
+    typeFilter: options.type || undefined,
+    startDate: options.startDate || undefined,
+    endDate: options.endDate || undefined,
   })
   return result.data || []
 }
@@ -212,10 +300,18 @@ export async function checkDuplicateByMd5(md5: string) {
 export async function getAlbums() {
   const result = await invoke<any>('db_album_list')
   const data = result.data || { large: [], small: [] }
-  return {
-    large: (data.large || []).map(mapAlbum),
-    small: (data.small || []).map(mapAlbum),
+
+  const enrichAlbum = async (row: any) => {
+    const album = mapAlbum(row)
+    if (!album.cover && album.coverKey) {
+      album.cover = await buildCoverUrl(album.coverKey)
+    }
+    return album
   }
+
+  const large = await Promise.all((data.large || []).map(enrichAlbum))
+  const small = await Promise.all((data.small || []).map(enrichAlbum))
+  return { large, small }
 }
 
 export async function createAlbum(name: string, description: string, isLarge: boolean, tags: string[]) {
@@ -247,7 +343,11 @@ export async function updateAlbum(id: string, options: {
 
 export async function getAlbumInfo(id: string) {
   const result = await invoke<any>('db_album_get', { id })
-  return mapAlbum(result)
+  const album = mapAlbum(result)
+  if (!album.cover && album.coverKey) {
+    album.cover = await buildCoverUrl(album.coverKey)
+  }
+  return album
 }
 
 export async function updateAlbumCover(id: string, key: string) {
