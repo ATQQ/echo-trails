@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import AlbumView from '../views/AlbumView.vue'
 import { executeBackHandlers } from '../lib/router'
+import { isLocalMode } from '../lib/serviceRouter'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -209,6 +210,13 @@ const router = createRouter({
       ]
     }
   ]
+})
+
+// 本地模式下跳过登录页，避免页面闪烁
+router.beforeEach((to) => {
+  if (to.name === 'login' && isLocalMode()) {
+    return { name: 'album' }
+  }
 })
 
 // 添加全局前置守卫，拦截路由跳转以处理弹窗后退
