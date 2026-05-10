@@ -42,6 +42,23 @@ async function buildCoverUrl(s3Key: string, isImage = true): Promise<string> {
   return buildFileUrl(s3Key, style, params)
 }
 
+async function enrichPhotoUrls(row: any): Promise<any> {
+  const photo = mapPhoto(row)
+  const config = await getCachedBitifulConfig()
+  const s3Key = photo.key
+  if (s3Key && config?.domain) {
+    const isImage = (photo.type || '').startsWith('image/')
+    if (!photo.url) photo.url = await buildFileUrl(s3Key)
+    if (!photo.cover) photo.cover = await buildCoverUrl(s3Key, isImage)
+    if (!photo.preview) {
+      const params = !isImage ? 'frame=0' : undefined
+      const style = isImage ? config.previewStyle : undefined
+      photo.preview = await buildFileUrl(s3Key, style, params)
+    }
+  }
+  return photo
+}
+
 // Compute date category label (matches server's formatDateTitle)
 function formatDateTitle(dateStr: string): string {
   const date = dayjs(dateStr)
@@ -72,13 +89,19 @@ function mapPhoto(row: any): any {
 }
 
 function mapAlbum(row: any): any {
+  const updatedAt = row.updatedAt || row.updated_at || ''
   return {
     ...row,
     _id: row.id || row._id,
+    name: row.name || '',
+    description: row.description || '',
+    count: row.count ?? 0,
+    style: row.style || 'small',
     tags: row.tags || [],
     cover: row.cover || '',
     coverKey: row.coverKey || '',
-    updatedAt: row.updatedAt || row.updated_at || '',
+    createdAt: row.createdAt || row.created_at || updatedAt,
+    updatedAt,
   }
 }
 
@@ -141,9 +164,6 @@ export async function addFileInfo(body: any) {
     username: 'local',
     uploadDate: new Date().toISOString(),
   })
-  console.log('[Local] addFileInfo body:', JSON.stringify(body, null, 2))
-  console.log('[Local] addFileInfo data blob:', data)
-
   const added = await invoke<any>('db_photo_add', {
     id: crypto.randomUUID(),
     isLiked: body.likedMode || false,
@@ -152,8 +172,11 @@ export async function addFileInfo(body: any) {
     md5: body.md5 || '',
     data,
   })
-  console.log('[Local] db_photo_add raw result:', JSON.stringify(added, null, 2))
-  return mapPhoto(added)
+  if (body.albumId?.length) {
+    await invoke('db_photo_set_albums', { photoId: added.id || added._id, albumIds: body.albumId })
+    added.albumId = body.albumId
+  }
+  return enrichPhotoUrls(added)
 }
 
 export async function updateFileInfo(body: any) {
@@ -177,7 +200,7 @@ export async function updateFileInfo(body: any) {
     lastModified: body.lastModified ? new Date(body.lastModified).toISOString() : undefined,
     md5: body.md5,
     data,
-  }).then(mapPhoto)
+  }).then(enrichPhotoUrls)
 }
 
 // ==================== Photos ====================
@@ -201,25 +224,7 @@ export async function getPhotos(page: number, pageSize: number, options: {
     startDate: options.startDate || undefined,
     endDate: options.endDate || undefined,
   })
-  console.log('[Local] db_photo_list raw result:', JSON.stringify(result, null, 2))
-  const config = await getCachedBitifulConfig()
-  console.log('[Local] bitiful config:', JSON.stringify(config, null, 2))
-  const mapped = await Promise.all((result.data || []).map(async (row: any) => {
-    const photo = mapPhoto(row)
-    const s3Key = photo.key
-    if (s3Key && config?.domain) {
-      const isImage = (photo.type || '').startsWith('image/')
-      if (!photo.url) photo.url = await buildFileUrl(s3Key)
-      if (!photo.cover) photo.cover = await buildCoverUrl(s3Key, isImage)
-      if (!photo.preview) {
-        const params = !isImage ? 'frame=0' : undefined
-        const style = isImage ? config.previewStyle : undefined
-        photo.preview = await buildFileUrl(s3Key, style, params)
-      }
-    }
-    return photo
-  }))
-  console.log('[Local] mapped photos (first 2):', JSON.stringify(mapped.slice(0, 2), null, 2))
+  const mapped = await Promise.all((result.data || []).map(enrichPhotoUrls))
   return mapped
 }
 
@@ -232,14 +237,7 @@ export async function updateDescription(id: string, description: string) {
 }
 
 export async function updateLike(id: string) {
-  // Toggle like: need to get current state first
-  const photos = await invoke<any>('db_photo_list', { page: 1, pageSize: 1 })
-  // Actually, let's just pass the toggle to the Rust side
-  // For now, update with isLiked: true (the Rust side should toggle)
-  const existing = await invoke<any>('db_photo_update', {
-    id,
-    isLiked: true, // TODO: toggle logic
-  })
+  const existing = await invoke<any>('db_photo_toggle_like', { id })
   return mapPhoto(existing)
 }
 
@@ -315,12 +313,20 @@ export async function getAlbums() {
 }
 
 export async function createAlbum(name: string, description: string, isLarge: boolean, tags: string[]) {
+  const now = new Date().toISOString()
   const result = await invoke<any>('db_album_create', {
     name,
     description,
     style: isLarge ? 'large' : 'small',
     tags,
-    data: JSON.stringify({ name, description, style: isLarge ? 'large' : 'small', tags }),
+    data: JSON.stringify({
+      name,
+      description,
+      style: isLarge ? 'large' : 'small',
+      tags,
+      createdAt: now,
+      updatedAt: now,
+    }),
   })
   return mapAlbum(result)
 }

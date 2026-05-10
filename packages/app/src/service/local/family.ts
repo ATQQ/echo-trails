@@ -14,6 +14,7 @@ export async function getFamilyList() {
     data: (result.data || []).map((f: any) => ({
       ...f,
       _id: f.id || f._id,
+      familyId: f.familyId || f.family_id,
       canDelete: true,
     }))
   }
@@ -29,6 +30,7 @@ export async function addFamily(name: string) {
     data: {
       ...result.data,
       _id: result.data?.id || result.data?._id,
+      familyId: result.data?.familyId || result.data?.family_id,
     }
   }
 }

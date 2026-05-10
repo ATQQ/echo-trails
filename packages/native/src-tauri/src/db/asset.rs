@@ -26,7 +26,8 @@ pub async fn db_asset_category_list(state: State<'_, TursoDb>) -> Result<JsonVal
         if parent_id.is_empty() {
             let mut cat_with_subs = cat.clone();
             let cat_id = cat.get("id").and_then(|v| v.as_str()).unwrap_or("");
-            let subs: Vec<_> = all.iter()
+            let subs: Vec<_> = all
+                .iter()
                 .filter(|s| s.get("parentId").and_then(|v| v.as_str()) == Some(cat_id))
                 .cloned()
                 .collect();
@@ -77,10 +78,7 @@ pub async fn db_asset_category_create(
 }
 
 #[tauri::command]
-pub async fn db_asset_category_delete(
-    state: State<'_, TursoDb>,
-    id: String,
-) -> Result<(), String> {
+pub async fn db_asset_category_delete(state: State<'_, TursoDb>, id: String) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE asset_categories SET deleted = 1, updated_at = datetime('now') WHERE id = ?1",
@@ -107,12 +105,18 @@ pub async fn db_asset_list(
     let mut param_idx = 1;
 
     if let Some(ref cid) = category_id {
-        conditions.push(format!("json_extract(data, '$.categoryId') = ?{}", param_idx));
+        conditions.push(format!(
+            "json_extract(data, '$.categoryId') = ?{}",
+            param_idx
+        ));
         params.push(turso::Value::Text(cid.clone()));
         param_idx += 1;
     }
     if let Some(ref scid) = sub_category_id {
-        conditions.push(format!("json_extract(data, '$.subCategoryId') = ?{}", param_idx));
+        conditions.push(format!(
+            "json_extract(data, '$.subCategoryId') = ?{}",
+            param_idx
+        ));
         params.push(turso::Value::Text(scid.clone()));
         param_idx += 1;
     }
@@ -120,11 +124,20 @@ pub async fn db_asset_list(
         conditions.push(format!("json_extract(data, '$.status') = ?{}", param_idx));
         params.push(turso::Value::Text(s.clone()));
         #[allow(unused_assignments)]
-        { param_idx += 1; }
+        {
+            param_idx += 1;
+        }
     }
 
-    let where_clause = if conditions.is_empty() { "1=1".to_string() } else { conditions.join(" AND ") };
-    let sql = format!("SELECT * FROM assets WHERE {} ORDER BY updated_at DESC", where_clause);
+    let where_clause = if conditions.is_empty() {
+        "1=1".to_string()
+    } else {
+        conditions.join(" AND ")
+    };
+    let sql = format!(
+        "SELECT * FROM assets WHERE {} ORDER BY updated_at DESC",
+        where_clause
+    );
 
     let mut rows = conn.query(&sql, params).await.map_err(|e| e.to_string())?;
     let mut items = Vec::new();
@@ -133,9 +146,19 @@ pub async fn db_asset_list(
         let mut merged = merge_row(&val);
         // Compute costPerUse, costPerDay, daysHeld
         let price = merged.get("price").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let purchase_date = merged.get("purchaseDate").and_then(|v| v.as_str()).unwrap_or("");
-        let usage_count = merged.get("usageCount").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let calc_type = merged.get("calcType").and_then(|v| v.as_str()).unwrap_or("count").to_string();
+        let purchase_date = merged
+            .get("purchaseDate")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let usage_count = merged
+            .get("usageCount")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let calc_type = merged
+            .get("calcType")
+            .and_then(|v| v.as_str())
+            .unwrap_or("count")
+            .to_string();
 
         if let Ok(pd) = chrono::NaiveDate::parse_from_str(purchase_date, "%Y-%m-%d") {
             let days_held = (chrono::Local::now().date_naive() - pd).num_days().max(1) as f64;
@@ -155,10 +178,7 @@ pub async fn db_asset_list(
 }
 
 #[tauri::command]
-pub async fn db_asset_create(
-    state: State<'_, TursoDb>,
-    data: String,
-) -> Result<JsonValue, String> {
+pub async fn db_asset_create(state: State<'_, TursoDb>, data: String) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     let id = new_id();
 
@@ -188,9 +208,23 @@ pub async fn db_asset_update(
     data: String,
 ) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
+    let mut merged_data = get_asset_data(&conn, &id)
+        .await
+        .unwrap_or_else(|_| json!({}));
+    if let Ok(incoming) = serde_json::from_str::<JsonValue>(&data) {
+        if let (Some(existing_obj), Some(incoming_obj)) =
+            (merged_data.as_object_mut(), incoming.as_object())
+        {
+            for (key, value) in incoming_obj {
+                existing_obj.insert(key.clone(), value.clone());
+            }
+        } else {
+            merged_data = incoming;
+        }
+    }
     conn.execute(
         "UPDATE assets SET data = ?1, updated_at = datetime('now') WHERE id = ?2",
-        (data, id),
+        (merged_data.to_string(), id),
     )
     .await
     .map_err(|e| e.to_string())?;
@@ -198,10 +232,7 @@ pub async fn db_asset_update(
 }
 
 #[tauri::command]
-pub async fn db_asset_delete(
-    state: State<'_, TursoDb>,
-    id: String,
-) -> Result<(), String> {
+pub async fn db_asset_delete(state: State<'_, TursoDb>, id: String) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE assets SET deleted = 1, updated_at = datetime('now') WHERE id = ?1",
@@ -227,12 +258,20 @@ pub async fn db_asset_stats(state: State<'_, TursoDb>) -> Result<JsonValue, Stri
     let mut total_daily_cost = 0.0f64;
 
     while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
-        let data_str = row.get_value(0).map_err(|e| e.to_string())?.as_text().map_or("{}", |v| v).to_string();
+        let data_str = row
+            .get_value(0)
+            .map_err(|e| e.to_string())?
+            .as_text()
+            .map_or("{}", |v| v)
+            .to_string();
         if let Ok(data) = serde_json::from_str::<JsonValue>(&data_str) {
             let price = data.get("price").and_then(|v| v.as_f64()).unwrap_or(0.0);
             total_value += price;
 
-            let purchase_date = data.get("purchaseDate").and_then(|v| v.as_str()).unwrap_or("");
+            let purchase_date = data
+                .get("purchaseDate")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             if let Ok(pd) = chrono::NaiveDate::parse_from_str(purchase_date, "%Y-%m-%d") {
                 let days = (chrono::Local::now().date_naive() - pd).num_days().max(1) as f64;
                 if days > 0.0 {
@@ -248,6 +287,24 @@ pub async fn db_asset_stats(state: State<'_, TursoDb>) -> Result<JsonValue, Stri
             "dailyCost": (total_daily_cost * 100.0).round() / 100.0
         }
     }))
+}
+
+async fn get_asset_data(conn: &turso::Connection, id: &str) -> Result<JsonValue, String> {
+    let mut rows = conn
+        .query("SELECT data FROM assets WHERE id = ?1", (id,))
+        .await
+        .map_err(|e| e.to_string())?;
+    if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+        let data_str = row
+            .get_value(0)
+            .map_err(|e| e.to_string())?
+            .as_text()
+            .map_or("{}", |v| v)
+            .to_string();
+        serde_json::from_str(&data_str).map_err(|e| e.to_string())
+    } else {
+        Err("Asset not found".to_string())
+    }
 }
 
 fn row_to_json(row: &turso::Row, table: &str) -> Result<JsonValue, String> {

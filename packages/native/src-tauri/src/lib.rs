@@ -60,6 +60,7 @@ pub fn run() {
             db_photo_list,
             db_photo_add,
             db_photo_update,
+            db_photo_toggle_like,
             db_photo_delete,
             db_photo_restore,
             db_photo_check_duplicate,

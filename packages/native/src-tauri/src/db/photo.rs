@@ -22,7 +22,11 @@ pub async fn db_photo_list(
     let offset = (page - 1) * page_size;
 
     let mut conditions = vec!["deleted = ?1".to_string()];
-    let mut params: Vec<TursoValue> = vec![TursoValue::Integer(if is_delete.unwrap_or(false) { 1 } else { 0 })];
+    let mut params: Vec<TursoValue> = vec![TursoValue::Integer(if is_delete.unwrap_or(false) {
+        1
+    } else {
+        0
+    })];
     let mut param_idx = 2;
 
     if liked_mode.unwrap_or(false) {
@@ -61,16 +65,25 @@ pub async fn db_photo_list(
         ));
         params.push(TursoValue::Text(aid.clone()));
         #[allow(unused_assignments)]
-        { param_idx += 1; }
+        {
+            param_idx += 1;
+        }
     }
 
     let where_clause = conditions.join(" AND ");
 
     // Count total
     let count_sql = format!("SELECT COUNT(*) FROM photos WHERE {}", where_clause);
-    let mut count_rows = conn.query(&count_sql, params.clone()).await.map_err(|e| e.to_string())?;
+    let mut count_rows = conn
+        .query(&count_sql, params.clone())
+        .await
+        .map_err(|e| e.to_string())?;
     let total: i64 = if let Some(row) = count_rows.next().await.map_err(|e| e.to_string())? {
-        row.get_value(0).map_err(|e| e.to_string())?.as_integer().copied().unwrap_or(0)
+        row.get_value(0)
+            .map_err(|e| e.to_string())?
+            .as_integer()
+            .copied()
+            .unwrap_or(0)
     } else {
         0
     };
@@ -168,15 +181,34 @@ pub async fn db_photo_update(
         param_idx += 1;
     }
     if let Some(ref d) = data {
+        let mut merged_data = get_photo_data(&conn, &id)
+            .await
+            .unwrap_or_else(|_| json!({}));
+        if let Ok(incoming) = serde_json::from_str::<JsonValue>(d) {
+            if let (Some(existing_obj), Some(incoming_obj)) =
+                (merged_data.as_object_mut(), incoming.as_object())
+            {
+                for (key, value) in incoming_obj {
+                    existing_obj.insert(key.clone(), value.clone());
+                }
+            } else {
+                merged_data = incoming;
+            }
+        }
         sets.push(format!("data = ?{}", param_idx));
-        params.push(TursoValue::Text(d.clone()));
-        #[allow(unused_assignments)]
-        { param_idx += 1; }
+        params.push(TursoValue::Text(merged_data.to_string()));
+        param_idx += 1;
     }
 
     params.push(TursoValue::Text(id.clone()));
-    let sql = format!("UPDATE photos SET {} WHERE id = ?{}", sets.join(", "), param_idx);
-    conn.execute(&sql, params).await.map_err(|e| e.to_string())?;
+    let sql = format!(
+        "UPDATE photos SET {} WHERE id = ?{}",
+        sets.join(", "),
+        param_idx
+    );
+    conn.execute(&sql, params)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let mut rows = conn
         .query("SELECT * FROM photos WHERE id = ?1", (id,))
@@ -191,10 +223,47 @@ pub async fn db_photo_update(
 }
 
 #[tauri::command]
-pub async fn db_photo_delete(
+pub async fn db_photo_toggle_like(
     state: State<'_, TursoDb>,
-    ids: Vec<String>,
-) -> Result<(), String> {
+    id: String,
+) -> Result<JsonValue, String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+    let mut rows = conn
+        .query("SELECT is_liked FROM photos WHERE id = ?1", (id.clone(),))
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let current = if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+        row.get_value(0)
+            .map_err(|e| e.to_string())?
+            .as_integer()
+            .copied()
+            .unwrap_or(0)
+    } else {
+        return Err("Photo not found".to_string());
+    };
+
+    conn.execute(
+        "UPDATE photos SET is_liked = ?1, updated_at = datetime('now') WHERE id = ?2",
+        (if current == 0 { 1 } else { 0 }, id.clone()),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut rows = conn
+        .query("SELECT * FROM photos WHERE id = ?1", (id,))
+        .await
+        .map_err(|e| e.to_string())?;
+    if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+        let val = row_to_json(&row)?;
+        Ok(merge_row(&val))
+    } else {
+        Err("Photo not found".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn db_photo_delete(state: State<'_, TursoDb>, ids: Vec<String>) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     for id in ids {
         conn.execute(
@@ -208,10 +277,7 @@ pub async fn db_photo_delete(
 }
 
 #[tauri::command]
-pub async fn db_photo_restore(
-    state: State<'_, TursoDb>,
-    ids: Vec<String>,
-) -> Result<(), String> {
+pub async fn db_photo_restore(state: State<'_, TursoDb>, ids: Vec<String>) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     for id in ids {
         conn.execute(
@@ -260,7 +326,11 @@ pub async fn db_photo_list_info(
     let conn = state.0.connect().map_err(|e| e.to_string())?;
 
     let mut conditions = vec!["deleted = ?1".to_string()];
-    let mut params: Vec<TursoValue> = vec![TursoValue::Integer(if is_delete.unwrap_or(false) { 1 } else { 0 })];
+    let mut params: Vec<TursoValue> = vec![TursoValue::Integer(if is_delete.unwrap_or(false) {
+        1
+    } else {
+        0
+    })];
     let mut param_idx = 2;
 
     if liked_mode.unwrap_or(false) {
@@ -294,7 +364,9 @@ pub async fn db_photo_list_info(
         ));
         params.push(TursoValue::Text(aid.clone()));
         #[allow(unused_assignments)]
-        { param_idx += 1; }
+        {
+            param_idx += 1;
+        }
     }
 
     let where_clause = conditions.join(" AND ");
@@ -306,14 +378,31 @@ pub async fn db_photo_list_info(
     );
     let mut rows = conn.query(&sql, params).await.map_err(|e| e.to_string())?;
     if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
-        let count = row.get_value(0).map_err(|e| e.to_string())?.as_integer().copied().unwrap_or(0);
-        let total_size = row.get_value(1).map_err(|e| e.to_string())?.as_integer().copied().unwrap_or(0);
+        let count = row
+            .get_value(0)
+            .map_err(|e| e.to_string())?
+            .as_integer()
+            .copied()
+            .unwrap_or(0);
+        let total_size = row
+            .get_value(1)
+            .map_err(|e| e.to_string())?
+            .as_integer()
+            .copied()
+            .unwrap_or(0);
         Ok(json!({
-            "data": [{
-                "title": format!("{}", count),
-                "value": format!("{}", total_size),
-                "label": "photos"
-            }]
+            "data": [
+                { "title": "数量", "value": format!("{}", count) },
+                {
+                    "title": "总大小",
+                    "value": format_size(total_size as f64),
+                    "label": if count > 0 {
+                        format!("平均大小：{}", format_size(total_size as f64 / count as f64))
+                    } else {
+                        "".to_string()
+                    }
+                }
+            ]
         }))
     } else {
         Ok(json!({ "data": [] }))
@@ -362,18 +451,22 @@ pub async fn db_photo_set_albums(
 ) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     // Clear existing
-    conn.execute("DELETE FROM photo_albums WHERE photo_id = ?1", (photo_id.clone(),))
-        .await
-        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM photo_albums WHERE photo_id = ?1",
+        (photo_id.clone(),),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
     // Insert new
-    for aid in album_ids {
+    for aid in &album_ids {
         conn.execute(
             "INSERT OR IGNORE INTO photo_albums (photo_id, album_id) VALUES (?1, ?2)",
-            (photo_id.clone(), aid),
+            (photo_id.clone(), aid.clone()),
         )
         .await
         .map_err(|e| e.to_string())?;
     }
+    update_photo_album_data(&conn, &photo_id, &album_ids).await?;
     Ok(())
 }
 
@@ -385,9 +478,12 @@ pub async fn db_photos_set_albums(
 ) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     for pid in &photo_ids {
-        conn.execute("DELETE FROM photo_albums WHERE photo_id = ?1", (pid.clone(),))
-            .await
-            .map_err(|e| e.to_string())?;
+        conn.execute(
+            "DELETE FROM photo_albums WHERE photo_id = ?1",
+            (pid.clone(),),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
         for aid in &album_ids {
             conn.execute(
                 "INSERT OR IGNORE INTO photo_albums (photo_id, album_id) VALUES (?1, ?2)",
@@ -396,8 +492,63 @@ pub async fn db_photos_set_albums(
             .await
             .map_err(|e| e.to_string())?;
         }
+        update_photo_album_data(&conn, pid, &album_ids).await?;
     }
     Ok(())
+}
+
+async fn get_photo_data(conn: &turso::Connection, id: &str) -> Result<JsonValue, String> {
+    let mut rows = conn
+        .query("SELECT data FROM photos WHERE id = ?1", (id,))
+        .await
+        .map_err(|e| e.to_string())?;
+    if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+        let data_str = row
+            .get_value(0)
+            .map_err(|e| e.to_string())?
+            .as_text()
+            .map_or("{}", |v| v)
+            .to_string();
+        serde_json::from_str(&data_str).map_err(|e| e.to_string())
+    } else {
+        Err("Photo not found".to_string())
+    }
+}
+
+async fn update_photo_album_data(
+    conn: &turso::Connection,
+    photo_id: &str,
+    album_ids: &[String],
+) -> Result<(), String> {
+    let mut data = get_photo_data(conn, photo_id)
+        .await
+        .unwrap_or_else(|_| json!({}));
+    if let Some(obj) = data.as_object_mut() {
+        obj.insert("albumId".to_string(), json!(album_ids));
+    } else {
+        data = json!({ "albumId": album_ids });
+    }
+    conn.execute(
+        "UPDATE photos SET data = ?1, updated_at = datetime('now') WHERE id = ?2",
+        (data.to_string(), photo_id.to_string()),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn format_size(mut size: f64) -> String {
+    let units = ["B", "KB", "MB", "GB", "TB", "PB"];
+    let mut unit_idx = 0usize;
+    while size > 1024.0 && unit_idx < units.len() - 1 {
+        size /= 1024.0;
+        unit_idx += 1;
+    }
+    if unit_idx == 0 {
+        format!("{}{}", size.round() as i64, units[unit_idx])
+    } else {
+        format!("{:.2}{}", size, units[unit_idx])
+    }
 }
 
 /// Helper: convert a turso Row to serde_json::Value

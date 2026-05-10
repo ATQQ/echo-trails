@@ -91,21 +91,24 @@ const sortAlbums = (albums: Album[]) => {
 
 const displayAlbumList = computed(() => {
   return {
+    large: sortAlbums(albumList.value.large),
     small: sortAlbums(albumList.value.small)
   }
 })
 
 const showEmpty = ref(false)
 const loading = ref(false)
-const loadAlbum = (_loading = false) => {
+const loadAlbum = async (_loading = false) => {
   loading.value = _loading
-  return getAlbums().then((res) => {
-    loading.value = false
+  try {
+    const res = await getAlbums()
     albumList.value.large = res.large || []
     albumList.value.small = res.small || []
     showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
     saveCache()
-  })
+  } finally {
+    loading.value = false
+  }
 }
 
 onActivated(() => {
@@ -219,6 +222,23 @@ preventBack(showAddModal)
         </div>
         <template v-else>
           <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
+          <!-- 大卡片分类 -->
+          <div v-if="displayAlbumList.large.length" class="large-card-list">
+            <div v-for="album in displayAlbumList.large" :key="album._id"
+                 class="large-card"
+                 @click.stop.prevent="goToDetail(album._id)"
+                 @contextmenu="handleContextMenu($event, album)"
+                 @touchstart="handleTouchStart(album)"
+                 @touchend="handleTouchEnd"
+                 @touchcancel="handleTouchEnd"
+                 @touchmove="handleTouchEnd">
+              <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
+              <div class="title-desc" :class="{ noCover: !album.cover }">
+                <h2>{{ album.name }}</h2>
+                <p>{{ album.count }}</p>
+              </div>
+            </div>
+          </div>
           <!-- 小卡片分类 -->
           <van-grid :gutter="10" :column-num="3" :border="false" class="small-card-grid">
             <van-grid-item v-for="album in displayAlbumList.small" :key="album._id">
@@ -314,6 +334,7 @@ preventBack(showAddModal)
   overflow: hidden;
   height: 100vw;
   width: 100%;
+  margin-bottom: 10px;
 
   .title-desc {
     position: absolute;
@@ -360,6 +381,13 @@ preventBack(showAddModal)
   .noCover {
     color: #000;
   }
+}
+
+.large-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .small-card-grid {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { getConfig, refreshService, saveConfig, validConfig } from '@/lib/configStorage';
 import { checkServiceHealth } from '@/service';
-import { getBitifulConfig, getBitifulConfigLocal, updateBitifulConfigComplete, type BitifulConfig } from '@/lib/bitifulConfig';
+import { defaultBitifulConfig, getBitifulConfig, getBitifulConfigLocal, mergeBitifulConfig, updateBitifulConfigComplete, type BitifulConfig } from '@/lib/bitifulConfig';
 import { defaultOrigin } from '@/lib/request';
 import router from '@/router';
 import { useLocalStorage } from '@vueuse/core';
@@ -42,18 +42,8 @@ const { value: userInfo } = useLocalStorage('userInfo', {
 // Bitiful 配置相关
 const showBitifulConfig = ref(false)
 const showSecret = ref(false)
-const bitifulConfig = ref<BitifulConfig>({
-  accessKey: '',
-  secretKey: '',
-  cdnToken: '',
-  bucket: '',
-  domain: '',
-  coverStyle: '',
-  previewStyle: '',
-  albumStyle: '',
-  region: 'cn-east-1',
-  endpoint: 'https://s3.bitiful.net',
-})
+const hasLocalBitifulConfig = ref(false)
+const bitifulConfig = ref<BitifulConfig>({ ...defaultBitifulConfig })
 
 const isOffline = computed(() => selectMode.value === 'offline')
 
@@ -108,22 +98,21 @@ onMounted(async () => {
   token.value = cfg.token || ''
   showExit.value = !!cfg.token
 
-  // 加载 bitiful 配置 - 本地模式只用本地，远程模式优先远端
+  const localBitifulConfig = await getBitifulConfigLocal()
+  hasLocalBitifulConfig.value = !!localBitifulConfig
+
+  // 加载 bitiful 配置 - 本地模式只用本地，远程模式远端有值字段覆盖本地字段
   if (cfg.mode === 'offline') {
-    const localBitifulConfig = await getBitifulConfigLocal()
     if (localBitifulConfig) {
-      bitifulConfig.value = localBitifulConfig
+      bitifulConfig.value = mergeBitifulConfig(localBitifulConfig)
     }
   } else {
     try {
       const remoteBitifulConfig = await getBitifulConfig()
-      if (remoteBitifulConfig) {
-        bitifulConfig.value = remoteBitifulConfig
-      }
+      bitifulConfig.value = mergeBitifulConfig(localBitifulConfig, remoteBitifulConfig)
     } catch (error) {
-      const localBitifulConfig = await getBitifulConfigLocal()
       if (localBitifulConfig) {
-        bitifulConfig.value = localBitifulConfig
+        bitifulConfig.value = mergeBitifulConfig(localBitifulConfig)
       }
     }
   }
@@ -198,7 +187,8 @@ const onSaveBitifulConfig = async () => {
   try {
     // ~~创建配置副本，排除 region 字段~~
     const { ...configWithoutRegion } = bitifulConfig.value
-    await updateBitifulConfigComplete(configWithoutRegion)
+    bitifulConfig.value = await updateBitifulConfigComplete(configWithoutRegion)
+    hasLocalBitifulConfig.value = true
     showNotify({ type: 'success', message: 'Bitiful 配置更新成功' })
   } catch (err: any) {
     showNotify({ type: 'danger', message: err?.message || 'Bitiful 配置更新失败' })
@@ -282,7 +272,7 @@ const onCameraError = (error: any) => {
       </van-cell-group> -->
 
       <!-- Bitiful 配置区域 -->
-      <van-cell-group inset v-if="showExit || isOffline">
+      <van-cell-group inset v-if="showExit || isOffline || hasLocalBitifulConfig">
         <van-cell title="Bitiful 配置" is-link :value="showBitifulConfig ? '收起' : '展开'"
           @click="showBitifulConfig = !showBitifulConfig" />
         <template v-if="showBitifulConfig">
@@ -307,10 +297,10 @@ const onCameraError = (error: any) => {
           <van-field v-model="bitifulConfig.previewStyle" name="previewStyle" label="预览样式" placeholder="（选填）预览样式" />
           <van-field v-model="bitifulConfig.albumStyle" name="albumStyle" label="相册样式" placeholder="（选填）相册样式" />
           <div class="btn-wrapper" style="display: flex; gap: 10px; justify-content: space-between;">
-            <van-button round block type="primary" @click="onSaveBitifulConfig" style="flex: 1;">
+            <van-button round block type="primary" native-type="button" @click="onSaveBitifulConfig" style="flex: 1;">
               保存
             </van-button>
-            <van-button round block type="success" @click="showScanner = true" style="flex: 1; margin: 0;">
+            <van-button round block type="success" native-type="button" @click="showScanner = true" style="flex: 1; margin: 0;">
               扫码配置
             </van-button>
           </div>

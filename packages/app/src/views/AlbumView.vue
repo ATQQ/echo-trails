@@ -132,15 +132,23 @@ const displayAlbumList = computed(() => {
 
 const showEmpty = ref(false)
 const loading = ref(false)
-const loadAlbum = (_loading = false) => {
+const loadAlbum = async (_loading = false) => {
   loading.value = _loading
-  return getAlbums().then((res) => {
-    loading.value = false
+  try {
+    const res = await getAlbums()
+    console.log('loadAlbum res', res);
+
     albumList.value.large = res.large || []
     albumList.value.small = res.small || []
     showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
     saveCache()
-  })
+  } catch (e) {
+    console.error('Load albums failed:', e)
+    showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
+    throw e
+  } finally {
+    loading.value = false
+  }
 }
 
 onActivated(() => {
