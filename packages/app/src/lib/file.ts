@@ -314,18 +314,33 @@ async function getNativeFileInfo(filePath: string) {
  * 从 EXIF 信息中解析拍摄时间
  */
 function getExifDate(exif: any): Date | null {
-  if (!exif?.['DateTimeOriginal']?.description) return null
+  const candidates = [
+    exif?.['DateTimeOriginal'],
+    exif?.['DateTimeDigitized'],
+    exif?.['DateTime'],
+    exif?.['CreateDate'],
+    exif?.['SubSecDateTimeOriginal'],
+  ]
 
-  const dateStr = exif['DateTimeOriginal'].description
-  // 格式通常为 "YYYY:MM:DD HH:MM:SS"
-  const parts = dateStr.split(' ');
-  if (parts.length >= 2) {
-    const dateParts = parts[0].split(':');
-    if (dateParts.length === 3) {
-      const timeStr = parts[1];
-      return new Date(`${dateParts.join('-')}T${timeStr}`);
+  for (const tag of candidates) {
+    const rawValue = tag?.description || tag?.value
+    if (!rawValue) continue
+
+    const dateStr = String(rawValue).trim()
+    // 格式通常为 "YYYY:MM:DD HH:MM:SS"
+    const parts = dateStr.split(' ')
+    if (parts.length >= 2) {
+      const dateParts = parts[0].split(':')
+      if (dateParts.length === 3) {
+        const timeStr = parts[1]
+        const parsed = new Date(`${dateParts.join('-')}T${timeStr}`)
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed
+        }
+      }
     }
   }
+
   return null
 }
 
@@ -343,8 +358,8 @@ export async function parseNativeImageFileUploadInfo(filePath: string) {
     const exif: any = await getImageExif(buffer) as any
     const exifDate: Date | null = getExifDate(exif)
 
-    // 4. 确定最终时间: JS EXIF > Native EXIF > Native/lstat > Current
-    const lastModified = +(exifDate || nativeInfo.creationTime || nativeInfo.lastModified || new Date())
+    // 4. 确定最终时间: JS EXIF > Native/MediaStore 时间 > Native creationTime > Current
+    const lastModified = +(exifDate || nativeInfo.lastModified || nativeInfo.creationTime || new Date())
 
     // 5. 构建 File 对象
     const originalName = filePath2Name(filePath) || 'unknown'
