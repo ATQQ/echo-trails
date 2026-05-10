@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.7.5",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.5.apk",
+      "forceUpdate": false,
+      "description": "fix: 上传问题,本地模式初步支持",
+      "md5": "74b0916d5c26a247ad11cc940e538b6e"
+    },
+    {
       "version": "0.7.4",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.4.apk",
       "forceUpdate": false,
