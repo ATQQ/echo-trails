@@ -198,6 +198,12 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
 
     // 根据当前列表长度重新计算页码
     pageInfo.pageIndex = Math.floor(photoList.length / pageInfo.pageSize) + 1
+  }).catch(e => {
+    console.warn('Load photos failed:', e)
+    if (!photoList.length && !showUploadList.value.length) {
+      showEmpty.value = true
+      hasMoreData.value = false
+    }
   }).finally(() => {
     pageInfo.lock = false
   })

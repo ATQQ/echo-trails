@@ -5,7 +5,7 @@ import PhotoList from '@/components/PhotoList/PhotoList.vue';
 import { provideAlbumPhotoStore } from '@/composables/albumphoto';
 import { getAlbumInfo, getPhotoListInfo, updateAlbum } from '@/service';
 import { showToast } from 'vant';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { preventBack } from '@/lib/router'
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
@@ -47,6 +47,10 @@ provideAlbumPhotoStore({
 })
 
 onMounted(() => {
+  refreshAlbum()
+})
+watch(() => route.params.albumId, () => {
+  album.value = undefined
   refreshAlbum()
 })
 const router = useRouter()
@@ -119,7 +123,7 @@ const onSubmit = () => {
 </script>
 
 <template>
-  <PhotoList v-if="album" :album="album">
+  <PhotoList v-if="album" :key="album._id" :album="album">
     <template #header>
       <div v-if="album.count" class="large-card">
         <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />

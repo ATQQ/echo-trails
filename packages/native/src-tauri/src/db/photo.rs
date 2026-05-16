@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde_json::{json, Value as JsonValue};
 use tauri::State;
 use turso::Value as TursoValue;
@@ -27,65 +29,79 @@ pub async fn db_photo_list(
     } else {
         0
     })];
-    let mut param_idx = 2;
 
     if liked_mode.unwrap_or(false) {
+        let param_idx = params.len() + 1;
         conditions.push(format!("is_liked = ?{}", param_idx));
         params.push(TursoValue::Integer(1));
-        param_idx += 1;
     }
 
     if let Some(ref t) = type_filter {
+        let param_idx = params.len() + 1;
         conditions.push(format!("type LIKE ?{}", param_idx));
         params.push(TursoValue::Text(format!("{}%", t)));
-        param_idx += 1;
     }
 
     if let Some(ref sd) = start_date {
         if !sd.is_empty() {
+            let param_idx = params.len() + 1;
             conditions.push(format!("last_modified >= ?{}", param_idx));
             params.push(TursoValue::Text(sd.clone()));
-            param_idx += 1;
         }
     }
 
     if let Some(ref ed) = end_date {
         if !ed.is_empty() {
+            let param_idx = params.len() + 1;
             conditions.push(format!("last_modified <= ?{}", param_idx));
             params.push(TursoValue::Text(ed.clone()));
-            param_idx += 1;
-        }
-    }
-
-    // Album filter via junction table
-    if let Some(ref aid) = album_id {
-        conditions.push(format!(
-            "id IN (SELECT photo_id FROM photo_albums WHERE album_id = ?{})",
-            param_idx
-        ));
-        params.push(TursoValue::Text(aid.clone()));
-        #[allow(unused_assignments)]
-        {
-            param_idx += 1;
         }
     }
 
     let where_clause = conditions.join(" AND ");
 
+    if let Some(aid) = album_id {
+        let related_photo_ids = get_album_photo_id_set(&conn, &aid).await?;
+        let sql = format!(
+            "SELECT * FROM photos WHERE {} ORDER BY last_modified DESC",
+            where_clause
+        );
+        let mut rows = conn.query(&sql, params).await.map_err(|e| e.to_string())?;
+        let mut matched = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+            let val = row_to_json(&row)?;
+            let item = merge_row(&val);
+            if photo_matches_album(&item, &aid, &related_photo_ids) {
+                matched.push(item);
+            }
+        }
+
+        let total = matched.len() as i64;
+        let items: Vec<JsonValue> = matched
+            .into_iter()
+            .skip(offset as usize)
+            .take(page_size as usize)
+            .collect();
+
+        return Ok(json!({ "data": items, "total": total }));
+    }
+
     // Count total
     let count_sql = format!("SELECT COUNT(*) FROM photos WHERE {}", where_clause);
-    let mut count_rows = conn
-        .query(&count_sql, params.clone())
-        .await
-        .map_err(|e| e.to_string())?;
-    let total: i64 = if let Some(row) = count_rows.next().await.map_err(|e| e.to_string())? {
-        row.get_value(0)
-            .map_err(|e| e.to_string())?
-            .as_integer()
-            .copied()
-            .unwrap_or(0)
-    } else {
-        0
+    let total: i64 = {
+        let mut count_rows = conn
+            .query(&count_sql, params.clone())
+            .await
+            .map_err(|e| e.to_string())?;
+        if let Some(row) = count_rows.next().await.map_err(|e| e.to_string())? {
+            row.get_value(0)
+                .map_err(|e| e.to_string())?
+                .as_integer()
+                .copied()
+                .unwrap_or(0)
+        } else {
+            0
+        }
     };
 
     // Fetch page
@@ -101,6 +117,50 @@ pub async fn db_photo_list(
     }
 
     Ok(json!({ "data": items, "total": total }))
+}
+
+async fn get_album_photo_id_set(
+    conn: &turso::Connection,
+    album_id: &str,
+) -> Result<HashSet<String>, String> {
+    let mut photo_ids = HashSet::new();
+    let mut rows = conn
+        .query(
+            "SELECT photo_id FROM photo_albums WHERE album_id = ?1",
+            (album_id.to_string(),),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+    while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+        let photo_id = row
+            .get_value(0)
+            .map_err(|e| e.to_string())?
+            .as_text()
+            .map_or("", |v| v)
+            .to_string();
+        if !photo_id.is_empty() {
+            photo_ids.insert(photo_id);
+        }
+    }
+
+    Ok(photo_ids)
+}
+
+fn photo_matches_album(
+    item: &JsonValue,
+    album_id: &str,
+    related_photo_ids: &HashSet<String>,
+) -> bool {
+    let photo_id = item.get("id").and_then(|v| v.as_str()).unwrap_or("");
+    if related_photo_ids.contains(photo_id) {
+        return true;
+    }
+
+    item.get("albumId")
+        .and_then(|v| v.as_array())
+        .map(|ids| ids.iter().any(|id| id.as_str() == Some(album_id)))
+        .unwrap_or(false)
 }
 
 #[tauri::command]
