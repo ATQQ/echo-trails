@@ -349,12 +349,6 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       // If deleting from a specific album
       if (photo.albumId && photo.albumId.includes(albumId)) {
         photo.albumId = photo.albumId.filter(aid => aid !== albumId)
-        
-        // If no albums left, mark as deleted
-        if (photo.albumId.length === 0) {
-          photo.deletedAt = new Date()
-          photo.deleted = true
-        }
       }
     } else {
       // Default behavior: delete the photo
@@ -399,12 +393,6 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         // If deleting from a specific album
         if (photo.albumId && photo.albumId.includes(albumId)) {
           photo.albumId = photo.albumId.filter(aid => aid !== albumId)
-          
-          // If no albums left, mark as deleted
-          if (photo.albumId.length === 0) {
-            photo.deletedAt = new Date()
-            photo.deleted = true
-          }
         }
       } else {
         // Default behavior: delete the photo

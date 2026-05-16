@@ -64,7 +64,7 @@
 
         <!-- 底部操作栏 -->
         <transition :name="show ? 'van-slide-up' : ''">
-          <BottomActions v-show="showMoreOperate" :menus="menus" />
+          <BottomActions v-show="showMoreOperate" class="preview-bottom-actions safe-padding-bottom" :menus="menus" />
         </transition>
       </template>
     </van-image-preview>
@@ -72,6 +72,16 @@
     <!-- 选择相册 -->
     <SelectAlbumModal v-model:show="showAlbumSelect" @save="handleSaveAlbumSelect" :current-album-id="album?._id"
       :selected="selectedAlbums" />
+    <van-action-sheet
+      v-model:show="showDeleteModeSheet"
+      class="safe-padding-bottom"
+      :actions="deleteModeActions"
+      cancel-text="取消"
+      close-on-click-action
+      :close-on-popstate="false"
+      description="请选择这次删除操作的范围"
+      @select="handleSelectDeleteMode"
+    />
   </div>
 </template>
 
@@ -89,6 +99,7 @@ import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import BottomActions from '../BottomActions/BottomActions.vue';
 import { cacheImage, isCacheDebugMode, deleteSingleImageCache } from '@/composables/useCachedImage';
 import { isTauri } from '@/constants';
+import { notifyAlbumsChanged } from '@/lib/albumEvents';
 
 const { images = [], start = 0, album, isDelete = false } = defineProps<{
   images: Photo[]
@@ -307,11 +318,14 @@ const handleSaveDescription = () => {
 
 const handleUpdateLike = () => {
   updateLike(activeImage.value._id).then(() => {
-    activeImage.value.isLiked = !activeImage.value.isLiked
+    const nextLiked = !activeImage.value.isLiked
+    activeImage.value.isLiked = nextLiked
+    photoListStore?.updateLiked?.(activeImage.value._id, nextLiked)
   })
 }
 
 const showAlbumSelect = ref(false)
+const showDeleteModeSheet = ref(false)
 const selectedAlbums = ref<string[]>([])
 
 const handleAddAlbum = async () => {
@@ -364,10 +378,48 @@ const handleSetCover = () => {
 
 // 删除图片
 const handleDeleteImage = async () => {
+  if (album?._id && !isDelete) {
+    showDeleteModeSheet.value = true
+    return
+  }
+
+  await executeDeleteImage('delete-all')
+}
+
+type DeleteMode = 'remove-current' | 'delete-all'
+
+const deleteModeActions: {
+  name: string
+  subname: string
+  color?: string
+  mode: DeleteMode
+}[] = [
+  {
+    name: '从当前相册移除',
+    subname: '照片仍保留在全部照片和其他相册',
+    mode: 'remove-current'
+  },
+  {
+    name: '从所有相册删除',
+    subname: '照片会进入删除列表',
+    color: '#ee0a24',
+    mode: 'delete-all'
+  }
+]
+
+const handleSelectDeleteMode = (action: { mode: DeleteMode }) => {
+  showDeleteModeSheet.value = false
+  executeDeleteImage(action.mode)
+}
+
+const executeDeleteImage = async (mode: DeleteMode) => {
   const confirmed = await showConfirmDialog({
-    title: '删除确认',
-    message:
-      '确定要删除这张照片吗？',
+    title: mode === 'remove-current' ? '移除确认' : '删除确认',
+    message: mode === 'remove-current'
+      ? '确定要将这张照片从当前相册移除吗？'
+      : '确定要从所有相册删除这张照片吗？',
+    confirmButtonText: mode === 'remove-current' ? '移除' : '删除',
+    confirmButtonColor: mode === 'remove-current' ? '#1989fa' : '#ee0a24'
   })
     .then(() => {
       return true;
@@ -379,14 +431,16 @@ const handleDeleteImage = async () => {
     return;
   }
 
-  deletePhoto(activeImage.value._id, album?._id).then(() => {
-    showNotify({ type: 'success', message: '删除成功' });
+  deletePhoto(activeImage.value._id, mode === 'remove-current' ? album?._id : undefined).then(() => {
+    showNotify({ type: 'success', message: mode === 'remove-current' ? '已从当前相册移除' : '删除成功' });
     removePhotoFromList(activeImage.value._id)
+    notifyAlbumsChanged('preview-image')
   })
 }
 
 preventBack(show)
 preventBack(showAlbumSelect)
+preventBack(showDeleteModeSheet)
 
 const restorePhotos = () => {
   photoListStore?.restorePhotos?.([activeImage.value._id])

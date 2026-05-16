@@ -17,7 +17,6 @@ interface Photo {
   isLiked: boolean
   albumId?: string[]
   description?: string
-  isRepeat?: boolean
 }
 
 type ServerResponse<T = any> = {

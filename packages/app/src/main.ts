@@ -13,11 +13,11 @@ import { PromiseWithResolver } from './lib/util';
 import { attachConsole } from '@tauri-apps/plugin-log'
 import { getConfig, refreshService } from './lib/configStorage';
 import { initImageCache } from './composables/useCachedImage';
+import { setMode } from './lib/serviceRouter';
 
 const app = createApp(App)
 
 app.use(createPinia())
-app.use(router)
 app.use(Lazyload)
 app.use(ImagePreview)
 
@@ -124,8 +124,11 @@ presetTauriMode().then(() => {
     initImageCache()
   ])
 }).finally(() => {
+  app.use(router)
   login().then(() => {
-    app.mount('#app')
+    router.isReady().then(() => {
+      app.mount('#app')
+    })
   }).catch(() => {
     goLogin()
   })

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
 import FooterNav from '@/components/FooterNav/FooterNav.vue';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { showToast } from 'vant';
 import { isTauri } from '@/constants';
 import { version } from '../package.json';
@@ -9,7 +9,8 @@ import { type } from '@tauri-apps/plugin-os';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { api } from "@/lib/request";
+import { checkUpdate as checkUpdateApi } from "@/service";
+import { isAutoCheckUpdateEnabled } from '@/composables/useAutoCheckUpdate';
 import NotificationBanner from '@/components/NotificationBanner/NotificationBanner.vue';
 import MainLayout from '@/components/MainLayout.vue';
 import { useFooterStore } from '@/stores/footer';
@@ -18,6 +19,19 @@ const route = useRoute();
 const footerStore = useFooterStore();
 const showNav = computed(() => route.meta.nav === true)
 const isSwipePage = computed(() => ['/home', '/'].includes(route.path))
+const isAlbumScrolled = ref(false)
+const showAlbumBlur = computed(() => route.path === '/' && isAlbumScrolled.value)
+
+const handleAlbumScrollState = (event: Event) => {
+  const detail = (event as CustomEvent<{ isScrolled?: boolean }>).detail
+  isAlbumScrolled.value = !!detail?.isScrolled
+}
+
+watch(() => route.path, (path) => {
+  if (path !== '/') {
+    isAlbumScrolled.value = false
+  }
+})
 
 // Notification state
 const showBanner = ref(false);
@@ -80,7 +94,7 @@ const handleBannerClick = () => {
   }
 };
 
-const checkUpdate = async () => {
+const doCheckUpdate = async () => {
   try {
     // 获取当前平台
     let platform = 'macos';
@@ -94,18 +108,10 @@ const checkUpdate = async () => {
       else if (ua.includes('linux')) platform = 'linux';
     }
 
-    // 直接调用后端 API 检查更新
-    const res = await api.get('app/check-update', {
-      searchParams: {
-        version: appVersion.value,
-        platform: platform,
-        t: Date.now()
-      }
-    }).json<any>();
-
-    if (res.code !== 0) return;
-
-    const updateInfo = res.data;
+    const updateInfo = await checkUpdateApi({
+      currentVersion: appVersion.value,
+      platform,
+    });
 
     if (updateInfo && updateInfo.hasUpdate) {
       updateInfoRef.value = updateInfo;
@@ -138,9 +144,14 @@ const checkUpdate = async () => {
 };
 
 onMounted(() => {
+  window.addEventListener('album-scroll-state', handleAlbumScrollState)
   window?.hideLoadingScreen?.()
-  if(!isTauri) return;
-  checkUpdate();
+  if(!isTauri || !isAutoCheckUpdateEnabled.value) return;
+  doCheckUpdate();
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('album-scroll-state', handleAlbumScrollState)
 })
 </script>
 
@@ -154,6 +165,7 @@ onMounted(() => {
       </transition>
     </router-view>
   </div>
+  <div v-if="showAlbumBlur" class="album-top-blur-mask" aria-hidden="true"></div>
   <!-- 底部菜单 -->
   <footer-nav v-show="showNav && footerStore.isVisible"></footer-nav>
 
@@ -205,5 +217,22 @@ body {
 
 :root {
   --safe-area-bg-color: #fff;
+}
+
+.album-top-blur-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  pointer-events: none;
+  z-index: 8;
+  overflow: hidden;
+  contain: paint;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0.34) 45%, rgba(255, 255, 255, 0) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.55) 48%, rgba(0,0,0,0) 100%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.55) 48%, rgba(0,0,0,0) 100%);
 }
 </style>

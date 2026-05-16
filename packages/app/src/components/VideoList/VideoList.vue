@@ -12,7 +12,6 @@ import BottomActions from '../BottomActions/BottomActions.vue';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
-import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import VideoCell from '../VideoCell/VideoCell.vue';
@@ -63,6 +62,7 @@ onDeactivated(() => {
 })
 
 onUnmounted(() => {
+  isActive.value = false
   cleanupProgressListener()
 })
 
@@ -111,14 +111,10 @@ const loadCache = async () => {
     const { list, pageIndex } = cacheData.value
     photoList.length = 0
     existPhotoMap.clear()
-    repeatPhotoMap.clear()
 
     list.forEach((p: Photo) => {
       photoList.push(p)
       existPhotoMap.set(p._id, p)
-      if (p.isRepeat) {
-        // wrapperRepeat logic if needed
-      }
     })
 
     pageInfo.pageIndex = pageIndex || 1
@@ -131,17 +127,7 @@ const loadCache = async () => {
 const photoList = reactive<Photo[]>([])
 
 const existPhotoMap = new Map<string, Photo>()
-const repeatPhotoMap = new Map<string, Photo>()
 const albumPhotoStore = useAlbumPhotoStore()
-
-const wrapperRepeat = (photo: Photo) => {
-  if (repeatPhotoMap.has(photo.key) || photo.isRepeat) {
-    photo.isRepeat = true
-    return
-  }
-  repeatPhotoMap.set(photo.key, photo)
-  photo.isRepeat = false
-}
 
 const addPhoto2List = (photo: Photo) => {
   if (!existPhotoMap.has(photo._id)) {
@@ -175,14 +161,12 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
     if (isRefresh) {
       photoList.length = 0
       existPhotoMap.clear()
-      repeatPhotoMap.clear()
       pageInfo.pageIndex = 1
     }
 
     let addCount = 0
     // 数据去重
     res.forEach(v => {
-      wrapperRepeat(v)
       if (addPhoto2List(v)) {
         addCount += 1
       }
@@ -781,16 +765,6 @@ const pullRefresh = () => {
     })
 }
 
-// 判断路由从回收站返回
-onBeforeRouteLeave((to, from, next) => {
-  if (from.name === 'delete') {
-    setTimeout(() => {
-      pullRefresh()
-    }, 1000)
-  }
-  next()
-})
-
 // provide
 const deletePhoto = (id: string) => {
   const deleteIndex = photoList.findIndex(v => v._id === id)
@@ -889,7 +863,7 @@ const handleOpenFile = async () => {
             <van-grid :border="false" square>
               <van-grid-item v-for="item in photos" :key="item.key" class="img-border">
                 <VideoCell @click="previewImage(item.idx)" :src="item.url" :cover="item.cover"
-                  :is-repeat="item.isRepeat" @longpress="handleLongPress(item.idx)" />
+                  @longpress="handleLongPress(item.idx)" />
                 <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[item.idx] = el" :name="item._id"
                   class="editSelected" />
               </van-grid-item>

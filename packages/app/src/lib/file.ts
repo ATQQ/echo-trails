@@ -314,18 +314,33 @@ async function getNativeFileInfo(filePath: string) {
  * 从 EXIF 信息中解析拍摄时间
  */
 function getExifDate(exif: any): Date | null {
-  if (!exif?.['DateTimeOriginal']?.description) return null
+  const candidates = [
+    exif?.['DateTimeOriginal'],
+    exif?.['DateTimeDigitized'],
+    exif?.['DateTime'],
+    exif?.['CreateDate'],
+    exif?.['SubSecDateTimeOriginal'],
+  ]
 
-  const dateStr = exif['DateTimeOriginal'].description
-  // 格式通常为 "YYYY:MM:DD HH:MM:SS"
-  const parts = dateStr.split(' ');
-  if (parts.length >= 2) {
-    const dateParts = parts[0].split(':');
-    if (dateParts.length === 3) {
-      const timeStr = parts[1];
-      return new Date(`${dateParts.join('-')}T${timeStr}`);
+  for (const tag of candidates) {
+    const rawValue = tag?.description || tag?.value
+    if (!rawValue) continue
+
+    const dateStr = String(rawValue).trim()
+    // 格式通常为 "YYYY:MM:DD HH:MM:SS"
+    const parts = dateStr.split(' ')
+    if (parts.length >= 2) {
+      const dateParts = parts[0].split(':')
+      if (dateParts.length === 3) {
+        const timeStr = parts[1]
+        const parsed = new Date(`${dateParts.join('-')}T${timeStr}`)
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed
+        }
+      }
     }
   }
+
   return null
 }
 
@@ -343,8 +358,8 @@ export async function parseNativeImageFileUploadInfo(filePath: string) {
     const exif: any = await getImageExif(buffer) as any
     const exifDate: Date | null = getExifDate(exif)
 
-    // 4. 确定最终时间: JS EXIF > Native EXIF > Native/lstat > Current
-    const lastModified = +(exifDate || nativeInfo.creationTime || nativeInfo.lastModified || new Date())
+    // 4. 确定最终时间: JS EXIF > Native/MediaStore 时间 > Native creationTime > Current
+    const lastModified = +(exifDate || nativeInfo.lastModified || nativeInfo.creationTime || new Date())
 
     // 5. 构建 File 对象
     const originalName = filePath2Name(filePath) || 'unknown'
@@ -444,12 +459,23 @@ export async function parseNativeVideoFileUploadInfo(filePath: string) {
  * 1. 确保 EXIF 存在
  * 2. 补全宽/高 (EXIF -> Web Fallback)
  * 3. 补全 MD5
+ * 4. 从 EXIF 补全拍摄时间
  */
 export async function ensureUploadInfo(value: Partial<FileInfoItem> & { file: File }) {
   const { file } = value
 
   // 1. 确保 EXIF
   value.exif = value.exif || await getImageExif(file) as any
+
+  // 从 EXIF 解析时间，与原生模式和远程保持一致
+  const exifDate = getExifDate(value.exif)
+  if (exifDate) {
+    value.lastModified = +exifDate
+    value.date = exifDate
+  } else if (!value.lastModified) {
+    value.lastModified = file.lastModified || Date.now()
+    value.date = new Date(value.lastModified)
+  }
 
   // 2. 确定宽高: EXIF > Native(已在exif中) > Web Image
   let width = 0
@@ -511,7 +537,12 @@ export async function ensureVideoUploadInfo(value: Partial<FileInfoItem> & { fil
   // 4. 更新 value 中的属性
   value.width = width
   value.height = height
-    ; (value as any).cover = cover
+  ;(value as any).cover = cover
+
+  if (!value.lastModified) {
+    value.lastModified = file.lastModified || Date.now()
+    value.date = new Date(value.lastModified)
+  }
 
   return value as FileInfoItem
 }

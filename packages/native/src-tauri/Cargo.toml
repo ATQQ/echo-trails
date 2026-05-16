@@ -1,6 +1,6 @@
 [package]
 name = "echo-trails"
-version = "0.7.4"
+version = "0.7.7"
 description = "相册APP，记忆的回响，过去的经历像回声一样在徘徊."
 authors = ["sugar"]
 edition = "2021"
@@ -30,8 +30,7 @@ log = "0.4.21"
 tauri-plugin-log = "2"
 aws-sdk-s3 = { version = "1", default-features = false, features = ["rt-tokio", "http-1x"] }
 aws-smithy-http-client = { version = "1", features = ["rustls-ring"] }
-tokio = { version = "1.28.0", features = ["full"] }
-dotenv = "0.15.0"
+tokio = { version = "1.28.0", default-features = false, features = ["fs", "io-util"] }
 tauri-plugin-store = "2"
 tauri-plugin-clipboard-manager = "2.3.2"
 tauri-plugin-opener = "2"
@@ -39,9 +38,10 @@ reqwest = { version = "0.12", default-features = false, features = ["stream", "r
 futures-util = "0.3"
 md5 = "0.7"
 tokio-util = { version = "0.7.18", features = ["io", "codec"] }
-turso = { version = "0.5.3" }
+turso = { version = "0.5.3", default-features = false }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 ndk-context = "0.1"
-

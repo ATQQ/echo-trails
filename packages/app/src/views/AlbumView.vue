@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { getAlbums } from '@/service';
-import { ref, reactive, onActivated, computed } from 'vue'
-import { useRouter } from 'vue-router';
+import { ref, reactive, onActivated, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
 import { preventBack } from '@/lib/router'
@@ -11,9 +11,11 @@ import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useTagStyles, type TagStyle } from '@/composables/useTagStyles';
 import { useScrollRestore } from '@/composables/useScrollRestore';
+import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
 
 const scrollContainer = ref<any>(null)
 useScrollRestore(scrollContainer)
+const route = useRoute()
 
 const { addRecent, getRecentIndex } = useRecentAlbums()
 const { tagStyles, setStyle, getStyle } = useTagStyles()
@@ -132,15 +134,32 @@ const displayAlbumList = computed(() => {
 
 const showEmpty = ref(false)
 const loading = ref(false)
-const loadAlbum = (_loading = false) => {
+const loadAlbum = async (_loading = false) => {
   loading.value = _loading
-  return getAlbums().then((res) => {
-    loading.value = false
+  try {
+    const res = await getAlbums()
+    console.log('loadAlbum res', res);
+
     albumList.value.large = res.large || []
     albumList.value.small = res.small || []
     showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
     saveCache()
-  })
+  } catch (e) {
+    console.error('Load albums failed:', e)
+    showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
+    throw e
+  } finally {
+    loading.value = false
+  }
+}
+
+const albumChangeSource = 'album-view'
+const handleAlbumSaved = async () => {
+  try {
+    await loadAlbum(false)
+  } finally {
+    notifyAlbumsChanged(albumChangeSource)
+  }
 }
 
 onActivated(() => {
@@ -169,18 +188,52 @@ onActivated(() => {
       })
     }
   }
+
+  requestAnimationFrame(() => emitScrollState())
+})
+
+watch(() => route.path, (path) => {
+  if (path === '/') {
+    loadAlbum(false).catch(e => {
+      console.warn('Refresh albums on route enter failed:', e)
+    })
+  }
+})
+
+let stopAlbumsChangedListener: (() => void) | undefined
+onMounted(() => {
+  stopAlbumsChangedListener = onAlbumsChanged((detail) => {
+    if (detail.source === albumChangeSource) return
+    loadAlbum(false).catch(e => {
+      console.warn('Refresh albums from change event failed:', e)
+    })
+  })
+})
+
+onUnmounted(() => {
+  stopAlbumsChangedListener?.()
 })
 
 const showAddModal = ref(false)
 const currentEditId = ref('')
 const currentEditData = ref<Album | undefined>(undefined)
 
-const isScrolled = ref(false)
+const getScrollTop = () => {
+  const current = scrollContainer.value
+  const el = current?.$el instanceof HTMLElement ? current.$el : current
+  return el instanceof HTMLElement ? el.scrollTop : 0
+}
+
+const emitScrollState = (scrollTop = getScrollTop()) => {
+  window.dispatchEvent(new CustomEvent('album-scroll-state', {
+    detail: {
+      isScrolled: scrollTop > 20
+    }
+  }))
+}
+
 const handleScroll = (e: Event) => {
-  const target = e.target as HTMLElement
-  if (target) {
-    isScrolled.value = target.scrollTop > 20
-  }
+  emitScrollState((e.target as HTMLElement)?.scrollTop || 0)
 }
 
 const handleLongPress = (album: Album) => {
@@ -243,7 +296,6 @@ preventBack(showAddModal)
 
 <template>
   <div class="app-wrapper">
-    <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div>
     <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)" ref="scrollContainer" class="pull-refresh-container" @scroll="handleScroll">
     <PageTitle title="相册" :info="false">
       <template #action>
@@ -346,7 +398,7 @@ preventBack(showAddModal)
   }" />
   <!-- 添加相册 -->
   <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal" />
-    <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="loadAlbum()" />
+    <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="handleAlbumSaved" />
   </div>
 </template>
 
@@ -360,27 +412,6 @@ preventBack(showAddModal)
 .pull-refresh-container {
   flex: 1;
   overflow-y: auto;
-}
-
-.top-blur-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 120px;
-  pointer-events: none;
-  z-index: 10;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.top-blur-mask.is-visible {
-  opacity: 1;
 }
 
 .popup-content {

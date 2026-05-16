@@ -49,16 +49,6 @@ bun install
   - **发布**: `git-release.ts`, `upgrade-version.ts`.
   - **Android**: `rename-android-apk.ts`, `setup-android-signing.ts`.
 
-## 交互工作流
-
-### 照片上传流程
-1.  **前端**: 用户选择照片 -> 调用 `get_file_info` (Native) 获取精准拍摄时间。
-2.  **原生**: Rust 调用 Android JNI -> 返回 `FileInfo` 对象。
-3.  **前端**: 向 **服务端** 请求上传 Token。
-4.  **服务端**: 返回 S3 预签名 URL。
-5.  **前端**: 直接上传二进制文件到 S3 -> 同步元数据到 **服务端**。
-
-### 应用更新流程
-1.  **原生**: 检查版本更新。
-2.  **原生**: 下载 APK (`download_apk` Rust 命令)。
-3.  **原生**: 触发安装 (`open_apk` -> JNI `installApk`).
+## 要求
+1. 每次修改完在最后总结一下本次修改，用简体中文，安装常用的 git commit 的格式
+2. 项目我会自己启动，请你在验证过程中不要再尝试启动项目，前端默认运行在 1420 端口

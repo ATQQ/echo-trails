@@ -220,6 +220,10 @@ object FileHelper {
                             Log.w(TAG, "Failed to query metadata from cursor: ${e.message}")
                         }
 
+                        // Keep creationTime aligned with the best timestamp we found above.
+                        // For photo picker / gallery URIs, datetaken is usually the real capture time.
+                        creationTime = lastModified
+
                         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                         val dateStr = dateFormat.format(Date(lastModified))
                         val sizeStr = android.text.format.Formatter.formatFileSize(context, size)

@@ -14,11 +14,12 @@ import BottomActions from '../BottomActions/BottomActions.vue';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
-import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useScrollRestore } from '@/composables/useScrollRestore';
+import { isLocalMode } from '@/lib/serviceRouter';
+import { notifyAlbumsChanged } from '@/lib/albumEvents';
 
 const isActive = ref(true)
 let unlistenProgress: UnlistenFn | null = null
@@ -57,7 +58,10 @@ onDeactivated(() => {
   stopListen()
 })
 
-onUnmounted(stopListen)
+onUnmounted(() => {
+  isActive.value = false
+  stopListen()
+})
 
 const { likedMode = false, album, isDelete = false, startDate, endDate } = defineProps<{
   likedMode?: boolean
@@ -95,6 +99,7 @@ const { data: cacheData, loadAsync: loadStorageAsync, saveAsync: saveStorageAsyn
 })
 
 const saveCache = () => {
+  if (isLocalMode()) return
   cacheData.value = {
     list: photoList,
     pageIndex: pageInfo.pageIndex
@@ -103,19 +108,16 @@ const saveCache = () => {
 }
 
 const loadCache = async () => {
+  if (isLocalMode()) return false
   const success = await loadStorageAsync()
   if (success && cacheData.value.list.length > 0) {
     const { list, pageIndex } = cacheData.value
     photoList.length = 0
     existPhotoMap.clear()
-    repeatPhotoMap.clear()
 
     list.forEach((p: Photo) => {
       photoList.push(p)
       existPhotoMap.set(p._id, p)
-      if (p.isRepeat) {
-        // wrapperRepeat logic if needed
-      }
     })
 
     pageInfo.pageIndex = pageIndex || 1
@@ -128,17 +130,7 @@ const loadCache = async () => {
 const photoList = reactive<Photo[]>([])
 
 const existPhotoMap = new Map<string, Photo>()
-const repeatPhotoMap = new Map<string, Photo>()
 const albumPhotoStore = useAlbumPhotoStore()
-
-const wrapperRepeat = (photo: Photo) => {
-  if (repeatPhotoMap.has(photo.key) || photo.isRepeat) {
-    photo.isRepeat = true
-    return
-  }
-  repeatPhotoMap.set(photo.key, photo)
-  photo.isRepeat = false
-}
 
 const addPhoto2List = (photo: Photo) => {
   if (!existPhotoMap.has(photo._id)) {
@@ -181,17 +173,12 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
           const item = photoList[idx]
           photoList.splice(idx, 1)
           existPhotoMap.delete(id)
-          const repeatItem = repeatPhotoMap.get(item.key)
-          if (repeatItem && repeatItem._id === id) {
-            repeatPhotoMap.delete(item.key)
-          }
         }
       })
     }
     let addCount = 0
     // 数据去重
     res.forEach(v => {
-      wrapperRepeat(v)
       if (addPhoto2List(v)) {
         addCount += 1
       }
@@ -214,6 +201,12 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
 
     // 根据当前列表长度重新计算页码
     pageInfo.pageIndex = Math.floor(photoList.length / pageInfo.pageSize) + 1
+  }).catch(e => {
+    console.warn('Load photos failed:', e)
+    if (!photoList.length && !showUploadList.value.length) {
+      showEmpty.value = true
+      hasMoreData.value = false
+    }
   }).finally(() => {
     pageInfo.lock = false
   })
@@ -271,6 +264,12 @@ const unregisterScrollListener = () => {
 // 监听页面活动状态
 watch(isActive, async (active) => {
   if (active) {
+    if (isLocalMode()) {
+      await loadNext(1, photoList.length || pageInfo.pageSize, true)
+      registerScrollListener()
+      return
+    }
+
     // 尝试加载缓存
     const restored = await loadCache()
     if (!restored) {
@@ -612,16 +611,24 @@ import { useFooterStore } from '@/stores/footer'
 const showPreview = ref(false)
 const footerStore = useFooterStore()
 
-watch(() => showPreview.value, (newVal) => {
-  footerStore.isVisible = !newVal
-})
+const syncFooterVisibility = () => {
+  footerStore.isVisible = !showPreview.value && !editData.active
+}
+
 const editData = reactive({
   currentIdx: 0,
   active: false,
   selectIds: [] as string[]
 })
 
+watch([showPreview, () => editData.active], syncFooterVisibility, { immediate: true })
+
+onUnmounted(() => {
+  footerStore.isVisible = true
+})
+
 const showAlbumSelect = ref(false)
+const showDeleteModeSheet = ref(false)
 const selectedAlbums = ref<string[]>([])
 const handleAddAlbum = async () => {
   if (!editData.selectIds.length) {
@@ -638,13 +645,18 @@ const handleSaveAlbumSelect = async (albumIds: string[]) => {
   // 更新相册数据
   const selectPhotos = photoList.filter(v => editData.selectIds.includes(v._id))
   selectPhotos.forEach(v => {
+    if (!v.albumId) {
+      v.albumId = []
+    }
     albumIds.forEach(id => {
-      if (!v.albumId?.includes(id)) {
-        v.albumId?.push(id)
+      if (!v.albumId!.includes(id)) {
+        v.albumId!.push(id)
       }
     })
   })
   saveCache()
+  albumPhotoStore?.refreshAlbum?.()
+  notifyAlbumsChanged('photo-list')
 
   showAlbumSelect.value = false
   showNotify({ type: 'success', message: '更改成功' });
@@ -660,10 +672,48 @@ const handleDeletePhotos = async () => {
     showNotify({ type: 'warning', message: '请选择要删除的照片' });
     return
   }
+  if (album?._id && !isDelete) {
+    showDeleteModeSheet.value = true
+    return
+  }
+
+  await executeDeletePhotos('delete-all')
+}
+
+type DeleteMode = 'remove-current' | 'delete-all'
+
+const deleteModeActions: {
+  name: string
+  subname: string
+  color?: string
+  mode: DeleteMode
+}[] = [
+  {
+    name: '从当前相册移除',
+    subname: '照片仍保留在全部照片和其他相册',
+    mode: 'remove-current'
+  },
+  {
+    name: '从所有相册删除',
+    subname: '照片会进入删除列表',
+    color: '#ee0a24',
+    mode: 'delete-all'
+  }
+]
+
+const handleSelectDeleteMode = (action: { mode: DeleteMode }) => {
+  showDeleteModeSheet.value = false
+  executeDeletePhotos(action.mode)
+}
+
+const executeDeletePhotos = async (mode: DeleteMode) => {
   const confirmed = await showConfirmDialog({
-    title: '删除确认',
-    message:
-      `确定要删除这${editData.selectIds.length}张照片吗？`,
+    title: mode === 'remove-current' ? '移除确认' : '删除确认',
+    message: mode === 'remove-current'
+      ? `确定要将这${editData.selectIds.length}张照片从当前相册移除吗？`
+      : `确定要从所有相册删除这${editData.selectIds.length}张照片吗？`,
+    confirmButtonText: mode === 'remove-current' ? '移除' : '删除',
+    confirmButtonColor: mode === 'remove-current' ? '#1989fa' : '#ee0a24'
   })
     .then(() => {
       return true;
@@ -675,15 +725,17 @@ const handleDeletePhotos = async () => {
     return;
   }
 
-  await deletePhotos(editData.selectIds, album?._id)
+  await deletePhotos(editData.selectIds, mode === 'remove-current' ? album?._id : undefined)
 
   // 更新相册数据
   editData.selectIds.forEach(v => {
     deletePhoto(v)
   })
-  showNotify({ type: 'success', message: '删除成功' });
+  showNotify({ type: 'success', message: mode === 'remove-current' ? '已从当前相册移除' : '删除成功' });
   cancelEditMode()
   saveCache()
+  albumPhotoStore?.refreshAlbum?.()
+  notifyAlbumsChanged('photo-list')
 }
 
 const handleRestorePhotos = async (ids: string[] = []) => {
@@ -787,26 +839,16 @@ const handleLongPress = (idx: number) => {
   editData.selectIds = [photoList[idx]._id]
 }
 preventBack(editData, 'active')
+preventBack(showDeleteModeSheet)
 
 const loading = ref(false)
 const pullRefresh = () => {
-  repeatPhotoMap.clear()
   loading.value = true
   loadNext(1, photoList.length, true) // Add true for isRefresh
     ?.finally(() => {
       loading.value = false
     })
 }
-
-// 判断路由从回收站返回
-onBeforeRouteLeave((to, from, next) => {
-  if (from.name === 'delete') {
-    setTimeout(() => {
-      pullRefresh()
-    }, 1000)
-  }
-  next()
-})
 
 // provide
 const deletePhoto = (id: string) => {
@@ -816,11 +858,6 @@ const deletePhoto = (id: string) => {
     photoList.splice(deleteIndex, 1)
     existPhotoMap.delete(id)
 
-    const repeatItem = repeatPhotoMap.get(item.key)
-    if (repeatItem && repeatItem._id === id) {
-      repeatPhotoMap.delete(item.key)
-    }
-
     // 展示空文案
     if (photoList.length === 0) {
       showEmpty.value = true
@@ -828,10 +865,23 @@ const deletePhoto = (id: string) => {
   }
   saveCache()
 }
+const updateLiked = (id: string, isLiked: boolean) => {
+  const item = photoList.find(v => v._id === id)
+  if (!item) return
+
+  if (likedMode && !isLiked) {
+    deletePhoto(id)
+    return
+  }
+
+  item.isLiked = isLiked
+  saveCache()
+}
 const isEmpty = computed(() => !photoList.length)
 providePhotoListStore({
   photoList,
   deletePhoto,
+  updateLiked,
   isEmpty,
   restorePhotos: handleRestorePhotos
 })
@@ -1026,7 +1076,7 @@ watch(containerRef, (el) => {
             <div v-else-if="item.data.type === 'photo-row'" class="virtual-row">
                <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }" :data-index="subItem.idx">
                   <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
-                    <ImageCell @click="(e: Event) => previewImage(subItem.idx, e)" :src="subItem.cover" :is-repeat="subItem.isRepeat" :cache-key="subItem.key + '_cover'"
+                    <ImageCell @click="(e: Event) => previewImage(subItem.idx, e)" :src="subItem.cover" :cache-key="subItem.key + '_cover'"
                       @longpress="handleLongPress(subItem.idx)" />
                     <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[subItem.idx] = el" :name="subItem._id"
                       class="editSelected" />
@@ -1080,6 +1130,15 @@ watch(containerRef, (el) => {
     <!-- 选择相册 -->
     <SelectAlbumModal v-model:show="showAlbumSelect" @save="handleSaveAlbumSelect" :current-album-id="album?._id"
       :selected="selectedAlbums" />
+    <van-action-sheet
+      v-model:show="showDeleteModeSheet"
+      :actions="deleteModeActions"
+      cancel-text="取消"
+      close-on-click-action
+      :close-on-popstate="false"
+      description="请选择这次删除操作的范围"
+      @select="handleSelectDeleteMode"
+    />
   </div>
 </template>
 <style scoped lang="scss">

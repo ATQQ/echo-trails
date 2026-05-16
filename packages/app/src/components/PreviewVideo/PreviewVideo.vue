@@ -197,7 +197,9 @@ const handleSaveDescription = () => {
 
 const handleUpdateLike = () => {
   updateLike(activeItem.value._id).then(() => {
-    activeItem.value.isLiked = !activeItem.value.isLiked
+    const nextLiked = !activeItem.value.isLiked
+    activeItem.value.isLiked = nextLiked
+    photoListStore?.updateLiked?.(activeItem.value._id, nextLiked)
   })
 }
 

@@ -3,6 +3,7 @@ import type { ComputedRef, InjectionKey, Reactive } from "vue"
 
 export interface PhotoListViewStore {
   deletePhoto?: (id: string) => void
+  updateLiked?: (id: string, isLiked: boolean) => void
   photoList?: Reactive<Photo[]>
   isEmpty?: ComputedRef<boolean>
   restorePhotos?: (ids?: string[]) => Promise<void>

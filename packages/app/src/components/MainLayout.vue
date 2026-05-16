@@ -16,7 +16,7 @@ export default { name: 'MainLayout' }
 </script>
 
 <script setup lang="ts">
-import { ref, watch, defineAsyncComponent, markRaw, onMounted, onBeforeUnmount } from 'vue';
+import { ref, watch, defineAsyncComponent, markRaw, onMounted, onBeforeUnmount, onActivated, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
@@ -67,9 +67,10 @@ const setTrackTransform = (offsetPx: number, withAnimation: boolean) => {
 
 watch(() => route.path, (newPath) => {
   const index = swipeItems.findIndex(i => i.path === newPath);
-  if (index !== -1 && index !== currentIndex.value) {
+  if (index !== -1) {
+    const withAnimation = index !== currentIndex.value;
     currentIndex.value = index;
-    setTrackTransform(0, true);
+    setTrackTransform(0, withAnimation);
   }
 }, { immediate: true });
 
@@ -179,6 +180,14 @@ onMounted(() => {
     containerRef.value.addEventListener('touchmove', preventDefaultSwipe, { passive: false });
   }
   setTimeout(() => setTrackTransform(0, false), 0);
+});
+
+onActivated(() => {
+  const index = swipeItems.findIndex(i => i.path === route.path);
+  if (index === -1) return;
+
+  currentIndex.value = index;
+  nextTick(() => setTrackTransform(0, false));
 });
 
 onBeforeUnmount(() => {
