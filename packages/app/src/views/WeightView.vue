@@ -9,6 +9,7 @@ import { useFamily } from '@/composables/useFamily'
 import FamilySelector from '@/components/FamilySelector/FamilySelector.vue'
 import dayjs from 'dayjs'
 import { createChart, ColorType, LineSeries } from 'lightweight-charts'
+import { preventBack } from '@/lib/router'
 
 const formatDate = (date: any, fmt: string = 'yyyy-MM-dd') => {
   if (!date) return ''
@@ -54,6 +55,9 @@ const state = reactive({
   tips: '',
   editRecordId: ''
 })
+
+preventBack(state, 'showTime')
+preventBack(state, 'showCalendar')
 
 // 体重数据
 const weights = ref<WeightRecord[]>([])
@@ -114,6 +118,18 @@ function refreshRecord(familyId: string) {
 // 添加记录相关
 const showAddRecord = ref(false)
 const editMode = ref(false)
+const weightInputRef = ref<HTMLInputElement | null>(null)
+const canSaveRecord = computed(() => +state.weight > 0)
+
+preventBack(showAddRecord)
+
+function focusWeightInput() {
+  nextTick(() => {
+    weightInputRef.value?.focus()
+    weightInputRef.value?.select()
+  })
+}
+
 function handleAddRecord() {
   editMode.value = false
   // 展示当前时间
@@ -162,6 +178,7 @@ function handleSureRecord() {
       showSuccessToast('修改成功')
       // 刷新列表
       refreshRecord(currentFamilyId.value)
+      showAddRecord.value = false
     })
     return
   }
@@ -414,18 +431,73 @@ onMounted(() => {
       <van-icon name="plus" size="20" />
     </div>
     <!-- 添加记录弹窗 -->
-    <van-dialog v-model:show="showAddRecord" :title="editMode ? '修改记录' : '录入记录'" confirm-button-color="#1989fa"
-      show-cancel-button @confirm="handleSureRecord">
-      <div class="record-dialog">
-        <van-field v-model="state.date" readonly clickable name="calendar" label="日期" placeholder="点击选择日期"
-          @click="state.showCalendar = true" />
-        <van-field v-model="state.time" readonly clickable name="datetimePicker" label="时间" placeholder="点击选择时间"
-          @click="state.showTime = true" />
-        <van-field v-model="state.weight" clickable type="number" name="weight" :label="`体重(${isKG ? 'kg' : '斤'})`"
-          placeholder="点击设置体重" />
-        <van-field v-model="state.tips" clickable type="text" name="tips" label="备注" placeholder="(选填)" />
+    <van-popup
+      v-model:show="showAddRecord"
+      position="bottom"
+      class="safe-padding-top"
+      round
+      closeable
+      :style="{ height: '100%' }"
+      @opened="focusWeightInput"
+    >
+      <div class="record-popup">
+        <header class="record-popup-header">
+          <h2>{{ editMode ? '修改记录' : '录入记录' }}</h2>
+          <van-button
+            type="primary"
+            size="small"
+            round
+            :disabled="!canSaveRecord"
+            @click="handleSureRecord"
+          >
+            保存
+          </van-button>
+        </header>
+
+        <van-cell-group inset class="record-section">
+          <van-cell title="记录日期" is-link :value="state.date" @click="state.showCalendar = true" />
+          <van-cell title="记录时间" is-link :value="state.time" @click="state.showTime = true" />
+        </van-cell-group>
+
+        <section class="weight-input-section">
+          <div class="section-label">体重</div>
+          <div class="weight-input-card" @click="focusWeightInput">
+            <input
+              ref="weightInputRef"
+              v-model.number="state.weight"
+              type="number"
+              inputmode="decimal"
+              placeholder="0"
+            />
+            <span class="weight-unit">{{ isKG ? 'kg' : '斤' }}</span>
+          </div>
+          <div class="unit-helper">
+            <span>当前单位：{{ isKG ? '公斤' : '斤' }}</span>
+            <van-switch v-model="isKG" :size="18" inactive-color="#e8ffee" />
+          </div>
+        </section>
+
+        <section class="record-section">
+          <div class="section-label">备注</div>
+          <van-field
+            v-model="state.tips"
+            rows="3"
+            autosize
+            type="textarea"
+            maxlength="100"
+            placeholder="记录饮食、运动或当天状态"
+            show-word-limit
+            class="note-input"
+          />
+        </section>
+
+        <div class="record-submit">
+          <van-button type="primary" block round :disabled="!canSaveRecord" @click="handleSureRecord">
+            保存记录
+          </van-button>
+        </div>
       </div>
-    </van-dialog>
+    </van-popup>
     <!-- 时间 -->
     <van-popup v-model:show="state.showTime" position="bottom">
       <van-time-picker v-model="state.timeValue" @confirm="handleSureTime" @cancel="state.showTime = false" />
@@ -437,10 +509,6 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
-.record-dialog {
-  padding: 1rem 0;
-}
-
 .current-time {
   padding-top: 2rem;
   text-align: center;
@@ -523,6 +591,105 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.record-popup {
+  height: 100%;
+  overflow-y: auto;
+  background: #f7f8fa;
+  padding: 16px 16px calc(88px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.record-popup-header {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px 12px 0;
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1f2329;
+  }
+}
+
+.record-section {
+  margin-bottom: 18px;
+}
+
+.section-label {
+  font-size: 14px;
+  color: #969799;
+  margin: 0 0 10px 4px;
+}
+
+.weight-input-section {
+  margin: 22px 0;
+}
+
+.weight-input-card {
+  min-height: 120px;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 20px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+
+  input {
+    width: min(210px, 65vw);
+    border: none;
+    outline: none;
+    background: transparent;
+    text-align: center;
+    font-size: 56px;
+    line-height: 1;
+    font-weight: 700;
+    color: #1f2329;
+    font-family: "DIN Alternate", sans-serif;
+  }
+
+  input::placeholder {
+    color: #dcdee0;
+  }
+}
+
+.weight-unit {
+  font-size: 18px;
+  color: #646566;
+}
+
+.unit-helper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 4px 0;
+  font-size: 13px;
+  color: #969799;
+}
+
+.note-input {
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.record-submit {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 1;
+}
+
+:deep(.van-popup__close-icon) {
+  padding-top: var(--safe-area-top);
 }
 
 .jin {
