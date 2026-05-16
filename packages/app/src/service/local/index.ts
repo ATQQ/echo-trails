@@ -251,12 +251,22 @@ export async function updatePhotosAlbums(ids: string[], albumIds: string[]) {
   return { code: 0 }
 }
 
-export async function deletePhoto(id: string) {
+export async function deletePhoto(id: string, albumId?: string) {
+  if (albumId) {
+    await invoke('db_photo_remove_album', { photoId: id, albumId })
+    return { code: 0 }
+  }
   await invoke('db_photo_delete', { ids: [id] })
   return { code: 0 }
 }
 
-export async function deletePhotos(ids: string[]) {
+export async function deletePhotos(ids: string[], albumId?: string) {
+  if (albumId) {
+    for (const id of ids) {
+      await invoke('db_photo_remove_album', { photoId: id, albumId })
+    }
+    return { code: 0 }
+  }
   await invoke('db_photo_delete', { ids })
   return { code: 0 }
 }

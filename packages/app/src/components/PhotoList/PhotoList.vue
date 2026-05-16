@@ -626,6 +626,7 @@ onUnmounted(() => {
 })
 
 const showAlbumSelect = ref(false)
+const showDeleteModeSheet = ref(false)
 const selectedAlbums = ref<string[]>([])
 const handleAddAlbum = async () => {
   if (!editData.selectIds.length) {
@@ -669,10 +670,48 @@ const handleDeletePhotos = async () => {
     showNotify({ type: 'warning', message: '请选择要删除的照片' });
     return
   }
+  if (album?._id && !isDelete) {
+    showDeleteModeSheet.value = true
+    return
+  }
+
+  await executeDeletePhotos('delete-all')
+}
+
+type DeleteMode = 'remove-current' | 'delete-all'
+
+const deleteModeActions: {
+  name: string
+  subname: string
+  color?: string
+  mode: DeleteMode
+}[] = [
+  {
+    name: '从当前相册移除',
+    subname: '照片仍保留在全部照片和其他相册',
+    mode: 'remove-current'
+  },
+  {
+    name: '从所有相册删除',
+    subname: '照片会进入删除列表',
+    color: '#ee0a24',
+    mode: 'delete-all'
+  }
+]
+
+const handleSelectDeleteMode = (action: { mode: DeleteMode }) => {
+  showDeleteModeSheet.value = false
+  executeDeletePhotos(action.mode)
+}
+
+const executeDeletePhotos = async (mode: DeleteMode) => {
   const confirmed = await showConfirmDialog({
-    title: '删除确认',
-    message:
-      `确定要删除这${editData.selectIds.length}张照片吗？`,
+    title: mode === 'remove-current' ? '移除确认' : '删除确认',
+    message: mode === 'remove-current'
+      ? `确定要将这${editData.selectIds.length}张照片从当前相册移除吗？`
+      : `确定要从所有相册删除这${editData.selectIds.length}张照片吗？`,
+    confirmButtonText: mode === 'remove-current' ? '移除' : '删除',
+    confirmButtonColor: mode === 'remove-current' ? '#1989fa' : '#ee0a24'
   })
     .then(() => {
       return true;
@@ -684,15 +723,17 @@ const handleDeletePhotos = async () => {
     return;
   }
 
-  await deletePhotos(editData.selectIds, album?._id)
+  await deletePhotos(editData.selectIds, mode === 'remove-current' ? album?._id : undefined)
 
   // 更新相册数据
   editData.selectIds.forEach(v => {
     deletePhoto(v)
   })
-  showNotify({ type: 'success', message: '删除成功' });
+  showNotify({ type: 'success', message: mode === 'remove-current' ? '已从当前相册移除' : '删除成功' });
   cancelEditMode()
   saveCache()
+  albumPhotoStore?.refreshAlbum?.()
+  notifyAlbumsChanged('photo-list')
 }
 
 const handleRestorePhotos = async (ids: string[] = []) => {
@@ -796,6 +837,7 @@ const handleLongPress = (idx: number) => {
   editData.selectIds = [photoList[idx]._id]
 }
 preventBack(editData, 'active')
+preventBack(showDeleteModeSheet)
 
 const loading = ref(false)
 const pullRefresh = () => {
@@ -1096,6 +1138,15 @@ watch(containerRef, (el) => {
     <!-- 选择相册 -->
     <SelectAlbumModal v-model:show="showAlbumSelect" @save="handleSaveAlbumSelect" :current-album-id="album?._id"
       :selected="selectedAlbums" />
+    <van-action-sheet
+      v-model:show="showDeleteModeSheet"
+      :actions="deleteModeActions"
+      cancel-text="取消"
+      close-on-click-action
+      :close-on-popstate="false"
+      description="请选择这次删除操作的范围"
+      @select="handleSelectDeleteMode"
+    />
   </div>
 </template>
 <style scoped lang="scss">

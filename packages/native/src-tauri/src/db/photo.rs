@@ -494,12 +494,18 @@ pub async fn db_photo_remove_album(
     album_id: String,
 ) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
+    let album_ids = get_photo_album_ids(&conn, &photo_id)
+        .await?
+        .into_iter()
+        .filter(|aid| aid != &album_id)
+        .collect::<Vec<_>>();
     conn.execute(
         "DELETE FROM photo_albums WHERE photo_id = ?1 AND album_id = ?2",
-        (photo_id, album_id),
+        (photo_id.clone(), album_id),
     )
     .await
     .map_err(|e| e.to_string())?;
+    update_photo_album_data(&conn, &photo_id, &album_ids).await?;
     Ok(())
 }
 
