@@ -10,6 +10,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { preventBack } from '@/lib/router'
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
+import { notifyAlbumsChanged } from '@/lib/albumEvents';
 
 const route = useRoute();
 const album = ref<Album>()
@@ -115,6 +116,7 @@ const onSubmit = () => {
     updateAlbum(album.value?._id, addData).then(async () => {
       showToast('修改成功')
       await refreshAlbum()
+      notifyAlbumsChanged('album-photo-view')
       editMode.value = false
     })
     return

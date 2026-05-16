@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { getAlbums } from '@/service';
-import { ref, reactive, onActivated, computed } from 'vue'
-import { useRouter } from 'vue-router';
+import { ref, reactive, onActivated, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
 import { preventBack } from '@/lib/router'
@@ -11,9 +11,11 @@ import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useTagStyles, type TagStyle } from '@/composables/useTagStyles';
 import { useScrollRestore } from '@/composables/useScrollRestore';
+import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
 
 const scrollContainer = ref<any>(null)
 useScrollRestore(scrollContainer)
+const route = useRoute()
 
 const { addRecent, getRecentIndex } = useRecentAlbums()
 const { tagStyles, setStyle, getStyle } = useTagStyles()
@@ -151,6 +153,15 @@ const loadAlbum = async (_loading = false) => {
   }
 }
 
+const albumChangeSource = 'album-view'
+const handleAlbumSaved = async () => {
+  try {
+    await loadAlbum(false)
+  } finally {
+    notifyAlbumsChanged(albumChangeSource)
+  }
+}
+
 onActivated(() => {
   // 在这里如果有预请求数据直接回填，不用再发起请求
   if ((window as any).__PREFETCHED_ALBUMS__) {
@@ -179,6 +190,28 @@ onActivated(() => {
   }
 
   requestAnimationFrame(() => emitScrollState())
+})
+
+watch(() => route.path, (path) => {
+  if (path === '/') {
+    loadAlbum(false).catch(e => {
+      console.warn('Refresh albums on route enter failed:', e)
+    })
+  }
+})
+
+let stopAlbumsChangedListener: (() => void) | undefined
+onMounted(() => {
+  stopAlbumsChangedListener = onAlbumsChanged((detail) => {
+    if (detail.source === albumChangeSource) return
+    loadAlbum(false).catch(e => {
+      console.warn('Refresh albums from change event failed:', e)
+    })
+  })
+})
+
+onUnmounted(() => {
+  stopAlbumsChangedListener?.()
 })
 
 const showAddModal = ref(false)
@@ -365,7 +398,7 @@ preventBack(showAddModal)
   }" />
   <!-- 添加相册 -->
   <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal" />
-    <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="loadAlbum()" />
+    <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="handleAlbumSaved" />
   </div>
 </template>
 

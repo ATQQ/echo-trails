@@ -1,5 +1,5 @@
 <template>
-  <BottomActions :menus="menus" />
+  <BottomActions class="global-footer-nav" :menus="menus" />
 </template>
 
 <script lang="ts" setup>
@@ -57,3 +57,9 @@ const menus = computed(() => {
   }))
 })
 </script>
+
+<style scoped>
+.global-footer-nav.global-footer-nav {
+  z-index: 2;
+}
+</style>

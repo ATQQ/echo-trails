@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { getAlbums } from '@/service';
-import { ref, computed, onActivated } from 'vue'
+import { ref, computed, onActivated, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
@@ -10,6 +10,7 @@ import ImageCell from '@/components/ImageCell/ImageCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useScrollRestore } from '@/composables/useScrollRestore';
+import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
 
 defineOptions({
   name: 'AllAlbumView'
@@ -118,6 +119,15 @@ const loadAlbum = async (_loading = false) => {
   }
 }
 
+const albumChangeSource = 'all-album-view'
+const handleAlbumSaved = async () => {
+  try {
+    await loadAlbum(false)
+  } finally {
+    notifyAlbumsChanged(albumChangeSource)
+  }
+}
+
 onActivated(() => {
   // 在这里如果有预请求数据直接回填，不用再发起请求
   if ((window as any).__PREFETCHED_ALBUMS__) {
@@ -144,6 +154,20 @@ onActivated(() => {
       })
     }
   }
+})
+
+let stopAlbumsChangedListener: (() => void) | undefined
+onMounted(() => {
+  stopAlbumsChangedListener = onAlbumsChanged((detail) => {
+    if (detail.source === albumChangeSource) return
+    loadAlbum(false).catch(e => {
+      console.warn('Refresh all albums from change event failed:', e)
+    })
+  })
+})
+
+onUnmounted(() => {
+  stopAlbumsChangedListener?.()
 })
 
 const showAddModal = ref(false)
@@ -270,7 +294,7 @@ preventBack(showAddModal)
     }" />
     <!-- 添加相册 -->
     <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal" />
-    <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="loadAlbum()" />
+    <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="handleAlbumSaved" />
   </div>
 </template>
 

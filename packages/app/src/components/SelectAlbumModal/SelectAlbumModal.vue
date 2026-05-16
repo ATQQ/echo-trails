@@ -29,6 +29,7 @@
 import ImageCell from '../ImageCell/ImageCell.vue';
 import { getAlbums } from '@/service';
 import { ref, watch } from 'vue';
+import { preventBack } from '@/lib/router';
 
 const { currentAlbumId, selected } = defineProps<{
   currentAlbumId?: string
@@ -40,6 +41,7 @@ watch(() => selected, () => {
 })
 
 const show = defineModel("show", { type: Boolean, default: false })
+preventBack(show)
 const emit = defineEmits<{
   (e: 'save', value: string[]): void
 }>()

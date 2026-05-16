@@ -20,6 +20,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useScrollRestore } from '@/composables/useScrollRestore';
 import { isLocalMode } from '@/lib/serviceRouter';
+import { notifyAlbumsChanged } from '@/lib/albumEvents';
 
 const isActive = ref(true)
 let unlistenProgress: UnlistenFn | null = null
@@ -608,13 +609,20 @@ import { useFooterStore } from '@/stores/footer'
 const showPreview = ref(false)
 const footerStore = useFooterStore()
 
-watch(() => showPreview.value, (newVal) => {
-  footerStore.isVisible = !newVal
-})
+const syncFooterVisibility = () => {
+  footerStore.isVisible = !showPreview.value && !editData.active
+}
+
 const editData = reactive({
   currentIdx: 0,
   active: false,
   selectIds: [] as string[]
+})
+
+watch([showPreview, () => editData.active], syncFooterVisibility, { immediate: true })
+
+onUnmounted(() => {
+  footerStore.isVisible = true
 })
 
 const showAlbumSelect = ref(false)
@@ -645,6 +653,7 @@ const handleSaveAlbumSelect = async (albumIds: string[]) => {
   })
   saveCache()
   albumPhotoStore?.refreshAlbum?.()
+  notifyAlbumsChanged('photo-list')
 
   showAlbumSelect.value = false
   showNotify({ type: 'success', message: '更改成功' });
