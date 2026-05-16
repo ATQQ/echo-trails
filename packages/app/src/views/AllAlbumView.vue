@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { getAlbums } from '@/service';
-import { ref, reactive, onMounted, computed, onActivated } from 'vue'
+import { ref, computed, onActivated } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
@@ -18,7 +18,7 @@ defineOptions({
 const scrollContainer = ref<HTMLElement | null>(null)
 useScrollRestore(scrollContainer)
 
-const { addRecent, getRecentIndex } = useRecentAlbums()
+const { addRecent } = useRecentAlbums()
 
 // 添加本地存储
 const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
@@ -37,6 +37,7 @@ const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
 type SortType = 'time' | 'time_asc' | 'tag'
 const sortType = ref<SortType>((localStorage.getItem('all_album_sort_type') as SortType) || 'tag')
 const showSortPopover = ref(false)
+const searchKeyword = ref('')
 const sortActions = computed(() => [
   { text: '按时间排序', value: 'time', color: sortType.value === 'time' ? '#1989fa' : '' },
   { text: '按时间逆序', value: 'time_asc', color: sortType.value === 'time_asc' ? '#1989fa' : '' },
@@ -90,10 +91,16 @@ const sortAlbums = (albums: Album[]) => {
 }
 
 const displayAlbumList = computed(() => {
-  return {
-    large: sortAlbums(albumList.value.large),
-    small: sortAlbums(albumList.value.small)
-  }
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  const albums = [
+    ...(albumList.value.large || []),
+    ...(albumList.value.small || [])
+  ]
+  const filtered = keyword
+    ? albums.filter(album => (album.name || '').toLowerCase().includes(keyword))
+    : albums
+
+  return sortAlbums(filtered)
 })
 
 const showEmpty = ref(false)
@@ -214,35 +221,32 @@ preventBack(showAddModal)
         </template>
       </PageTitle>
       <div class="album">
-        <div v-if="loading && !displayAlbumList.small?.length"
+        <van-search
+          v-model="searchKeyword"
+          class="album-search"
+          shape="round"
+          clearable
+          placeholder="搜索相册名"
+        />
+        <div v-if="loading && !displayAlbumList.length"
           class="skeleton-container">
           <div class="skeleton-grid">
-            <div class="skeleton-small skeleton-bg" v-for="i in 4" :key="i"></div>
+            <div class="skeleton-card" v-for="i in 6" :key="i">
+              <div class="skeleton-small skeleton-bg"></div>
+              <div class="skeleton-title skeleton-bg"></div>
+              <div class="skeleton-count skeleton-bg"></div>
+            </div>
           </div>
         </div>
         <template v-else>
-          <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
-          <!-- 大卡片分类 -->
-          <div v-if="displayAlbumList.large.length" class="large-card-list">
-            <div v-for="album in displayAlbumList.large" :key="album._id"
-                 class="large-card"
-                 @click.stop.prevent="goToDetail(album._id)"
-                 @contextmenu="handleContextMenu($event, album)"
-                 @touchstart="handleTouchStart(album)"
-                 @touchend="handleTouchEnd"
-                 @touchcancel="handleTouchEnd"
-                 @touchmove="handleTouchEnd">
-              <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
-              <div class="title-desc" :class="{ noCover: !album.cover }">
-                <h2>{{ album.name }}</h2>
-                <p>{{ album.count }}</p>
-              </div>
-            </div>
-          </div>
-          <!-- 小卡片分类 -->
-          <van-grid :gutter="10" :column-num="3" :border="false" class="small-card-grid">
-            <van-grid-item v-for="album in displayAlbumList.small" :key="album._id">
-              <div class="small-card" @click.stop.prevent="goToDetail(album._id)"
+          <van-empty
+            v-if="showEmpty || !displayAlbumList.length"
+            :description="searchKeyword ? '没有匹配的相册' : '空空如也，快去创建吧'"
+          />
+          <van-grid v-else :gutter="10" :column-num="3" :border="false" class="small-card-grid">
+            <van-grid-item v-for="album in displayAlbumList" :key="album._id">
+              <div class="small-card"
+                   @click.stop.prevent="goToDetail(album._id)"
                    @contextmenu="handleContextMenu($event, album)"
                    @touchstart="handleTouchStart(album)"
                    @touchend="handleTouchEnd"
@@ -250,11 +254,7 @@ preventBack(showAddModal)
                    @touchmove="handleTouchEnd">
                 <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
                 <div class="title-desc">
-                  <h2>{{ album.name }}
-                    <span v-if="album.tags?.length" class="tags">
-                      <span v-for="tag in album.tags" :key="tag" class="tag">{{ tag }}</span>
-                    </span>
-                  </h2>
+                  <h2>{{ album.name }}</h2>
                   <p>{{ album.count }}</p>
                 </div>
               </div>
@@ -328,73 +328,19 @@ preventBack(showAddModal)
   bottom: var(--footer-area-height);
 }
 
-.large-card {
-  position: relative;
-  border-radius: 10px;
-  overflow: hidden;
-  height: 100vw;
-  width: 100%;
-  margin-bottom: 10px;
-
-  .title-desc {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    color: #fff;
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(0, 0, 0, 0.3));
-    // -webkit-backdrop-filter: blur(10px);
-    // backdrop-filter: blur(10px);
-    // box-shadow: 0 0 40px rgba(255, 255, 255, 0.3);
-
-    h2,
-    p {
-      padding-left: 20px;
-    }
-
-    h2 {
-      margin-top: 60px;
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .tags {
-      display: inline-flex;
-      gap: 4px;
-    }
-
-    .tag {
-      font-size: 10px;
-      background: rgba(255, 255, 255, 0.2);
-      padding: 2px 4px;
-      border-radius: 4px;
-      font-weight: normal;
-    }
-
-    p {
-      margin-top: 0;
-    }
-  }
-
-  .noCover {
-    color: #000;
-  }
-}
-
-.large-card-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 10px;
+.album-search {
+  padding: 0 12px 12px;
+  background: transparent;
 }
 
 .small-card-grid {
+  padding: 0 10px 16px;
+
   :deep(.van-grid-item) {
     flex-basis: 33.333333% !important;
     max-width: 33.333333% !important;
   }
+
   :deep(.van-grid-item__content) {
     padding: 0;
     background-color: transparent;
@@ -419,28 +365,15 @@ preventBack(showAddModal)
     margin-top: 6px;
     width: 100%;
     overflow: hidden;
+
     h2 {
       margin: 0;
       color: #333;
       font-size: 14px;
       font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
-
-    .tags {
-      display: inline-flex;
-      gap: 4px;
-    }
-
-    .tag {
-      font-size: 10px;
-      background: rgba(0, 0, 0, 0.05);
-      padding: 1px 3px;
-      border-radius: 4px;
-      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     p {
@@ -462,21 +395,31 @@ preventBack(showAddModal)
   animation: skeleton-loading 1.4s ease infinite;
 }
 
-.skeleton-large {
-  width: 100%;
-  height: 100vw;
-  margin-bottom: 16px;
-}
-
 .skeleton-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 10px;
+}
+
+.skeleton-card {
+  min-width: 0;
 }
 
 .skeleton-small {
   width: 100%;
-  height: 40vw;
+  aspect-ratio: 1 / 1;
+}
+
+.skeleton-title {
+  width: 80%;
+  height: 14px;
+  margin-top: 8px;
+}
+
+.skeleton-count {
+  width: 36px;
+  height: 12px;
+  margin-top: 6px;
 }
 
 @keyframes skeleton-loading {
