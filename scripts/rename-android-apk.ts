@@ -1,12 +1,24 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { extname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Define paths relative to the project root (assuming this script is in scripts/ folder)
 const projectRoot = resolve(import.meta.dir, '..');
 const tauriConfigPath = join(projectRoot, 'packages/native/src-tauri/tauri.conf.json');
-const sourceApkPath = join(projectRoot, 'packages/native/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk');
+const androidOutputDir = join(projectRoot, 'packages/native/src-tauri/gen/android/app/build/outputs');
 const releaseDir = join(projectRoot, 'release');
+
+type Artifact = {
+  label: string;
+  sourcePath: string;
+  targetName: string;
+  required?: boolean;
+};
+
+function formatSize(filePath: string) {
+  const mb = statSync(filePath).size / 1024 / 1024;
+  return `${mb.toFixed(1)} MB`;
+}
 
 function main() {
   console.log('📦 Starting Android APK rename script...');
@@ -27,12 +39,57 @@ function main() {
 
   console.log(`ℹ️  Detected version: ${version}`);
 
-  // 2. Check if source APK exists
-  if (!existsSync(sourceApkPath)) {
-    console.error(`❌ Source APK not found at: ${sourceApkPath}`);
-    console.error('   Make sure the build completed successfully.');
+  const apkCandidates: Artifact[] = [
+    {
+      label: 'arm64 release APK',
+      sourcePath: join(androidOutputDir, 'apk/arm64/release/app-arm64-release.apk'),
+      targetName: `echo-trails-release-${version}.apk`,
+    },
+    {
+      label: 'universal release APK',
+      sourcePath: join(androidOutputDir, 'apk/universal/release/app-universal-release.apk'),
+      targetName: `echo-trails-release-${version}.apk`,
+    },
+  ];
+
+  const apkArtifact = apkCandidates.find((item) => existsSync(item.sourcePath));
+
+  if (!apkArtifact) {
+    console.error('❌ Release APK not found.');
+    console.error('   Expected one of:');
+    for (const item of apkCandidates) {
+      console.error(`   - ${item.sourcePath}`);
+    }
     process.exit(1);
   }
+
+  if (apkArtifact.label.includes('universal')) {
+    console.warn('⚠️  Using universal APK fallback. For a smaller release APK, build with: tauri android build --target aarch64 --split-per-abi --apk true --aab true');
+  }
+
+  const optionalArtifacts: Artifact[] = [
+    {
+      label: 'arm64 release AAB',
+      sourcePath: join(androidOutputDir, 'bundle/arm64Release/app-arm64-release.aab'),
+      targetName: `echo-trails-release-${version}.aab`,
+    },
+    {
+      label: 'universal release AAB',
+      sourcePath: join(androidOutputDir, 'bundle/universalRelease/app-universal-release.aab'),
+      targetName: `echo-trails-release-${version}.aab`,
+    },
+  ];
+
+  const artifacts = [
+    apkArtifact,
+    ...optionalArtifacts.filter((item, index, list) => {
+      if (!existsSync(item.sourcePath)) return false;
+      const earlierSameExt = list
+        .slice(0, index)
+        .some((other) => extname(other.targetName) === extname(item.targetName) && existsSync(other.sourcePath));
+      return !earlierSameExt;
+    }),
+  ];
 
   // 3. Prepare destination
   if (!existsSync(releaseDir)) {
@@ -40,21 +97,20 @@ function main() {
     mkdirSync(releaseDir, { recursive: true });
   }
 
-  const targetFileName = `echo-trails-release-${version}.apk`;
-  const targetPath = join(releaseDir, targetFileName);
-
-  // 4. Copy file
+  // 4. Copy files
   try {
-    copyFileSync(sourceApkPath, targetPath);
-    console.log(`✅ APK successfully copied to:`);
-    console.log(`   ${targetPath}`);
-    
+    for (const artifact of artifacts) {
+      const targetPath = join(releaseDir, artifact.targetName);
+      copyFileSync(artifact.sourcePath, targetPath);
+      console.log(`✅ ${artifact.label} copied: ${targetPath} (${formatSize(targetPath)})`);
+    }
+
     // Reveal in Finder (macOS)
     if (process.platform === 'darwin') {
-      spawnSync('open', ['-R', targetPath]);
+      spawnSync('open', ['-R', join(releaseDir, apkArtifact.targetName)]);
     }
   } catch (error) {
-    console.error('❌ Failed to copy APK:', error);
+    console.error('❌ Failed to copy Android release artifact:', error);
     process.exit(1);
   }
 }

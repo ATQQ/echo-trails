@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.7.5",
-    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.5.apk",
+    "version": "0.7.6",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.6.apk",
     "forceUpdate": false,
-    "description": "fix: 上传问题,本地模式初步支持",
-    "md5": "74b0916d5c26a247ad11cc940e538b6e"
+    "description": "减小App 体积",
+    "md5": "46b3f5a1957df0fdabdd09967af5ffce"
   },
   "ios": {
     "version": "0.1.2",

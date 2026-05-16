@@ -3,30 +3,38 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
+const projectRoot = path.resolve(__dirname, '..');
 const versionPath = path.resolve(__dirname, '../packages/app/public/version.json');
 const updateJsonPath = path.resolve(__dirname, '../packages/app/public/update.json');
-const apkDir = path.resolve(__dirname, '../packages/native/src-tauri/gen/android/app/build/outputs/apk/universal/release');
+const tauriConfigPath = path.resolve(projectRoot, 'packages/native/src-tauri/tauri.conf.json');
+const androidOutputDir = path.resolve(projectRoot, 'packages/native/src-tauri/gen/android/app/build/outputs');
+const releaseDir = path.resolve(projectRoot, 'release');
 
 // Find the APK file
-function findApkFile(dir: string): string | null {
-    if (!fs.existsSync(dir)) {
-        console.error(`Directory not found: ${dir}`);
-        return null;
-    }
-    const files = fs.readdirSync(dir);
-    // Sort by modification time, newest first
-    const apkFiles = files
-        .filter(f => f.endsWith('.apk') && !f.endsWith('-unaligned.apk'))
-        .map(f => ({
-            name: f,
-            time: fs.statSync(path.join(dir, f)).mtime.getTime()
-        }))
-        .sort((a, b) => b.time - a.time);
+function findApkFile(): string | null {
+    const version = getVersion();
+    const candidates = [
+        path.join(releaseDir, `echo-trails-release-${version}.apk`),
+        path.join(androidOutputDir, 'apk/arm64/release/app-arm64-release.apk'),
+        path.join(androidOutputDir, 'apk/universal/release/app-universal-release.apk'),
+    ];
 
-    if (apkFiles.length === 0) {
-        return null;
+    return candidates.find(filePath => fs.existsSync(filePath)) ?? null;
+}
+
+function getVersion(): string {
+    if (!fs.existsSync(tauriConfigPath)) {
+        console.error(`Tauri config not found: ${tauriConfigPath}`);
+        process.exit(1);
     }
-    return path.join(dir, apkFiles[0].name);
+
+    const tauriConfig = JSON.parse(fs.readFileSync(tauriConfigPath, 'utf-8'));
+    if (!tauriConfig.version) {
+        console.error('Version not found in tauri.conf.json');
+        process.exit(1);
+    }
+
+    return tauriConfig.version;
 }
 
 // Calculate MD5
@@ -39,10 +47,10 @@ function calculateMd5(filePath: string): string {
 
 async function main() {
     console.log('Searching for APK...');
-    const apkPath = findApkFile(apkDir);
+    const apkPath = findApkFile();
 
     if (!apkPath) {
-        console.error('No APK file found in release directory.');
+        console.error('No APK file found. Run the Android build first.');
         process.exit(1);
     }
 
