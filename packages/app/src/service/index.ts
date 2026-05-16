@@ -267,7 +267,7 @@ export function updateAlbumCover(id: string, key: string) {
 }
 
 export function deletePhoto(id: string, albumId?: string) {
-  if (isLocalMode()) return local.deletePhoto(id)
+  if (isLocalMode()) return local.deletePhoto(id, albumId)
   return api.delete<ServerResponse>('file/photo/delete', {
     json: {
       id,
@@ -277,7 +277,7 @@ export function deletePhoto(id: string, albumId?: string) {
 }
 
 export function deletePhotos(ids: string[], albumId?: string) {
-  if (isLocalMode()) return local.deletePhotos(ids)
+  if (isLocalMode()) return local.deletePhotos(ids, albumId)
   return api.delete<ServerResponse>('file/photos/delete', {
     json: {
       ids,

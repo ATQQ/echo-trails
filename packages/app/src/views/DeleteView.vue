@@ -9,7 +9,12 @@ import { preventBack } from '@/lib/router';
 
 const router = useRouter();
 const onClickLeft = () => {
-  router.back();
+  if (router.options.history.state.back) {
+    router.back();
+    return;
+  }
+
+  router.replace('/home');
 };
 
 const showInfoPanel = ref(false);
