@@ -349,7 +349,20 @@ export async function updateAlbum(id: string, options: {
 
 export async function getAlbumInfo(id: string) {
   const result = await invoke<any>('db_album_get', { id })
-  const album = mapAlbum(result)
+  let album = mapAlbum(result)
+  try {
+    const albumList = await getAlbums()
+    const enriched = [...(albumList.large || []), ...(albumList.small || [])]
+      .find(item => item._id === album._id)
+    if (enriched) {
+      album = {
+        ...album,
+        ...enriched,
+      }
+    }
+  } catch (e) {
+    console.warn('[Local] enrich album info failed:', e)
+  }
   if (!album.cover && album.coverKey) {
     album.cover = await buildCoverUrl(album.coverKey)
   }

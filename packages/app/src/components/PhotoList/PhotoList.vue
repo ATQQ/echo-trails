@@ -19,6 +19,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useScrollRestore } from '@/composables/useScrollRestore';
+import { isLocalMode } from '@/lib/serviceRouter';
 
 const isActive = ref(true)
 let unlistenProgress: UnlistenFn | null = null
@@ -95,6 +96,7 @@ const { data: cacheData, loadAsync: loadStorageAsync, saveAsync: saveStorageAsyn
 })
 
 const saveCache = () => {
+  if (isLocalMode()) return
   cacheData.value = {
     list: photoList,
     pageIndex: pageInfo.pageIndex
@@ -103,6 +105,7 @@ const saveCache = () => {
 }
 
 const loadCache = async () => {
+  if (isLocalMode()) return false
   const success = await loadStorageAsync()
   if (success && cacheData.value.list.length > 0) {
     const { list, pageIndex } = cacheData.value
@@ -252,6 +255,12 @@ const unregisterScrollListener = () => {
 // 监听页面活动状态
 watch(isActive, async (active) => {
   if (active) {
+    if (isLocalMode()) {
+      await loadNext(1, photoList.length || pageInfo.pageSize, true)
+      registerScrollListener()
+      return
+    }
+
     // 尝试加载缓存
     const restored = await loadCache()
     if (!restored) {
@@ -619,13 +628,17 @@ const handleSaveAlbumSelect = async (albumIds: string[]) => {
   // 更新相册数据
   const selectPhotos = photoList.filter(v => editData.selectIds.includes(v._id))
   selectPhotos.forEach(v => {
+    if (!v.albumId) {
+      v.albumId = []
+    }
     albumIds.forEach(id => {
-      if (!v.albumId?.includes(id)) {
-        v.albumId?.push(id)
+      if (!v.albumId!.includes(id)) {
+        v.albumId!.push(id)
       }
     })
   })
   saveCache()
+  albumPhotoStore?.refreshAlbum?.()
 
   showAlbumSelect.value = false
   showNotify({ type: 'success', message: '更改成功' });
@@ -803,10 +816,23 @@ const deletePhoto = (id: string) => {
   }
   saveCache()
 }
+const updateLiked = (id: string, isLiked: boolean) => {
+  const item = photoList.find(v => v._id === id)
+  if (!item) return
+
+  if (likedMode && !isLiked) {
+    deletePhoto(id)
+    return
+  }
+
+  item.isLiked = isLiked
+  saveCache()
+}
 const isEmpty = computed(() => !photoList.length)
 providePhotoListStore({
   photoList,
   deletePhoto,
+  updateLiked,
   isEmpty,
   restorePhotos: handleRestorePhotos
 })

@@ -478,12 +478,7 @@ pub async fn db_photos_set_albums(
 ) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     for pid in &photo_ids {
-        conn.execute(
-            "DELETE FROM photo_albums WHERE photo_id = ?1",
-            (pid.clone(),),
-        )
-        .await
-        .map_err(|e| e.to_string())?;
+        let mut merged_album_ids = get_photo_album_ids(&conn, pid).await?;
         for aid in &album_ids {
             conn.execute(
                 "INSERT OR IGNORE INTO photo_albums (photo_id, album_id) VALUES (?1, ?2)",
@@ -491,10 +486,53 @@ pub async fn db_photos_set_albums(
             )
             .await
             .map_err(|e| e.to_string())?;
+            if !merged_album_ids.contains(aid) {
+                merged_album_ids.push(aid.clone());
+            }
         }
-        update_photo_album_data(&conn, pid, &album_ids).await?;
+        update_photo_album_data(&conn, pid, &merged_album_ids).await?;
     }
     Ok(())
+}
+
+async fn get_photo_album_ids(
+    conn: &turso::Connection,
+    photo_id: &str,
+) -> Result<Vec<String>, String> {
+    let mut album_ids = Vec::new();
+    let mut rows = conn
+        .query(
+            "SELECT album_id FROM photo_albums WHERE photo_id = ?1",
+            (photo_id.to_string(),),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+    while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+        let album_id = row
+            .get_value(0)
+            .map_err(|e| e.to_string())?
+            .as_text()
+            .map_or("", |v| v)
+            .to_string();
+        if !album_id.is_empty() && !album_ids.contains(&album_id) {
+            album_ids.push(album_id);
+        }
+    }
+
+    let data = get_photo_data(conn, photo_id)
+        .await
+        .unwrap_or_else(|_| json!({}));
+    if let Some(ids) = data.get("albumId").and_then(|v| v.as_array()) {
+        for album_id in ids.iter().filter_map(|v| v.as_str()) {
+            let album_id = album_id.to_string();
+            if !album_id.is_empty() && !album_ids.contains(&album_id) {
+                album_ids.push(album_id);
+            }
+        }
+    }
+
+    Ok(album_ids)
 }
 
 async fn get_photo_data(conn: &turso::Connection, id: &str) -> Result<JsonValue, String> {
