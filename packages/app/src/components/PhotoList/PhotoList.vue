@@ -14,7 +14,6 @@ import BottomActions from '../BottomActions/BottomActions.vue';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
-import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTTLStorage } from '@/composables/useTTLStorage';
@@ -59,7 +58,10 @@ onDeactivated(() => {
   stopListen()
 })
 
-onUnmounted(stopListen)
+onUnmounted(() => {
+  isActive.value = false
+  stopListen()
+})
 
 const { likedMode = false, album, isDelete = false, startDate, endDate } = defineProps<{
   likedMode?: boolean
@@ -847,16 +849,6 @@ const pullRefresh = () => {
       loading.value = false
     })
 }
-
-// 判断路由从回收站返回
-onBeforeRouteLeave((to, from, next) => {
-  if (from.name === 'delete') {
-    setTimeout(() => {
-      pullRefresh()
-    }, 1000)
-  }
-  next()
-})
 
 // provide
 const deletePhoto = (id: string) => {

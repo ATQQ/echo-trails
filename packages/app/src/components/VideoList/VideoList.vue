@@ -12,7 +12,6 @@ import BottomActions from '../BottomActions/BottomActions.vue';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
-import { onBeforeRouteLeave } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import VideoCell from '../VideoCell/VideoCell.vue';
@@ -63,6 +62,7 @@ onDeactivated(() => {
 })
 
 onUnmounted(() => {
+  isActive.value = false
   cleanupProgressListener()
 })
 
@@ -764,16 +764,6 @@ const pullRefresh = () => {
       loading.value = false
     })
 }
-
-// 判断路由从回收站返回
-onBeforeRouteLeave((to, from, next) => {
-  if (from.name === 'delete') {
-    setTimeout(() => {
-      pullRefresh()
-    }, 1000)
-  }
-  next()
-})
 
 // provide
 const deletePhoto = (id: string) => {

@@ -7,6 +7,10 @@ import InfoCard from '@/components/InfoCard/InfoCard.vue';
 import { getPhotoListInfo } from '@/service';
 import { preventBack } from '@/lib/router';
 
+defineOptions({
+  name: 'DeleteView'
+});
+
 const router = useRouter();
 const onClickLeft = () => {
   if (router.options.history.state.back) {
@@ -43,41 +47,58 @@ preventBack(showInfoPanel);
 </script>
 
 <template>
-  <van-nav-bar
-    left-text="返回"
-    left-arrow
-    @click-left="onClickLeft"
-    placeholder
-    fixed
-    z-index="100"
-  >
-    <template #title>
-        <van-popover v-model:show="showPopover" :actions="actions" @select="onSelect" placement="bottom">
-          <template #reference>
-            <span class="nav-title">
-              回收站({{ activeType === 'image' ? '照片' : '视频' }})
-              <van-icon name="arrow-down" />
-            </span>
-          </template>
-        </van-popover>
-    </template>
-    <template #right>
-      <van-icon name="more-o" size="26" @click="handleShowInfoPanel" />
-    </template>
-  </van-nav-bar>
+  <div class="delete-view">
+    <van-nav-bar
+      left-text="返回"
+      left-arrow
+      @click-left="onClickLeft"
+      placeholder
+      fixed
+      z-index="100"
+    >
+      <template #title>
+          <van-popover v-model:show="showPopover" :actions="actions" @select="onSelect" placement="bottom">
+            <template #reference>
+              <span class="nav-title">
+                回收站({{ activeType === 'image' ? '照片' : '视频' }})
+                <van-icon name="arrow-down" />
+              </span>
+            </template>
+          </van-popover>
+      </template>
+      <template #right>
+        <van-icon name="more-o" size="26" @click="handleShowInfoPanel" />
+      </template>
+    </van-nav-bar>
 
-  <PhotoList v-if="activeType === 'image'" is-delete />
-  <VideoList v-else is-delete />
+    <div class="delete-content">
+      <PhotoList v-if="activeType === 'image'" is-delete />
+      <VideoList v-else is-delete />
+    </div>
 
-  <van-popup v-model:show="showInfoPanel" position="right"
-    :style="{ width: '100%', height: '100%', background: '#eff2f5', padding: '20px 0' }">
-    <div class="safe-padding-top" style="width: 100%"></div>
-    <!-- 基本信息卡片展示 -->
-    <InfoCard :data="listData" />
-  </van-popup>
+    <van-popup v-model:show="showInfoPanel" position="right"
+      :style="{ width: '100%', height: '100%', background: '#eff2f5', padding: '20px 0' }">
+      <div class="safe-padding-top" style="width: 100%"></div>
+      <!-- 基本信息卡片展示 -->
+      <InfoCard :data="listData" />
+    </van-popup>
+  </div>
 </template>
 
 <style scoped>
+.delete-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.delete-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .nav-title {
   display: flex;
   align-items: center;
