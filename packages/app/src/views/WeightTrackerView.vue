@@ -24,8 +24,8 @@ interface ChartPoint {
 
 const themeColor = '#1976ff'
 const router = useRouter()
-const { refreshFamilies } = useFamily()
 const currentFamilyId = useLocalStorage('weight_current_family', 'default')
+const { store: familyStore, familyOptions, refreshFamilies, handleAddFamily, handleUpdateFamily, handleDeleteFamily } = useFamily(currentFamilyId)
 const isKG = ref(localStorage.getItem('weight-kg') === 'true')
 const activeTab = ref<TabName>('home')
 const range = ref<RangeName>('week')
@@ -34,8 +34,13 @@ const loading = ref(false)
 const selectedRecord = ref<WeightRecord | null>(null)
 const showRecordPopup = ref(false)
 const showRecordActions = ref(false)
+const showFamilySheet = ref(false)
+const showAddFamilyDialog = ref(false)
+const showEditFamilyDialog = ref(false)
 const showTargetDialog = ref(false)
 const showHeightDialog = ref(false)
+const familyNameDraft = ref('')
+const editingFamilyId = ref('')
 
 const state = reactive({
   date: dayjs().format('YYYY/MM/DD'),
@@ -53,6 +58,9 @@ const heightCm = useLocalStorage('weight_height_cm', 162)
 preventBack(state, 'showCalendar')
 preventBack(showRecordPopup)
 preventBack(showRecordActions)
+preventBack(showFamilySheet)
+preventBack(showAddFamilyDialog)
+preventBack(showEditFamilyDialog)
 preventBack(showTargetDialog)
 preventBack(showHeightDialog)
 
@@ -71,6 +79,25 @@ const sortedRecords = computed(() => {
 const latestRecord = computed(() => sortedRecords.value[0])
 
 const latestWeight = computed(() => latestRecord.value?.weight || 0)
+
+const currentFamilyName = computed(() => {
+  const matched = familyOptions.value.find(item => item.value === currentFamilyId.value)
+  if (!matched) return ''
+  if (matched.value === 'default' && matched.text === '默认') return ''
+  return matched.text
+})
+
+const greetingText = computed(() => currentFamilyName.value ? `早上好，${currentFamilyName.value}` : '早上好')
+
+const familyRows = computed(() => {
+  return familyOptions.value.map(item => {
+    const detail = familyStore.familyList.find(family => family.familyId === item.value)
+    return {
+      ...item,
+      canDelete: item.value !== 'default' && !!detail?.canDelete
+    }
+  })
+})
 
 const earliestRecord = computed(() => sortedRecords.value[sortedRecords.value.length - 1])
 
@@ -430,6 +457,45 @@ async function removeSelectedRecord() {
   }
 }
 
+function selectFamily(familyId: string) {
+  currentFamilyId.value = familyId
+  showFamilySheet.value = false
+}
+
+function openAddFamilyDialog() {
+  familyNameDraft.value = ''
+  showAddFamilyDialog.value = true
+}
+
+async function confirmAddFamily() {
+  const name = familyNameDraft.value.trim()
+  if (!name) {
+    showToast('请输入昵称')
+    return
+  }
+  await handleAddFamily(name)
+}
+
+function openEditFamilyDialog(familyId: string, name: string) {
+  editingFamilyId.value = familyId
+  familyNameDraft.value = name
+  showEditFamilyDialog.value = true
+}
+
+async function confirmEditFamily() {
+  const name = familyNameDraft.value.trim()
+  if (!editingFamilyId.value || !name) {
+    showToast('请输入昵称')
+    return
+  }
+  await handleUpdateFamily(editingFamilyId.value, name)
+}
+
+async function removeFamily(familyId: string) {
+  if (familyId === 'default') return
+  await handleDeleteFamily(familyId)
+}
+
 function openTargetDialog() {
   state.targetDraft = formatNumber(displayWeight(targetWeight.value), 1)
   showTargetDialog.value = true
@@ -473,23 +539,21 @@ onMounted(async () => {
         <button class="plain-icon" type="button" aria-label="返回" @click="handleBack">
           <van-icon name="arrow-left" />
         </button>
-        <div class="greeting">
+        <button class="greeting" type="button" @click="showFamilySheet = true">
           <div class="avatar">
             <van-icon name="contact-o" />
           </div>
           <div>
-            <h1>早上好，Lily</h1>
+            <h1>{{ greetingText }}</h1>
             <p>坚持记录，遇见更好的自己</p>
           </div>
-        </div>
-        <button class="plain-icon" type="button" aria-label="提醒" @click="handleSettingToast">
-          <van-icon name="bell" />
+        </button>
+        <button class="plain-icon family-switch-button" type="button" aria-label="切换家人" @click="showFamilySheet = true">
+          <van-icon name="friends-o" />
         </button>
       </header>
 
       <main class="home-content">
-        <FamilySelector v-model="currentFamilyId" :active-color="themeColor" class="family-panel home-family-panel" />
-
         <div class="metric-grid">
           <article class="metric-card current-card">
             <div class="metric-title">
@@ -801,6 +865,63 @@ onMounted(async () => {
       </div>
     </van-action-sheet>
 
+    <van-popup v-model:show="showFamilySheet" position="right" :style="{ width: '100%', height: '100%' }">
+      <section class="family-picker safe-padding-top">
+        <header class="family-picker-header">
+          <button class="plain-icon dark" type="button" aria-label="关闭" @click="showFamilySheet = false">
+            <van-icon name="cross" />
+          </button>
+          <h2>选择家人</h2>
+          <span></span>
+        </header>
+
+        <main class="family-picker-list">
+          <div
+            v-for="family in familyRows"
+            :key="family.value"
+            :class="['family-row', { active: currentFamilyId === family.value }]"
+            @click="selectFamily(family.value)"
+          >
+            <span class="family-row-avatar">
+              <van-icon name="contact-o" />
+            </span>
+            <span class="family-row-main">
+              <strong>{{ family.text }}</strong>
+              <em>{{ family.value === 'default' ? '默认记录对象' : '家人体重记录' }}</em>
+            </span>
+            <van-icon v-if="currentFamilyId === family.value" name="success" class="family-row-check" />
+            <button type="button" class="family-row-action" aria-label="编辑家人" @click.stop="openEditFamilyDialog(family.value, family.text)">
+              <van-icon name="edit" />
+            </button>
+            <button
+              v-if="family.canDelete"
+              type="button"
+              class="family-row-action danger"
+              aria-label="删除家人"
+              @click.stop="removeFamily(family.value)"
+            >
+              <van-icon name="delete" />
+            </button>
+          </div>
+        </main>
+
+        <footer class="family-picker-footer safe-padding-bottom">
+          <button type="button" class="primary-action compact" @click="openAddFamilyDialog">
+            <van-icon name="plus" />
+            <span>添加家人</span>
+          </button>
+        </footer>
+      </section>
+    </van-popup>
+
+    <van-dialog v-model:show="showAddFamilyDialog" title="添加家人" show-cancel-button @confirm="confirmAddFamily">
+      <van-field v-model="familyNameDraft" autofocus label="昵称" placeholder="请输入家人昵称" />
+    </van-dialog>
+
+    <van-dialog v-model:show="showEditFamilyDialog" title="修改家人" show-cancel-button @confirm="confirmEditFamily">
+      <van-field v-model="familyNameDraft" autofocus label="昵称" placeholder="请输入新的昵称" />
+    </van-dialog>
+
     <van-dialog v-model:show="showTargetDialog" title="目标体重" show-cancel-button @confirm="confirmTarget">
       <van-field v-model="state.targetDraft" type="number" input-align="center" :label="isKG ? 'kg' : '斤'" placeholder="请输入目标体重" />
     </van-dialog>
@@ -852,9 +973,10 @@ button {
   padding: calc(18px + env(safe-area-inset-top)) 20px 28px;
   background: linear-gradient(145deg, #0867ff 0%, #44a8ff 100%);
   color: #fff;
-  display: flex;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
   align-items: flex-start;
-  justify-content: space-between;
+  gap: 12px;
   box-sizing: border-box;
 }
 
@@ -862,6 +984,8 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  text-align: left;
 
   h1 {
     margin: 0 0 4px;
@@ -874,7 +998,21 @@ button {
     margin: 0;
     font-size: 12px;
     color: rgba(255, 255, 255, 0.82);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
+}
+
+.greeting-arrow {
+  margin-left: auto;
+  flex: none;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.family-switch-button {
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
 }
 
 .avatar,
@@ -894,10 +1032,6 @@ button {
 .home-content {
   padding: 0 16px 24px;
   margin-top: -34px;
-}
-
-.home-family-panel {
-  margin: 0 0 12px;
 }
 
 .metric-grid {
@@ -1008,6 +1142,11 @@ button {
   &:disabled {
     opacity: 0.55;
     box-shadow: none;
+  }
+
+  &.compact {
+    height: 48px;
+    margin: 0;
   }
 }
 
@@ -1610,6 +1749,120 @@ button {
   .danger {
     color: #ee0a24;
   }
+}
+
+.family-picker {
+  min-height: 100%;
+  background: #f5f8fc;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.family-picker-header {
+  height: 58px;
+  padding: 0 16px;
+  display: grid;
+  grid-template-columns: 34px 1fr 34px;
+  align-items: center;
+  box-sizing: border-box;
+  background: #f5f8fc;
+
+  h2 {
+    margin: 0;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 700;
+    color: #172033;
+  }
+}
+
+.family-picker-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 16px 18px;
+}
+
+.family-row {
+  min-height: 72px;
+  margin-bottom: 10px;
+  padding: 12px;
+  border: 1px solid rgba(202, 213, 225, 0.78);
+  border-radius: 8px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 22px rgba(30, 64, 111, 0.06);
+
+  &.active {
+    border-color: rgba(25, 118, 255, 0.5);
+    background: #f6faff;
+  }
+}
+
+.family-row-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #eef5ff;
+  color: #1976ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.family-row-main {
+  min-width: 0;
+
+  strong,
+  em {
+    display: block;
+  }
+
+  strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #172033;
+    font-size: 16px;
+  }
+
+  em {
+    margin-top: 4px;
+    color: #8792a2;
+    font-size: 12px;
+    font-style: normal;
+  }
+}
+
+.family-row-check {
+  color: #1976ff;
+  font-size: 20px;
+}
+
+.family-row-action {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: #667085;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:active {
+    background: #eef5ff;
+  }
+
+  &.danger {
+    color: #ee0a24;
+  }
+}
+
+.family-picker-footer {
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  background: #f5f8fc;
 }
 
 @media (min-width: 560px) {
