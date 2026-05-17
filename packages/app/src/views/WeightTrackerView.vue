@@ -50,6 +50,7 @@ const inputSelected = ref(false)
 const scaleDragging = ref(false)
 const scaleDragStartX = ref(0)
 const scaleDragStartValue = ref(0)
+const scaleDragOffset = ref(0)
 const customRange = ref<[number, number]>([
   dayjs().subtract(6, 'day').startOf('day').valueOf(),
   dayjs().endOf('day').valueOf()
@@ -232,6 +233,10 @@ const scaleLabels = computed(() => {
     return formatNumber(value, isKG.value ? 1 : 0)
   })
 })
+
+const scaleTrackStyle = computed(() => ({
+  transform: `translateX(${scaleDragOffset.value}px)`
+}))
 
 const selectedRecordDateTime = computed(() => {
   if (!selectedRecord.value) return ''
@@ -483,19 +488,22 @@ function beginScaleDrag(clientX: number) {
   scaleDragging.value = true
   scaleDragStartX.value = clientX
   scaleDragStartValue.value = scaleDisplayValue.value
+  scaleDragOffset.value = 0
   inputSelected.value = false
 }
 
 function moveScaleDrag(clientX: number) {
   if (!scaleDragging.value) return
+  const delta = clientX - scaleDragStartX.value
   const unitStep = isKG.value ? 0.1 : 0.2
-  const delta = scaleDragStartX.value - clientX
-  const value = scaleDragStartValue.value + Math.round(delta / 12) * unitStep
+  const value = scaleDragStartValue.value + Math.round(-delta / 12) * unitStep
+  scaleDragOffset.value = Math.max(Math.min(delta, 36), -36)
   setWeightInputFromScale(value)
 }
 
 function endScaleDrag() {
   scaleDragging.value = false
+  scaleDragOffset.value = 0
 }
 
 function handleCalendarConfirm(date: Date) {
@@ -860,7 +868,7 @@ onMounted(async () => {
       @confirm="handleStatsRangeConfirm"
     />
 
-    <van-popup v-model:show="showRecordPopup" position="bottom" round :style="{ height: '92%' }">
+    <van-popup v-model:show="showRecordPopup" position="bottom" round :style="{ height: '100%' }">
       <section class="record-popup-sheet">
         <header class="page-header">
           <button class="plain-icon dark" type="button" aria-label="关闭弹窗" @click="showRecordPopup = false">
@@ -899,7 +907,7 @@ onMounted(async () => {
           </div>
 
           <div
-            class="weight-scale"
+            :class="['weight-scale', { dragging: scaleDragging }]"
             aria-label="滑动微调体重"
             @touchstart.passive="beginScaleDrag($event.touches[0].clientX)"
             @touchmove.passive="moveScaleDrag($event.touches[0].clientX)"
@@ -909,8 +917,12 @@ onMounted(async () => {
             @mouseup="endScaleDrag"
             @mouseleave="endScaleDrag"
           >
-            <span v-for="tick in 31" :key="tick" :class="{ major: tick % 5 === 1 }"></span>
+            <div class="scale-track" :style="scaleTrackStyle">
+              <span v-for="tick in 41" :key="tick" :class="{ major: tick % 5 === 1 }"></span>
+            </div>
+            <i class="scale-center"></i>
           </div>
+          <p class="scale-hint">左右滑动微调体重</p>
           <div class="scale-labels">
             <span v-for="label in scaleLabels" :key="label">{{ label }}</span>
           </div>
@@ -1410,15 +1422,22 @@ button {
 
 .date-time-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(106px, 0.65fr);
+  grid-template-columns: minmax(0, 1fr) 98px;
   gap: 10px;
 }
 
 .time-select {
-  grid-template-columns: 22px minmax(0, 1fr) 18px;
+  grid-template-columns: 16px minmax(0, 1fr) 14px;
+  gap: 3px;
+  padding: 8px;
 
   strong {
-    font-size: 20px;
+    font-size: 15px;
+    text-align: center;
+  }
+
+  em {
+    display: none;
   }
 }
 
@@ -1449,15 +1468,48 @@ button {
 }
 
 .weight-scale {
-  height: 24px;
-  display: flex;
-  align-items: end;
-  justify-content: center;
-  gap: 6px;
+  position: relative;
+  height: 36px;
+  margin: 0 auto;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f6faff, #eef5ff);
   color: #b6c0cf;
   cursor: ew-resize;
   touch-action: pan-y;
   user-select: none;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(25, 118, 255, 0.08);
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 42px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  &::before {
+    left: 0;
+    background: linear-gradient(90deg, #eef5ff, rgba(238, 245, 255, 0));
+  }
+
+  &::after {
+    right: 0;
+    background: linear-gradient(270deg, #eef5ff, rgba(238, 245, 255, 0));
+  }
+
+  &.dragging {
+    box-shadow:
+      inset 0 0 0 1px rgba(25, 118, 255, 0.2),
+      0 8px 18px rgba(25, 118, 255, 0.12);
+  }
+
+  &.dragging .scale-track {
+    transition: none;
+  }
 
   span {
     width: 1px;
@@ -1469,6 +1521,39 @@ button {
     height: 18px;
     background: #1976ff;
   }
+}
+
+.scale-track {
+  height: 100%;
+  min-width: 126%;
+  margin-left: -13%;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: 7px;
+  padding-bottom: 8px;
+  box-sizing: border-box;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.scale-center {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 2px;
+  height: 24px;
+  border-radius: 999px;
+  background: #1976ff;
+  transform: translateX(-50%);
+  z-index: 3;
+  box-shadow: 0 0 0 4px rgba(25, 118, 255, 0.12);
+}
+
+.scale-hint {
+  margin: 7px 0 5px;
+  color: #7d8795;
+  font-size: 11px;
+  text-align: center;
 }
 
 .scale-labels {
