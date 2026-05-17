@@ -10,6 +10,8 @@ pub async fn db_weight_list(
     family_id: Option<String>,
     page: Option<i64>,
     page_size: Option<i64>,
+    start_time: Option<String>,
+    end_time: Option<String>,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     let page = page.unwrap_or(1);
@@ -23,8 +25,18 @@ pub async fn db_weight_list(
     if let Some(ref fid) = family_id {
         conditions.push(format!("family_id = ?{}", param_idx));
         params.push(TursoValue::Text(fid.clone()));
-        #[allow(unused_assignments)]
-        { param_idx += 1; }
+        param_idx += 1;
+    }
+
+    if let Some(ref st) = start_time {
+        conditions.push(format!("json_extract(data, '$.date') >= ?{}", param_idx));
+        params.push(TursoValue::Text(st.clone()));
+        param_idx += 1;
+    }
+
+    if let Some(ref et) = end_time {
+        conditions.push(format!("json_extract(data, '$.date') <= ?{}", param_idx));
+        params.push(TursoValue::Text(et.clone()));
     }
 
     let where_clause = conditions.join(" AND ");

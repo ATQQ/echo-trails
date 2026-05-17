@@ -117,21 +117,69 @@ function refreshRecord(familyId: string) {
 
 // 添加记录相关
 const showAddRecord = ref(false)
+const recordPopupContentKey = ref(0)
 const editMode = ref(false)
 const weightInputRef = ref<HTMLInputElement | null>(null)
 const canSaveRecord = computed(() => +state.weight > 0)
 
 preventBack(showAddRecord)
 
-function focusWeightInput() {
+function focusWeightInput(selectContent = true) {
   nextTick(() => {
-    weightInputRef.value?.focus()
-    weightInputRef.value?.select()
+    const input = weightInputRef.value
+    if (!input) return
+    input.focus()
+    if (selectContent) {
+      input.select()
+    }
   })
+}
+
+function clearWeightInputSelection() {
+  const input = weightInputRef.value
+  if (input) {
+    try {
+      input.setSelectionRange(0, 0)
+    } catch {
+      // 部分 WebView 的 number input 不支持文本选区 API。
+    }
+    input.value = input.value
+    input.blur()
+  }
+
+  const activeElement = document.activeElement
+  if (activeElement instanceof HTMLElement) {
+    activeElement.blur()
+  }
+  window.getSelection()?.removeAllRanges()
+  requestAnimationFrame(() => {
+    window.getSelection()?.removeAllRanges()
+  })
+}
+
+function openAddRecordPopup() {
+  showAddRecord.value = true
+}
+
+function closeAddRecordPopup() {
+  clearWeightInputSelection()
+  showAddRecord.value = false
+}
+
+function handleAddRecordPopupClose() {
+  clearWeightInputSelection()
+}
+
+function handleAddRecordPopupClosed() {
+  clearWeightInputSelection()
+  weightInputRef.value = null
+  recordPopupContentKey.value += 1
 }
 
 function handleAddRecord() {
   editMode.value = false
+  state.editRecordId = ''
+  state.tips = ''
   // 展示当前时间
   const now = new Date()
   state.date = formatDate(now, 'yyyy/MM/dd')
@@ -142,7 +190,7 @@ function handleAddRecord() {
   if (!isKG.value) {
     state.weight *= 2
   }
-  showAddRecord.value = true
+  openAddRecordPopup()
 }
 
 // 时间选择
@@ -178,7 +226,7 @@ function handleSureRecord() {
       showSuccessToast('修改成功')
       // 刷新列表
       refreshRecord(currentFamilyId.value)
-      showAddRecord.value = false
+      closeAddRecordPopup()
     })
     return
   }
@@ -196,7 +244,7 @@ function handleSureRecord() {
     refreshRecord(currentFamilyId.value)
   })
 
-  showAddRecord.value = false
+  closeAddRecordPopup()
 }
 
 // 删除记录
@@ -236,7 +284,8 @@ function handleUpdateWeight(item: WeightRecord) {
   if (!isKG.value) {
     state.weight *= 2
   }
-  showAddRecord.value = true
+  state.tips = record.tips || ''
+  openAddRecordPopup()
 }
 // 格式化内容展示
 const overviewData = computed(() => {
@@ -438,9 +487,13 @@ onMounted(() => {
       round
       closeable
       :style="{ height: '100%' }"
+      @click-close-icon="clearWeightInputSelection"
+      @click-overlay="clearWeightInputSelection"
+      @close="handleAddRecordPopupClose"
+      @closed="handleAddRecordPopupClosed"
       @opened="focusWeightInput"
     >
-      <div class="record-popup">
+      <div :key="recordPopupContentKey" class="record-popup">
         <header class="record-popup-header">
           <h2>{{ editMode ? '修改记录' : '录入记录' }}</h2>
           <van-button
@@ -461,7 +514,7 @@ onMounted(() => {
 
         <section class="weight-input-section">
           <div class="section-label">体重</div>
-          <div class="weight-input-card" @click="focusWeightInput">
+          <div class="weight-input-card" @click="focusWeightInput(true)">
             <input
               ref="weightInputRef"
               v-model.number="state.weight"

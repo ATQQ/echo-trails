@@ -9,11 +9,18 @@ export interface WeightRecord {
   familyId: string;
 }
 
-export async function getWeightList(familyId?: string, page: number = 1, pageSize: number = 30) {
+export interface WeightListOptions {
+  startTime?: number;
+  endTime?: number;
+}
+
+export async function getWeightList(familyId?: string, page: number = 1, pageSize: number = 30, options: WeightListOptions = {}) {
   const result = await invoke<any>('db_weight_list', {
     familyId,
     page,
     pageSize,
+    startTime: options.startTime ? new Date(options.startTime).toISOString() : undefined,
+    endTime: options.endTime ? new Date(options.endTime).toISOString() : undefined,
   })
   return {
     code: 0,

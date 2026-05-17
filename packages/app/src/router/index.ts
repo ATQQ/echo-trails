@@ -48,6 +48,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/weight-tracker',
+      name: 'weight-tracker',
+      component: () => import('../views/WeightTrackerView.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'WeightTrackerView'
+      }
+    },
+    {
       path: '/like',
       name: 'like',
       component: () => import('../views/LikeView.vue'),

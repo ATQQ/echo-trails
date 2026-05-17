@@ -39,6 +39,7 @@ type SortType = 'time' | 'time_asc' | 'tag'
 const sortType = ref<SortType>((localStorage.getItem('all_album_sort_type') as SortType) || 'tag')
 const showSortPopover = ref(false)
 const searchKeyword = ref('')
+const activeTag = ref('')
 const sortActions = computed(() => [
   { text: '按时间排序', value: 'time', color: sortType.value === 'time' ? '#1989fa' : '' },
   { text: '按时间逆序', value: 'time_asc', color: sortType.value === 'time_asc' ? '#1989fa' : '' },
@@ -93,16 +94,49 @@ const sortAlbums = (albums: Album[]) => {
 
 const displayAlbumList = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
+  const selectedTag = activeTag.value
   const albums = [
     ...(albumList.value.large || []),
     ...(albumList.value.small || [])
   ]
-  const filtered = keyword
-    ? albums.filter(album => (album.name || '').toLowerCase().includes(keyword))
-    : albums
+  const filtered = albums.filter(album => {
+    const matchKeyword = keyword
+      ? (album.name || '').toLowerCase().includes(keyword)
+      : true
+    const matchTag = selectedTag
+      ? album.tags?.includes(selectedTag)
+      : true
+
+    return matchKeyword && matchTag
+  })
 
   return sortAlbums(filtered)
 })
+
+const albumTags = computed(() => {
+  const tagMap = new Map<string, number>()
+  const albums = [
+    ...(albumList.value.large || []),
+    ...(albumList.value.small || [])
+  ]
+
+  albums.forEach(album => {
+    album.tags?.forEach(tag => {
+      tagMap.set(tag, (tagMap.get(tag) || 0) + 1)
+    })
+  })
+
+  return Array.from(tagMap.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count
+      return a.name.localeCompare(b.name, 'zh-CN')
+    })
+})
+
+const toggleTag = (tag: string) => {
+  activeTag.value = activeTag.value === tag ? '' : tag
+}
 
 const showEmpty = ref(false)
 const loading = ref(false)
@@ -252,6 +286,27 @@ preventBack(showAddModal)
           clearable
           placeholder="搜索相册名"
         />
+        <div v-if="albumTags.length" class="tag-filter" aria-label="按标签筛选相册">
+          <button
+            class="tag-chip"
+            :class="{ active: !activeTag }"
+            type="button"
+            @click="activeTag = ''"
+          >
+            全部
+          </button>
+          <button
+            v-for="tag in albumTags"
+            :key="tag.name"
+            class="tag-chip"
+            :class="{ active: activeTag === tag.name }"
+            type="button"
+            @click="toggleTag(tag.name)"
+          >
+            <span>{{ tag.name }}</span>
+            <span class="tag-count">{{ tag.count }}</span>
+          </button>
+        </div>
         <div v-if="loading && !displayAlbumList.length"
           class="skeleton-container">
           <div class="skeleton-grid">
@@ -265,7 +320,7 @@ preventBack(showAddModal)
         <template v-else>
           <van-empty
             v-if="showEmpty || !displayAlbumList.length"
-            :description="searchKeyword ? '没有匹配的相册' : '空空如也，快去创建吧'"
+            :description="searchKeyword || activeTag ? '没有匹配的相册' : '空空如也，快去创建吧'"
           />
           <van-grid v-else :gutter="10" :column-num="3" :border="false" class="small-card-grid">
             <van-grid-item v-for="album in displayAlbumList" :key="album._id">
@@ -353,8 +408,59 @@ preventBack(showAddModal)
 }
 
 .album-search {
-  padding: 0 12px 12px;
+  padding: 0 12px 8px;
   background: transparent;
+}
+
+.tag-filter {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 12px 14px;
+  scroll-padding: 12px;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.tag-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  max-width: 148px;
+  padding: 0 10px;
+  border: 1px solid #e5e6eb;
+  border-radius: 999px;
+  background: #fff;
+  color: #606266;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+
+  span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &.active {
+    border-color: #1989fa;
+    background: #ecf7ff;
+    color: #1989fa;
+    font-weight: 500;
+  }
+}
+
+.tag-count {
+  color: #969799;
+  font-size: 11px;
+}
+
+.tag-chip.active .tag-count {
+  color: #1989fa;
 }
 
 .small-card-grid {
