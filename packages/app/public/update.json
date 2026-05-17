@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.7.8",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.8.apk",
+      "forceUpdate": false,
+      "description": "系列问题优化,增加新版的体重页面",
+      "md5": "3dc90606517cc82b5eabe13fdde537c7"
+    },
+    {
       "version": "0.7.7",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.7.apk",
       "forceUpdate": false,

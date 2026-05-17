@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.7.7",
-    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.7.apk",
+    "version": "0.7.8",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.8.apk",
     "forceUpdate": false,
-    "description": "一系列问题修复和功能优化",
-    "md5": "ad837bb1a5fd82941716fdeeb3a3bfe0"
+    "description": "系列问题优化,增加新版的体重页面",
+    "md5": "3dc90606517cc82b5eabe13fdde537c7"
   },
   "ios": {
     "version": "0.1.2",
