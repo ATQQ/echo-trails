@@ -977,7 +977,7 @@ onMounted(async () => {
       </div>
     </van-popup>
 
-    <van-popup v-model:show="showFamilySheet" position="right" :style="{ width: '100%', height: '100%' }">
+    <van-popup v-model:show="showFamilySheet" position="right" class="family-sheet-popup" :style="{ width: '100%', height: '100%' }">
       <section class="family-picker safe-padding-top">
         <header class="family-picker-header">
           <button class="plain-icon dark" type="button" aria-label="关闭" @click="showFamilySheet = false">
@@ -1869,12 +1869,22 @@ button {
   }
 }
 
+:deep(.family-sheet-popup) {
+  height: 100vh !important;
+  height: 100svh !important;
+  height: 100dvh !important;
+  overflow: hidden;
+}
+
 .family-picker {
-  height: 100%;
+  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
   background: #f5f8fc;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .family-picker-header {
@@ -1898,7 +1908,8 @@ button {
 .family-picker-list {
   min-height: 0;
   overflow-y: auto;
-  padding: 10px 16px 96px;
+  padding: 10px 16px 18px;
+  overscroll-behavior: contain;
 }
 
 .family-row {
@@ -1980,11 +1991,12 @@ button {
 }
 
 .family-picker-footer {
-  position: sticky;
-  bottom: 0;
-  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  min-height: calc(72px + env(safe-area-inset-bottom));
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
   background: #f5f8fc;
   box-shadow: 0 -10px 24px rgba(30, 64, 111, 0.08);
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 @media (min-width: 560px) {
