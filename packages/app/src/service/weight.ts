@@ -11,14 +11,23 @@ export interface WeightRecord {
   familyId: string;
 }
 
-export const getWeightList = (familyId?: string, page: number = 1, pageSize: number = 30) => {
-  if (isLocalMode()) return local.getWeightList(familyId, page, pageSize)
+export interface WeightListOptions {
+  startTime?: number;
+  endTime?: number;
+}
+
+export const getWeightList = (familyId?: string, page: number = 1, pageSize: number = 30, options: WeightListOptions = {}) => {
+  if (isLocalMode()) return local.getWeightList(familyId, page, pageSize, options)
   const searchParams: Record<string, string> = {
     page: String(page),
     pageSize: String(pageSize)
   };
   if (familyId) {
     searchParams.familyId = familyId;
+  }
+  if (options.startTime && options.endTime) {
+    searchParams.startTime = String(options.startTime);
+    searchParams.endTime = String(options.endTime);
   }
   return api.get('weight/list', { searchParams }).json<{ code: number, data: WeightRecord[] }>();
 }

@@ -16,11 +16,20 @@ export default function weightRouter(router: Hono) {
   router.get('/list', async (c) => {
     const username = c.get('username' as any)
     const familyId = c.req.query('familyId')
+    const startTime = c.req.query('startTime')
+    const endTime = c.req.query('endTime')
     const page = parseInt(c.req.query('page') || '1')
     const pageSize = parseInt(c.req.query('pageSize') || '1000')
 
     const query: any = { username, isDelete: { $ne: true } }
     query.familyId = familyId || 'default'
+
+    if (startTime && endTime) {
+      query.date = {
+        $gte: new Date(Number(startTime)),
+        $lte: new Date(Number(endTime))
+      }
+    }
 
     // Sort by date desc
     const list = await Weight.find(query)

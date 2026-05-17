@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { useLocalStorage } from '@vueuse/core'
 import dayjs from 'dayjs'
-import { computed, nextTick, onMounted, reactive, ref, watch, watchEffect } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
 import { useRouter } from 'vue-router'
-import FamilySelector from '@/components/FamilySelector/FamilySelector.vue'
+import TimeRangePicker from '@/components/TimeRangePicker/TimeRangePicker.vue'
 import { preventBack } from '@/lib/router'
 import { getTimeDiffDes } from '@/lib/weight-utils'
 import { getWeightList, addWeight, updateWeight, deleteWeight, type WeightRecord } from '@/service/weight'
 import { useFamily } from '@/composables/useFamily'
 
-type TabName = 'home' | 'stats' | 'profile'
-type RangeName = 'week' | 'month' | 'year'
+type TabName = 'home' | 'stats'
+type RangeName = 'day' | 'month' | 'year' | 'custom'
+type TimeGroup = 'night' | 'morning' | 'noon' | 'afternoon' | 'evening'
 
 interface ChartPoint {
   date: string
@@ -28,48 +29,67 @@ const currentFamilyId = useLocalStorage('weight_current_family', 'default')
 const { store: familyStore, familyOptions, refreshFamilies, handleAddFamily, handleUpdateFamily, handleDeleteFamily } = useFamily(currentFamilyId)
 const isKG = ref(localStorage.getItem('weight-kg') === 'true')
 const activeTab = ref<TabName>('home')
-const range = ref<RangeName>('week')
+const range = ref<RangeName>('day')
 const records = ref<WeightRecord[]>([])
-const loading = ref(false)
+const homeTrendRecords = ref<WeightRecord[]>([])
+const statsRecords = ref<WeightRecord[]>([])
+const listLoading = ref(false)
+const listFinished = ref(false)
+const listPage = ref(1)
+const pageSize = 30
 const selectedRecord = ref<WeightRecord | null>(null)
 const showRecordPopup = ref(false)
 const showRecordActions = ref(false)
 const showFamilySheet = ref(false)
 const showAddFamilyDialog = ref(false)
 const showEditFamilyDialog = ref(false)
-const showTargetDialog = ref(false)
-const showHeightDialog = ref(false)
+const showStatsRangePicker = ref(false)
 const familyNameDraft = ref('')
 const editingFamilyId = ref('')
+const inputSelected = ref(false)
+const scaleDragging = ref(false)
+const scaleDragStartX = ref(0)
+const scaleDragStartValue = ref(0)
+const customRange = ref<[number, number]>([
+  dayjs().subtract(6, 'day').startOf('day').valueOf(),
+  dayjs().endOf('day').valueOf()
+])
 
 const state = reactive({
   date: dayjs().format('YYYY/MM/DD'),
+  time: dayjs().format('HH:mm'),
+  timeValue: [dayjs().format('HH'), dayjs().format('mm')],
   showCalendar: false,
+  showTimePicker: false,
   weightInput: '',
   tips: '',
-  editRecordId: '',
-  targetDraft: '52.0',
-  heightDraft: '162'
+  editRecordId: ''
 })
 
-const targetWeight = useLocalStorage('weight_target_kg', 52)
-const heightCm = useLocalStorage('weight_height_cm', 162)
-
 preventBack(state, 'showCalendar')
+preventBack(state, 'showTimePicker')
 preventBack(showRecordPopup)
 preventBack(showRecordActions)
 preventBack(showFamilySheet)
 preventBack(showAddFamilyDialog)
 preventBack(showEditFamilyDialog)
-preventBack(showTargetDialog)
-preventBack(showHeightDialog)
+preventBack(showStatsRangePicker)
 
-watchEffect(() => {
-  localStorage.setItem('weight-kg', `${isKG.value}`)
+watch(isKG, (value, oldValue) => {
+  localStorage.setItem('weight-kg', `${value}`)
+  if (oldValue === undefined || !showRecordPopup.value || !state.weightInput) return
+  const current = Number(state.weightInput)
+  if (!Number.isFinite(current)) return
+  const kgValue = oldValue ? current : current / 2
+  state.weightInput = formatNumber(value ? kgValue : kgValue * 2, 1)
 })
 
 watch(currentFamilyId, () => {
-  loadRecords()
+  refreshAllData()
+})
+
+watch(range, () => {
+  loadStatsRecords()
 })
 
 const sortedRecords = computed(() => {
@@ -87,7 +107,17 @@ const currentFamilyName = computed(() => {
   return matched.text
 })
 
-const greetingText = computed(() => currentFamilyName.value ? `早上好，${currentFamilyName.value}` : '早上好')
+const greetingText = computed(() => {
+  const prefix = getTimeGreeting()
+  return currentFamilyName.value ? `${prefix}，${currentFamilyName.value}` : prefix
+})
+
+const encouragementText = computed(() => {
+  const group = getTimeGroup()
+  const candidates = encouragementMessages[group]
+  const index = (dayjs().date() + dayjs().hour()) % candidates.length
+  return candidates[index]
+})
 
 const familyRows = computed(() => {
   return familyOptions.value.map(item => {
@@ -99,76 +129,7 @@ const familyRows = computed(() => {
   })
 })
 
-const earliestRecord = computed(() => sortedRecords.value[sortedRecords.value.length - 1])
-
-const initialWeight = computed(() => earliestRecord.value?.weight || latestWeight.value || 0)
-
-const weekRecords = computed(() => {
-  const start = dayjs().subtract(6, 'day').startOf('day')
-  return sortedRecords.value.filter(item => dayjs(item.date).isAfter(start) || dayjs(item.date).isSame(start))
-})
-
-const recentRecords = computed(() => sortedRecords.value.slice(0, 7))
-
-const displayRecords = computed(() => sortedRecords.value.slice(0, 30))
-
-const chartSource = computed(() => {
-  const amount = range.value === 'week' ? 6 : range.value === 'month' ? 29 : 364
-  const start = dayjs().subtract(amount, 'day').startOf('day')
-  return sortedRecords.value.filter(item => dayjs(item.date).isAfter(start) || dayjs(item.date).isSame(start))
-})
-
-const trendRecords = computed(() => {
-  return chartSource.value.slice(0, 12)
-})
-
-const todayLabel = computed(() => {
-  const selected = dayjs(state.date, 'YYYY/MM/DD')
-  return selected.isSame(dayjs(), 'day') ? '今天' : selected.format('ddd')
-})
-
 const currentWeightText = computed(() => formatNumber(displayWeight(latestWeight.value), 1))
-
-const bmiValue = computed(() => {
-  const height = heightCm.value / 100
-  if (!latestWeight.value || !height) return 0
-  return latestWeight.value / height / height
-})
-
-const bmiStatus = computed(() => {
-  const bmi = bmiValue.value
-  if (!bmi) return '暂无'
-  if (bmi < 18.5) return '偏低'
-  if (bmi < 24) return '正常'
-  if (bmi < 28) return '偏高'
-  return '偏胖'
-})
-
-const bmiPercent = computed(() => {
-  if (!bmiValue.value) return 0
-  return Math.min(Math.max(((bmiValue.value - 15) / 20) * 100, 6), 94)
-})
-
-const lostWeight = computed(() => Math.max(initialWeight.value - latestWeight.value, 0))
-
-const distanceToTarget = computed(() => Math.max(latestWeight.value - targetWeight.value, 0))
-
-const goalProgress = computed(() => {
-  const total = Math.max(initialWeight.value - targetWeight.value, 0)
-  if (!total) return latestWeight.value <= targetWeight.value ? 100 : 0
-  return Math.min(Math.max((lostWeight.value / total) * 100, 0), 100)
-})
-
-const statsSummary = computed(() => {
-  const source = chartSource.value
-  if (!source.length) {
-    return { high: 0, low: 0 }
-  }
-  return {
-    high: Math.max(...source.map(item => item.weight)),
-    low: Math.min(...source.map(item => item.weight))
-  }
-})
 
 const overviewData = computed(() => {
   const result = []
@@ -203,7 +164,7 @@ const overviewData = computed(() => {
 })
 
 const homeChartPoints = computed(() => {
-  return buildChartPoints(compactChartRecords(normalizeDailyRecords(recentRecords.value), 7), 'week')
+  return buildChartPoints(compactChartRecords(normalizeDailyRecords(homeTrendRecords.value), 7), 'day')
 })
 
 const homeChartLinePoints = computed(() => homeChartPoints.value.map(point => `${point.x},${point.y}`).join(' '))
@@ -211,14 +172,88 @@ const homeChartLinePoints = computed(() => homeChartPoints.value.map(point => `$
 const homeChartAreaPoints = computed(() => buildChartAreaPoints(homeChartPoints.value, homeChartLinePoints.value))
 
 const chartPoints = computed<ChartPoint[]>(() => {
-  return buildChartPoints(compactChartRecords(normalizeDailyRecords(chartSource.value)), range.value)
+  return buildChartPoints(compactChartRecords(normalizeDailyRecords(statsRecords.value)), range.value)
 })
 
 const chartLinePoints = computed(() => chartPoints.value.map(point => `${point.x},${point.y}`).join(' '))
 
-const chartAreaPoints = computed(() => buildChartAreaPoints(chartPoints.value, chartLinePoints.value))
+const statsSummary = computed(() => {
+  const source = statsRecords.value
+  if (!source.length) {
+    return { high: 0, low: 0 }
+  }
+  return {
+    high: Math.max(...source.map(item => item.weight)),
+    low: Math.min(...source.map(item => item.weight))
+  }
+})
 
-function buildChartPoints(source: WeightRecord[], chartRange: RangeName) {
+const canSaveRecord = computed(() => Number(state.weightInput) > 0)
+
+const tabItems: Array<{ name: TabName, text: string, icon: string }> = [
+  { name: 'home', text: '首页', icon: 'wap-home-o' },
+  { name: 'stats', text: '统计', icon: 'bar-chart-o' }
+]
+
+const keypadItems = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back']
+
+const rangeItems: Array<{ name: Exclude<RangeName, 'custom'>, text: string }> = [
+  { name: 'day', text: '日' },
+  { name: 'month', text: '月' },
+  { name: 'year', text: '年' }
+]
+
+const todayLabel = computed(() => {
+  const selected = dayjs(state.date, 'YYYY/MM/DD')
+  return selected.isSame(dayjs(), 'day') ? '今天' : formatRecordWeekday(selected.toDate())
+})
+
+const statsRangeLabel = computed(() => {
+  if (range.value === 'custom') {
+    const [start, end] = customRange.value
+    return `${dayjs(start).format('YYYY年M月D日')} - ${dayjs(end).format('M月D日')}`
+  }
+  if (range.value === 'day') return dayjs().format('YYYY年M月D日')
+  if (range.value === 'month') return dayjs().format('YYYY年M月')
+  return dayjs().format('YYYY年')
+})
+
+const scaleDisplayValue = computed(() => {
+  const inputValue = Number(state.weightInput)
+  if (Number.isFinite(inputValue) && inputValue > 0) return inputValue
+  return displayWeight(latestWeight.value || 50)
+})
+
+const scaleLabels = computed(() => {
+  const step = isKG.value ? 0.5 : 1
+  const start = scaleDisplayValue.value - step * 3
+  return Array.from({ length: 7 }, (_, index) => {
+    const value = Math.max(start + step * index, 0)
+    return formatNumber(value, isKG.value ? 1 : 0)
+  })
+})
+
+const selectedRecordDateTime = computed(() => {
+  if (!selectedRecord.value) return ''
+  return dayjs(selectedRecord.value.date).format('YYYY/MM/DD HH:mm')
+})
+
+function getStatsRange() {
+  if (range.value === 'custom') {
+    const [start, end] = customRange.value
+    return { start, end }
+  }
+  const now = dayjs()
+  if (range.value === 'day') {
+    return { start: now.startOf('day').valueOf(), end: now.endOf('day').valueOf() }
+  }
+  if (range.value === 'month') {
+    return { start: now.startOf('month').valueOf(), end: now.endOf('month').valueOf() }
+  }
+  return { start: now.startOf('year').valueOf(), end: now.endOf('year').valueOf() }
+}
+
+function buildChartPoints(source: WeightRecord[], chartRange: RangeName): ChartPoint[] {
   if (!source.length) return []
 
   const values = source.map(item => item.weight)
@@ -237,13 +272,14 @@ function buildChartPoints(source: WeightRecord[], chartRange: RangeName) {
   return source.map((item, index) => {
     const x = source.length === 1 ? width / 2 : left + (usableWidth * index) / (source.length - 1)
     const y = topOffset + ((top - item.weight) / (top - bottom || 1)) * usableHeight
+    const highlight: ChartPoint['highlight'] = item.weight === max ? 'high' : item.weight === min ? 'low' : undefined
     return {
       date: dayjs(item.date).format('YYYY-MM-DD'),
       label: dayjs(item.date).format(chartRange === 'year' ? 'M月' : 'M/D'),
       value: item.weight,
       x,
       y,
-      highlight: item.weight === max ? 'high' : item.weight === min ? 'low' : undefined
+      highlight
     }
   })
 }
@@ -254,22 +290,6 @@ function buildChartAreaPoints(points: ChartPoint[], linePoints: string) {
   const last = points[points.length - 1]
   return `${first.x},112 ${linePoints} ${last.x},112`
 }
-
-const canSaveRecord = computed(() => Number(state.weightInput) > 0)
-
-const tabItems: Array<{ name: TabName, text: string, icon: string }> = [
-  { name: 'home', text: '首页', icon: 'wap-home-o' },
-  { name: 'stats', text: '统计', icon: 'bar-chart-o' },
-  // { name: 'profile', text: '我的', icon: 'manager-o' }
-]
-
-const keypadItems = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back']
-
-const rangeItems: Array<{ name: RangeName, text: string }> = [
-  { name: 'week', text: '周' },
-  { name: 'month', text: '月' },
-  { name: 'year', text: '年' }
-]
 
 function formatNumber(value: number, digits = 1) {
   if (!Number.isFinite(value)) return (0).toFixed(digits)
@@ -332,28 +352,84 @@ function normalizeDailyRecords(source: WeightRecord[]) {
 }
 
 function compactChartRecords(source: WeightRecord[], limit?: number) {
-  const maxPoints = limit || (range.value === 'week' ? 7 : 8)
+  const maxPoints = limit || (range.value === 'day' ? 7 : 8)
   if (source.length <= maxPoints) return source
 
   const step = (source.length - 1) / (maxPoints - 1)
   return Array.from({ length: maxPoints }, (_, index) => source[Math.round(index * step)]).filter((item): item is WeightRecord => Boolean(item))
 }
 
-async function loadRecords() {
-  loading.value = true
+async function fetchRangeRecords(startTime: number, endTime: number) {
+  const result: WeightRecord[] = []
+  let page = 1
+  const rangePageSize = 500
+  while (page <= 10) {
+    const res = await getWeightList(currentFamilyId.value, page, rangePageSize, { startTime, endTime })
+    if (res.code !== 0) break
+    result.push(...res.data)
+    if (res.data.length < rangePageSize) break
+    page += 1
+  }
+  return result
+}
+
+async function loadHomeTrendRecords() {
+  const startTime = dayjs().subtract(6, 'day').startOf('day').valueOf()
+  const endTime = dayjs().endOf('day').valueOf()
+  homeTrendRecords.value = await fetchRangeRecords(startTime, endTime)
+}
+
+async function loadStatsRecords() {
+  const { start, end } = getStatsRange()
   try {
-    const res = await getWeightList(currentFamilyId.value, 1, 180)
+    statsRecords.value = await fetchRangeRecords(start, end)
+  } catch (error) {
+    console.error(error)
+    showToast('统计数据加载失败')
+  }
+}
+
+async function onLoadRecords() {
+  if (listFinished.value) return
+  listLoading.value = true
+  try {
+    const res = await getWeightList(currentFamilyId.value, listPage.value, pageSize)
     if (res.code === 0) {
-      records.value = res.data
+      if (listPage.value === 1) {
+        records.value = res.data
+      } else {
+        records.value.push(...res.data)
+      }
+      listFinished.value = res.data.length < pageSize
+      if (!listFinished.value) {
+        listPage.value += 1
+      }
       return
     }
+    listFinished.value = true
     showToast('体重数据加载失败')
   } catch (error) {
     console.error(error)
+    listFinished.value = true
     showToast('体重数据加载失败')
   } finally {
-    loading.value = false
+    listLoading.value = false
   }
+}
+
+async function refreshRecords() {
+  listPage.value = 1
+  listFinished.value = false
+  records.value = []
+  await onLoadRecords()
+}
+
+async function refreshAllData() {
+  await Promise.all([
+    refreshRecords(),
+    loadHomeTrendRecords(),
+    loadStatsRecords()
+  ])
 }
 
 function handleBack() {
@@ -362,29 +438,81 @@ function handleBack() {
 
 function openRecord(record?: WeightRecord) {
   const target = record || latestRecord.value
+  const recordDate = dayjs(record?.date || new Date())
   state.editRecordId = record?._id || ''
-  state.date = dayjs(record?.date || new Date()).format('YYYY/MM/DD')
+  state.date = recordDate.format('YYYY/MM/DD')
+  state.time = recordDate.format('HH:mm')
+  state.timeValue = [recordDate.format('HH'), recordDate.format('mm')]
   state.tips = record?.tips || ''
   state.weightInput = target ? formatNumber(displayWeight(target.weight), 1) : '50.0'
+  inputSelected.value = true
   showRecordPopup.value = true
   nextTick(() => {
     window.scrollTo({ top: 0 })
   })
 }
 
+function normalizeInputText(value: string) {
+  if (value === '.') return '0.'
+  if (/^0\d/.test(value)) return String(Number(value))
+  return value
+}
+
 function handleKeypadTap(key: string) {
   if (key === 'back') {
-    state.weightInput = state.weightInput.slice(0, -1)
+    state.weightInput = inputSelected.value ? '' : state.weightInput.slice(0, -1)
+    inputSelected.value = false
     return
   }
-  if (key === '.' && state.weightInput.includes('.')) return
-  if (state.weightInput.length >= 5) return
-  state.weightInput = `${state.weightInput}${key}`
+
+  const base = inputSelected.value ? '' : state.weightInput
+  if (key === '.' && base.includes('.')) return
+  const nextValue = normalizeInputText(`${base}${key}`)
+  if (nextValue.length > 5) return
+  state.weightInput = nextValue
+  inputSelected.value = false
+}
+
+function setWeightInputFromScale(value: number) {
+  const clamped = Math.min(Math.max(value, 1), isKG.value ? 300 : 600)
+  state.weightInput = formatNumber(clamped, 1)
+  inputSelected.value = false
+}
+
+function beginScaleDrag(clientX: number) {
+  scaleDragging.value = true
+  scaleDragStartX.value = clientX
+  scaleDragStartValue.value = scaleDisplayValue.value
+  inputSelected.value = false
+}
+
+function moveScaleDrag(clientX: number) {
+  if (!scaleDragging.value) return
+  const unitStep = isKG.value ? 0.1 : 0.2
+  const delta = scaleDragStartX.value - clientX
+  const value = scaleDragStartValue.value + Math.round(delta / 12) * unitStep
+  setWeightInputFromScale(value)
+}
+
+function endScaleDrag() {
+  scaleDragging.value = false
 }
 
 function handleCalendarConfirm(date: Date) {
   state.date = dayjs(date).format('YYYY/MM/DD')
   state.showCalendar = false
+}
+
+function handleTimeConfirm(timeSelect: { selectedValues: string[] }) {
+  state.timeValue = timeSelect.selectedValues
+  state.time = timeSelect.selectedValues.join(':')
+  state.showTimePicker = false
+}
+
+function handleStatsRangeConfirm(res: { start: number; end: number; label: string }) {
+  customRange.value = [res.start, res.end]
+  range.value = 'custom'
+  loadStatsRecords()
 }
 
 async function saveRecord() {
@@ -395,7 +523,7 @@ async function saveRecord() {
   }
 
   const weight = normalizeWeight(value)
-  const date = dayjs(`${state.date} ${dayjs().format('HH:mm')}`, 'YYYY/MM/DD HH:mm').toDate()
+  const date = dayjs(`${state.date} ${state.time}`, 'YYYY/MM/DD HH:mm').toDate()
 
   try {
     if (state.editRecordId) {
@@ -418,7 +546,7 @@ async function saveRecord() {
     }
     state.editRecordId = ''
     state.tips = ''
-    await loadRecords()
+    await refreshAllData()
     showRecordPopup.value = false
     activeTab.value = 'home'
   } catch (error) {
@@ -441,14 +569,14 @@ function editSelectedRecord() {
 async function removeSelectedRecord() {
   if (!selectedRecord.value?._id) return
   const record = selectedRecord.value as WeightRecord & { _id: string }
-  showRecordActions.value = false
   try {
     await showConfirmDialog({
       title: '删除记录',
       message: '确定要删除这条体重记录吗？'
     })
     await deleteWeight(record._id)
-    records.value = records.value.filter(item => item._id !== record._id)
+    await refreshAllData()
+    showRecordActions.value = false
     showSuccessToast('已删除')
   } catch (error) {
     if (error) {
@@ -496,39 +624,38 @@ async function removeFamily(familyId: string) {
   await handleDeleteFamily(familyId)
 }
 
-function openTargetDialog() {
-  state.targetDraft = formatNumber(displayWeight(targetWeight.value), 1)
-  showTargetDialog.value = true
+function getTimeGroup(): TimeGroup {
+  const hour = dayjs().hour()
+  if (hour < 6) return 'night'
+  if (hour < 11) return 'morning'
+  if (hour < 14) return 'noon'
+  if (hour < 18) return 'afternoon'
+  return 'evening'
 }
 
-function confirmTarget() {
-  const value = Number(state.targetDraft)
-  if (value > 0) {
-    targetWeight.value = normalizeWeight(value)
+function getTimeGreeting() {
+  const group = getTimeGroup()
+  const map = {
+    night: '夜深了',
+    morning: '早上好',
+    noon: '中午好',
+    afternoon: '下午好',
+    evening: '晚上好'
   }
+  return map[group]
 }
 
-function openHeightDialog() {
-  state.heightDraft = String(heightCm.value)
-  showHeightDialog.value = true
-}
-
-function confirmHeight() {
-  const value = Number(state.heightDraft)
-  if (value >= 80 && value <= 240) {
-    heightCm.value = value
-    return
-  }
-  showToast('请输入合理身高')
-}
-
-function handleSettingToast() {
-  showToast('设置项暂未接入')
+const encouragementMessages = {
+  night: ['早点休息，明天继续稳稳记录', '睡前看一眼变化，心里更有数', '今晚也辛苦了，规律比完美更重要'],
+  morning: ['坚持记录，遇见更好的自己', '新的一天，从了解身体开始', '今天也慢慢来，记录就是进步'],
+  noon: ['午间复盘一下，节奏更稳', '一点点变化，都值得被看见', '保持记录，身体会给你答案'],
+  afternoon: ['下午好，今天的状态也可以记下来', '数据会陪你看见长期变化', '稳定记录，比偶尔用力更可靠'],
+  evening: ['晚上好，给今天留下一条身体线索', '今天记录了吗？小习惯会变成大改变', '把今天收个尾，明天更清楚方向']
 }
 
 onMounted(async () => {
   await refreshFamilies()
-  await loadRecords()
+  await refreshAllData()
 })
 </script>
 
@@ -545,7 +672,7 @@ onMounted(async () => {
           </div>
           <div>
             <h1>{{ greetingText }}</h1>
-            <p>坚持记录，遇见更好的自己</p>
+            <p>{{ encouragementText }}</p>
           </div>
         </button>
         <button class="plain-icon family-switch-button" type="button" aria-label="切换家人" @click="showFamilySheet = true">
@@ -554,24 +681,15 @@ onMounted(async () => {
       </header>
 
       <main class="home-content">
-        <div class="metric-grid">
+        <div class="metric-grid single">
           <article class="metric-card current-card">
             <div class="metric-title">
               <span>当前体重（{{ isKG ? 'kg' : '斤' }}）</span>
-              <van-icon name="eye-o" />
             </div>
             <strong>{{ currentWeightText }}</strong>
             <p>
               {{ latestRecord ? formatFullDate(latestRecord.date) : '暂无记录' }}
             </p>
-          </article>
-
-          <article class="metric-card bmi-card">
-            <div class="bmi-ring" :style="{ '--bmi-percent': `${bmiPercent}%` }">
-              <span>BMI</span>
-              <strong>{{ formatNumber(bmiValue, 1) }}</strong>
-              <em>{{ bmiStatus }}</em>
-            </div>
           </article>
         </div>
 
@@ -619,35 +737,22 @@ onMounted(async () => {
           <van-empty v-else description="暂无趋势数据" />
         </article>
 
-        <div class="summary-grid">
-          <article class="summary-card">
-            <span>初始体重</span>
-            <strong>{{ formatRecordWeight(initialWeight, 1) }}</strong>
-            <em>{{ isKG ? 'kg' : '斤' }}</em>
-          </article>
-          <article class="summary-card">
-            <span>目标体重</span>
-            <strong>{{ formatRecordWeight(targetWeight, 1) }}</strong>
-            <em>{{ isKG ? 'kg' : '斤' }}</em>
-          </article>
-          <article class="summary-card">
-            <span>距离目标</span>
-            <strong>{{ formatRecordWeight(distanceToTarget, 1) }}</strong>
-            <em>{{ isKG ? 'kg' : '斤' }}</em>
-          </article>
-        </div>
-
         <article class="record-list-panel home-record-panel">
           <div class="panel-header">
             <h2>体重记录（{{ isKG ? 'kg' : '斤' }}）</h2>
-            <span>最近 {{ displayRecords.length }} 条</span>
+            <span>已加载 {{ sortedRecords.length }} 条</span>
           </div>
-          <van-empty v-if="displayRecords.length === 0 && !loading" description="暂无记录" />
-          <button v-for="record in displayRecords" :key="record._id || String(record.date)" class="record-row" type="button" @click="openRecordAction(record)">
-            <span>{{ formatRecordDate(record.date) }} <em>{{ formatRecordWeekday(record.date) }}</em></span>
-            <strong>{{ formatRecordWeight(record.weight, 2) }} {{ isKG ? 'kg' : '斤' }}</strong>
-            <van-icon name="arrow" />
-          </button>
+          <van-empty v-if="sortedRecords.length === 0 && !listLoading" description="暂无记录" />
+          <van-list v-else v-model:loading="listLoading" :finished="listFinished" finished-text="没有更多了" :immediate-check="false" @load="onLoadRecords">
+            <button v-for="record in sortedRecords" :key="record._id || String(record.date)" class="record-row" type="button" @click="openRecordAction(record)">
+              <span class="record-main">
+                <span>{{ formatRecordDate(record.date) }} <em>{{ formatRecordWeekday(record.date) }}</em></span>
+                <small v-if="record.tips">{{ record.tips }}</small>
+              </span>
+              <strong>{{ formatRecordWeight(record.weight, 2) }} {{ isKG ? 'kg' : '斤' }}</strong>
+              <van-icon name="arrow" />
+            </button>
+          </van-list>
         </article>
       </main>
     </section>
@@ -658,7 +763,7 @@ onMounted(async () => {
           <van-icon name="arrow-left" />
         </button>
         <h1>体重趋势</h1>
-        <button class="plain-icon dark" type="button" aria-label="选择日期" @click="state.showCalendar = true">
+        <button class="plain-icon dark" type="button" aria-label="自定义日期范围" @click="showStatsRangePicker = true">
           <van-icon name="calendar-o" />
         </button>
       </header>
@@ -684,6 +789,7 @@ onMounted(async () => {
               <span class="low">最低 {{ formatRecordWeight(statsSummary.low, 1) }}</span>
             </div>
           </div>
+          <p class="range-label">{{ statsRangeLabel }}</p>
           <div v-if="chartPoints.length" class="large-chart">
             <svg viewBox="0 0 300 128" role="img" aria-label="体重趋势图">
               <line v-for="line in [32, 56, 80, 104]" :key="line" x1="18" x2="286" :y1="line" :y2="line" class="grid-line" />
@@ -703,79 +809,22 @@ onMounted(async () => {
         </article>
 
         <article class="record-list-panel">
-          <h2>体重记录</h2>
-          <van-empty v-if="trendRecords.length === 0 && !loading" description="暂无记录" />
-          <button v-for="record in trendRecords" :key="record._id || String(record.date)" class="record-row" type="button" @click="openRecordAction(record)">
-            <span>{{ formatRecordDate(record.date) }} <em>{{ formatRecordWeekday(record.date) }}</em></span>
-            <strong>{{ formatRecordWeight(record.weight, 1) }} {{ isKG ? 'kg' : '斤' }}</strong>
-            <van-icon name="arrow" />
-          </button>
+          <div class="panel-header">
+            <h2>体重记录</h2>
+            <span>已加载 {{ sortedRecords.length }} 条</span>
+          </div>
+          <van-empty v-if="sortedRecords.length === 0 && !listLoading" description="暂无记录" />
+          <van-list v-else v-model:loading="listLoading" :finished="listFinished" finished-text="没有更多了" :immediate-check="false" @load="onLoadRecords">
+            <button v-for="record in sortedRecords" :key="record._id || String(record.date)" class="record-row" type="button" @click="openRecordAction(record)">
+              <span class="record-main">
+                <span>{{ formatRecordDate(record.date) }} <em>{{ formatRecordWeekday(record.date) }}</em></span>
+                <small v-if="record.tips">{{ record.tips }}</small>
+              </span>
+              <strong>{{ formatRecordWeight(record.weight, 1) }} {{ isKG ? 'kg' : '斤' }}</strong>
+              <van-icon name="arrow" />
+            </button>
+          </van-list>
         </article>
-      </main>
-    </section>
-
-    <section v-else class="screen profile-screen safe-padding-top">
-      <header class="profile-header">
-        <h1>我的</h1>
-      </header>
-
-      <main class="profile-content">
-        <article class="profile-card">
-          <div class="profile-avatar">
-            <van-icon name="contact-o" />
-          </div>
-          <div>
-            <strong>Lily</strong>
-            <span>ID: 12345678</span>
-          </div>
-          <van-icon name="edit" />
-        </article>
-
-        <FamilySelector v-model="currentFamilyId" :active-color="themeColor" class="family-panel" />
-
-        <button class="goal-card" type="button" @click="openTargetDialog">
-          <div class="goal-title">
-            <span><van-icon name="aim" /> 目标体重</span>
-            <strong>{{ formatRecordWeight(targetWeight, 1) }} {{ isKG ? 'kg' : '斤' }}</strong>
-            <van-icon name="arrow" />
-          </div>
-          <div class="progress-track">
-            <i :style="{ width: `${goalProgress}%` }"></i>
-          </div>
-          <div class="goal-meta">
-            <span>已减重 {{ formatRecordWeight(lostWeight, 1) }} {{ isKG ? 'kg' : '斤' }}</span>
-            <span>进度 {{ formatNumber(goalProgress, 0) }}%</span>
-          </div>
-        </button>
-
-        <section class="settings-block">
-          <h2>设置</h2>
-          <button class="setting-row" type="button" @click="handleSettingToast">
-            <span><van-icon name="bell" /> 提醒设置</span>
-            <em>每天 08:00</em>
-            <van-icon name="arrow" />
-          </button>
-          <button class="setting-row" type="button">
-            <span><van-icon name="exchange" /> 单位设置</span>
-            <em>{{ isKG ? 'kg' : '斤' }}</em>
-            <van-switch v-model="isKG" size="20" />
-          </button>
-          <button class="setting-row" type="button" @click="openHeightDialog">
-            <span><van-icon name="manager-o" /> 身高设置</span>
-            <em>{{ heightCm }} cm</em>
-            <van-icon name="arrow" />
-          </button>
-          <button class="setting-row" type="button" @click="handleSettingToast">
-            <span><van-icon name="upgrade" /> 数据备份</span>
-            <em>云端备份</em>
-            <van-icon name="arrow" />
-          </button>
-          <button class="setting-row" type="button" @click="handleSettingToast">
-            <span><van-icon name="info-o" /> 关于我们</span>
-            <em>V1.0.0</em>
-            <van-icon name="arrow" />
-          </button>
-        </section>
       </main>
     </section>
 
@@ -800,6 +849,17 @@ onMounted(async () => {
       @confirm="handleCalendarConfirm"
     />
 
+    <van-popup v-model:show="state.showTimePicker" position="bottom" round>
+      <van-time-picker v-model="state.timeValue" title="选择时间" @confirm="handleTimeConfirm" @cancel="state.showTimePicker = false" />
+    </van-popup>
+
+    <TimeRangePicker
+      v-model:show="showStatsRangePicker"
+      type="custom"
+      :current-range="customRange"
+      @confirm="handleStatsRangeConfirm"
+    />
+
     <van-popup v-model:show="showRecordPopup" position="bottom" round :style="{ height: '92%' }">
       <section class="record-popup-sheet">
         <header class="page-header">
@@ -813,29 +873,46 @@ onMounted(async () => {
         </header>
 
         <main class="record-content">
-          <div class="field-label">选择日期</div>
-          <button class="date-select" type="button" @click="state.showCalendar = true">
-            <van-icon name="calendar-o" />
-            <span>{{ formatFullDate(dayjs(state.date, 'YYYY/MM/DD').toDate()) }}</span>
-            <em>{{ todayLabel }}</em>
-            <van-icon name="arrow-down" />
-          </button>
+          <div class="field-label">记录时间</div>
+          <div class="date-time-grid">
+            <button class="date-select" type="button" @click="state.showCalendar = true">
+              <van-icon name="calendar-o" />
+              <span class="select-main">
+                <strong>{{ formatFullDate(dayjs(state.date, 'YYYY/MM/DD').toDate()) }}</strong>
+                <em>{{ todayLabel }}</em>
+              </span>
+              <van-icon name="arrow-down" />
+            </button>
+            <button class="date-select time-select" type="button" @click="state.showTimePicker = true">
+              <van-icon name="clock-o" />
+              <span class="select-main">
+                <strong>{{ state.time }}</strong>
+                <em>时间</em>
+              </span>
+              <van-icon name="arrow-down" />
+            </button>
+          </div>
 
           <div class="record-value">
-            <strong>{{ state.weightInput || '0' }}</strong>
+            <strong :class="{ selected: inputSelected }">{{ state.weightInput || '0' }}</strong>
             <span>{{ isKG ? 'kg' : '斤' }}</span>
           </div>
 
-          <div class="weight-scale" aria-hidden="true">
-            <span v-for="tick in 23" :key="tick" :class="{ major: tick % 5 === 0 }"></span>
+          <div
+            class="weight-scale"
+            aria-label="滑动微调体重"
+            @touchstart.passive="beginScaleDrag($event.touches[0].clientX)"
+            @touchmove.passive="moveScaleDrag($event.touches[0].clientX)"
+            @touchend="endScaleDrag"
+            @mousedown="beginScaleDrag($event.clientX)"
+            @mousemove="moveScaleDrag($event.clientX)"
+            @mouseup="endScaleDrag"
+            @mouseleave="endScaleDrag"
+          >
+            <span v-for="tick in 31" :key="tick" :class="{ major: tick % 5 === 1 }"></span>
           </div>
           <div class="scale-labels">
-            <span>{{ isKG ? '55.5' : '111' }}</span>
-            <span>{{ isKG ? '56.0' : '112' }}</span>
-            <span>{{ isKG ? '56.5' : '113' }}</span>
-            <span>{{ isKG ? '57.0' : '114' }}</span>
-            <span>{{ isKG ? '57.5' : '115' }}</span>
-            <span>{{ isKG ? '58.0' : '116' }}</span>
+            <span v-for="label in scaleLabels" :key="label">{{ label }}</span>
           </div>
 
           <div class="keypad">
@@ -858,12 +935,35 @@ onMounted(async () => {
       </section>
     </van-popup>
 
-    <van-action-sheet v-model:show="showRecordActions" title="体重记录">
-      <div class="record-actions">
-        <button type="button" @click="editSelectedRecord">编辑记录</button>
-        <button class="danger" type="button" @click="removeSelectedRecord">删除记录</button>
+    <van-popup v-model:show="showRecordActions" position="bottom" round closeable>
+      <div class="record-detail-popup">
+        <h2 class="popup-title">体重详情</h2>
+        <div v-if="selectedRecord" class="detail-list">
+          <div class="detail-item">
+            <span class="label">记录时间</span>
+            <span class="value">{{ selectedRecordDateTime }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="label">体重</span>
+            <span class="value">{{ formatRecordWeight(selectedRecord.weight, 2) }}<span class="unit">{{ isKG ? 'kg' : '斤' }}</span></span>
+          </div>
+          <div v-if="selectedRecord.tips" class="detail-item full-width">
+            <span class="label">备注</span>
+            <span class="value note-text">{{ selectedRecord.tips }}</span>
+          </div>
+        </div>
+        <div class="record-actions">
+          <button class="detail-action primary" type="button" @click="editSelectedRecord">
+            <van-icon name="edit" />
+            编辑记录
+          </button>
+          <button class="detail-action danger" type="button" @click="removeSelectedRecord">
+            <van-icon name="delete-o" />
+            删除记录
+          </button>
+        </div>
       </div>
-    </van-action-sheet>
+    </van-popup>
 
     <van-popup v-model:show="showFamilySheet" position="right" :style="{ width: '100%', height: '100%' }">
       <section class="family-picker safe-padding-top">
@@ -922,13 +1022,6 @@ onMounted(async () => {
       <van-field v-model="familyNameDraft" autofocus label="昵称" placeholder="请输入新的昵称" />
     </van-dialog>
 
-    <van-dialog v-model:show="showTargetDialog" title="目标体重" show-cancel-button @confirm="confirmTarget">
-      <van-field v-model="state.targetDraft" type="number" input-align="center" :label="isKG ? 'kg' : '斤'" placeholder="请输入目标体重" />
-    </van-dialog>
-
-    <van-dialog v-model:show="showHeightDialog" title="身高设置" show-cancel-button @confirm="confirmHeight">
-      <van-field v-model="state.heightDraft" type="number" input-align="center" label="cm" placeholder="请输入身高" />
-    </van-dialog>
   </div>
 </template>
 
@@ -1038,14 +1131,14 @@ button {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+
+  &.single {
+    grid-template-columns: 1fr;
+  }
 }
 
 .metric-card,
 .panel,
-.summary-card,
-.profile-card,
-.goal-card,
-.settings-block,
 .record-list-panel {
   border: 1px solid rgba(202, 213, 225, 0.72);
   border-radius: 8px;
@@ -1086,41 +1179,6 @@ button {
       color: #172033;
       font-weight: 700;
     }
-  }
-}
-
-.bmi-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.bmi-ring {
-  width: 104px;
-  height: 104px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at center, #fff 0 58%, transparent 60%),
-    conic-gradient(#1fb56b 0 28%, #1976ff 28% var(--bmi-percent), #f1604d var(--bmi-percent) 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-
-  span,
-  em {
-    font-size: 12px;
-    color: #6b7280;
-    font-style: normal;
-  }
-
-  strong {
-    font-size: 28px;
-    line-height: 1.1;
-  }
-
-  em {
-    color: #21a868;
   }
 }
 
@@ -1277,36 +1335,7 @@ button {
   fill: #798291;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.summary-card {
-  min-height: 104px;
-  padding: 14px 8px;
-  text-align: center;
-  box-sizing: border-box;
-
-  span,
-  em {
-    display: block;
-    color: #6b7280;
-    font-size: 12px;
-    font-style: normal;
-  }
-
-  strong {
-    display: block;
-    margin: 10px 0 4px;
-    font-size: 24px;
-  }
-}
-
-.page-header,
-.profile-header {
+.page-header {
   height: 58px;
   padding: 0 16px;
   display: flex;
@@ -1322,8 +1351,7 @@ button {
 }
 
 .record-content,
-.stats-content,
-.profile-content {
+.stats-content {
   padding: 12px 16px 24px;
 }
 
@@ -1342,29 +1370,55 @@ button {
 
 .date-select {
   width: 100%;
-  height: 48px;
+  min-width: 0;
+  min-height: 58px;
   border: 1px solid #dce5ef;
   border-radius: 8px;
   background: #fff;
   color: #1976ff;
   display: grid;
-  grid-template-columns: 24px 1fr auto 20px;
+  grid-template-columns: 24px minmax(0, 1fr) 20px;
   align-items: center;
   gap: 8px;
-  padding: 0 14px;
+  padding: 8px 12px;
   box-sizing: border-box;
+  text-align: left;
 
-  span {
+  .select-main {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+  }
+
+  strong {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-size: 18px;
     font-weight: 600;
+    line-height: 1.2;
   }
 
   em {
-    color: #94a3b8;
+    color: #8792a2;
     font-size: 12px;
+    line-height: 1.2;
     font-style: normal;
+  }
+}
+
+.date-time-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(106px, 0.65fr);
+  gap: 10px;
+}
+
+.time-select {
+  grid-template-columns: 22px minmax(0, 1fr) 18px;
+
+  strong {
+    font-size: 20px;
   }
 }
 
@@ -1380,6 +1434,12 @@ button {
     font-size: clamp(64px, 20vw, 88px);
     line-height: 1;
     font-family: "DIN Alternate", sans-serif;
+
+    &.selected {
+      border-radius: 8px;
+      background: rgba(25, 118, 255, 0.1);
+      box-shadow: 0 0 0 8px rgba(25, 118, 255, 0.1);
+    }
   }
 
   span {
@@ -1393,8 +1453,11 @@ button {
   display: flex;
   align-items: end;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   color: #b6c0cf;
+  cursor: ew-resize;
+  touch-action: pan-y;
+  user-select: none;
 
   span {
     width: 1px;
@@ -1410,7 +1473,7 @@ button {
 
 .scale-labels {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   color: #556070;
   font-size: 11px;
   text-align: center;
@@ -1495,6 +1558,12 @@ button {
   }
 }
 
+.range-label {
+  margin: 8px 0 0;
+  color: #7d8795;
+  font-size: 12px;
+}
+
 .legend {
   display: flex;
   gap: 10px;
@@ -1529,7 +1598,8 @@ button {
 
 .record-row {
   width: 100%;
-  min-height: 42px;
+  min-height: 54px;
+  padding: 8px 0;
   display: grid;
   grid-template-columns: 1fr auto 18px;
   align-items: center;
@@ -1557,138 +1627,19 @@ button {
   }
 }
 
-.profile-header {
-  justify-content: center;
-  color: #fff;
-  background: linear-gradient(145deg, #0867ff 0%, #44a8ff 100%);
-}
-
-.profile-content {
-  background: linear-gradient(180deg, #44a8ff 0, #f5f8fc 162px);
-}
-
-.profile-card {
-  min-height: 96px;
+.record-main {
+  min-width: 0;
   display: grid;
-  grid-template-columns: 58px 1fr 24px;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  box-sizing: border-box;
+  gap: 3px;
 
-  strong,
-  span {
-    display: block;
-  }
-
-  strong {
-    margin-bottom: 6px;
-    font-size: 20px;
-  }
-
-  span {
-    color: #6b7280;
+  small {
+    min-width: 0;
+    color: #8792a2;
     font-size: 12px;
-  }
-}
-
-.family-panel {
-  margin-top: 14px;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 12px 30px rgba(30, 64, 111, 0.08);
-}
-
-.goal-card {
-  width: 100%;
-  margin-top: 14px;
-  padding: 16px;
-  text-align: left;
-  box-sizing: border-box;
-}
-
-.goal-title,
-.goal-meta {
-  display: grid;
-  grid-template-columns: 1fr auto 16px;
-  align-items: center;
-  gap: 8px;
-}
-
-.goal-title {
-  span {
-    color: #172033;
-    font-weight: 600;
-
-    .van-icon {
-      color: #1976ff;
-      margin-right: 6px;
-    }
-  }
-
-  strong {
-    color: #556070;
-    font-size: 14px;
-  }
-}
-
-.progress-track {
-  height: 6px;
-  margin: 16px 0 12px;
-  border-radius: 999px;
-  background: #e8edf5;
-  overflow: hidden;
-
-  i {
-    display: block;
-    height: 100%;
-    min-width: 4px;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #1976ff, #1fb56b);
-  }
-}
-
-.goal-meta {
-  grid-template-columns: 1fr auto;
-  color: #6b7280;
-  font-size: 12px;
-}
-
-.settings-block {
-  margin-top: 18px;
-  padding: 14px 0;
-
-  h2 {
-    margin: -2px 16px 10px;
-    font-size: 14px;
-    color: #3f4958;
-  }
-}
-
-.setting-row {
-  width: 100%;
-  min-height: 46px;
-  padding: 0 16px;
-  display: grid;
-  grid-template-columns: 1fr auto 18px;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  border-top: 1px solid #edf1f7;
-
-  span {
-    color: #243041;
-
-    .van-icon {
-      color: #1976ff;
-      margin-right: 8px;
-    }
-  }
-
-  em {
-    color: #7d8795;
-    font-size: 13px;
-    font-style: normal;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -1732,30 +1683,113 @@ button {
   }
 }
 
-.record-actions {
-  padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
+.record-detail-popup {
+  padding: 18px 16px calc(16px + env(safe-area-inset-bottom));
+}
 
-  button {
-    width: 100%;
-    height: 48px;
-    border-radius: 8px;
-    font-weight: 600;
+.popup-title {
+  margin: 0 0 12px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+}
 
-    &:active {
+.detail-list {
+  margin-top: 6px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid #edf1f7;
+
+  &.full-width {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+
+    .value {
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 6px;
       background: #f5f8fc;
+      padding: 10px;
+      line-height: 1.5;
+      word-break: break-all;
     }
   }
 
-  .danger {
+  .label {
+    color: #3f4958;
+    font-size: 15px;
+  }
+
+  .value {
+    color: #172033;
+    font-size: 15px;
+    font-weight: 600;
+
+    .unit {
+      margin-left: 3px;
+      color: #8792a2;
+      font-size: 12px;
+      font-weight: 400;
+    }
+  }
+}
+
+.record-actions {
+  display: grid;
+  gap: 12px;
+  padding: 18px 0 0;
+}
+
+.detail-action {
+  width: 100%;
+  height: 48px;
+  border-radius: 24px;
+  color: #fff;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 10px 20px rgba(25, 118, 255, 0.2);
+
+  &.primary {
+    background: linear-gradient(135deg, #1f7dff, #0f64eb);
+  }
+
+  &.danger {
+    background: #fff1f1;
     color: #ee0a24;
+    box-shadow: inset 0 0 0 1px rgba(238, 10, 36, 0.16);
+  }
+
+  &:active {
+    transform: translateY(1px);
+    opacity: 0.88;
+  }
+}
+
+@media (max-width: 380px) {
+  .date-time-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .date-select {
+    min-height: 54px;
   }
 }
 
 .family-picker {
-  min-height: 100%;
+  height: 100%;
   background: #f5f8fc;
   display: grid;
   grid-template-rows: auto 1fr auto;
+  overflow: hidden;
 }
 
 .family-picker-header {
@@ -1779,7 +1813,7 @@ button {
 .family-picker-list {
   min-height: 0;
   overflow-y: auto;
-  padding: 10px 16px 18px;
+  padding: 10px 16px 96px;
 }
 
 .family-row {
@@ -1861,8 +1895,11 @@ button {
 }
 
 .family-picker-footer {
+  position: sticky;
+  bottom: 0;
   padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
   background: #f5f8fc;
+  box-shadow: 0 -10px 24px rgba(30, 64, 111, 0.08);
 }
 
 @media (min-width: 560px) {
