@@ -6,10 +6,11 @@ import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
 import { useRouter } from 'vue-router'
 import FamilySelector from '@/components/FamilySelector/FamilySelector.vue'
 import { preventBack } from '@/lib/router'
+import { getTimeDiffDes } from '@/lib/weight-utils'
 import { getWeightList, addWeight, updateWeight, deleteWeight, type WeightRecord } from '@/service/weight'
 import { useFamily } from '@/composables/useFamily'
 
-type TabName = 'home' | 'record' | 'stats' | 'profile'
+type TabName = 'home' | 'stats' | 'profile'
 type RangeName = 'week' | 'month' | 'year'
 
 interface ChartPoint {
@@ -31,6 +32,7 @@ const range = ref<RangeName>('week')
 const records = ref<WeightRecord[]>([])
 const loading = ref(false)
 const selectedRecord = ref<WeightRecord | null>(null)
+const showRecordPopup = ref(false)
 const showRecordActions = ref(false)
 const showTargetDialog = ref(false)
 const showHeightDialog = ref(false)
@@ -49,6 +51,7 @@ const targetWeight = useLocalStorage('weight_target_kg', 52)
 const heightCm = useLocalStorage('weight_height_cm', 162)
 
 preventBack(state, 'showCalendar')
+preventBack(showRecordPopup)
 preventBack(showRecordActions)
 preventBack(showTargetDialog)
 preventBack(showHeightDialog)
@@ -77,6 +80,10 @@ const weekRecords = computed(() => {
   const start = dayjs().subtract(6, 'day').startOf('day')
   return sortedRecords.value.filter(item => dayjs(item.date).isAfter(start) || dayjs(item.date).isSame(start))
 })
+
+const recentRecords = computed(() => sortedRecords.value.slice(0, 7))
+
+const displayRecords = computed(() => sortedRecords.value.slice(0, 30))
 
 const chartSource = computed(() => {
   const amount = range.value === 'week' ? 6 : range.value === 'month' ? 29 : 364
@@ -136,8 +143,55 @@ const statsSummary = computed(() => {
   }
 })
 
+const overviewData = computed(() => {
+  const result = []
+  const latest = latestRecord.value
+  if (!latest) return []
+
+  const lastTime = sortedRecords.value.length === 1 ? latest : sortedRecords.value[1]
+  result.push({
+    text: `与上一次比较(${getTimeDiffDes(latest.date, lastTime.date)})`,
+    ...getWeightDiffText(latest.weight, lastTime.weight)
+  })
+
+  const todayRecords = sortedRecords.value.filter(item => dayjs(item.date).isSame(dayjs(), 'day'))
+  if (todayRecords.length) {
+    const todayFirst = todayRecords[todayRecords.length - 1]
+    result.push({
+      text: `与今天首次比较(${getTimeDiffDes(latest.date, todayFirst.date)})`,
+      ...getWeightDiffText(latest.weight, todayFirst.weight)
+    })
+  }
+
+  const monthRecords = sortedRecords.value.filter(item => dayjs(item.date).isSame(dayjs(), 'month'))
+  if (monthRecords.length) {
+    const monthFirst = monthRecords[monthRecords.length - 1]
+    result.push({
+      text: `与本月首次比较(${getTimeDiffDes(latest.date, monthFirst.date)})`,
+      ...getWeightDiffText(latest.weight, monthFirst.weight)
+    })
+  }
+
+  return result
+})
+
+const homeChartPoints = computed(() => {
+  return buildChartPoints(compactChartRecords(normalizeDailyRecords(recentRecords.value), 7), 'week')
+})
+
+const homeChartLinePoints = computed(() => homeChartPoints.value.map(point => `${point.x},${point.y}`).join(' '))
+
+const homeChartAreaPoints = computed(() => buildChartAreaPoints(homeChartPoints.value, homeChartLinePoints.value))
+
 const chartPoints = computed<ChartPoint[]>(() => {
-  const source = compactChartRecords(normalizeDailyRecords(chartSource.value))
+  return buildChartPoints(compactChartRecords(normalizeDailyRecords(chartSource.value)), range.value)
+})
+
+const chartLinePoints = computed(() => chartPoints.value.map(point => `${point.x},${point.y}`).join(' '))
+
+const chartAreaPoints = computed(() => buildChartAreaPoints(chartPoints.value, chartLinePoints.value))
+
+function buildChartPoints(source: WeightRecord[], chartRange: RangeName) {
   if (!source.length) return []
 
   const values = source.map(item => item.weight)
@@ -158,31 +212,28 @@ const chartPoints = computed<ChartPoint[]>(() => {
     const y = topOffset + ((top - item.weight) / (top - bottom || 1)) * usableHeight
     return {
       date: dayjs(item.date).format('YYYY-MM-DD'),
-      label: dayjs(item.date).format(range.value === 'year' ? 'M月' : 'M/D'),
+      label: dayjs(item.date).format(chartRange === 'year' ? 'M月' : 'M/D'),
       value: item.weight,
       x,
       y,
       highlight: item.weight === max ? 'high' : item.weight === min ? 'low' : undefined
     }
   })
-})
+}
 
-const chartLinePoints = computed(() => chartPoints.value.map(point => `${point.x},${point.y}`).join(' '))
-
-const chartAreaPoints = computed(() => {
-  if (!chartPoints.value.length) return ''
-  const first = chartPoints.value[0]
-  const last = chartPoints.value[chartPoints.value.length - 1]
-  return `${first.x},112 ${chartLinePoints.value} ${last.x},112`
-})
+function buildChartAreaPoints(points: ChartPoint[], linePoints: string) {
+  if (!points.length) return ''
+  const first = points[0]
+  const last = points[points.length - 1]
+  return `${first.x},112 ${linePoints} ${last.x},112`
+}
 
 const canSaveRecord = computed(() => Number(state.weightInput) > 0)
 
 const tabItems: Array<{ name: TabName, text: string, icon: string }> = [
   { name: 'home', text: '首页', icon: 'wap-home-o' },
-  { name: 'record', text: '记录', icon: 'notes-o' },
   { name: 'stats', text: '统计', icon: 'bar-chart-o' },
-  { name: 'profile', text: '我的', icon: 'manager-o' }
+  // { name: 'profile', text: '我的', icon: 'manager-o' }
 ]
 
 const keypadItems = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back']
@@ -208,6 +259,21 @@ function normalizeWeight(value: number) {
 
 function formatRecordWeight(weight: number, digits = 1) {
   return formatNumber(displayWeight(weight), digits)
+}
+
+function getWeightDiffText(current: number, previous: number) {
+  const diff = current - previous
+  if (diff === 0) {
+    return {
+      symbol: '',
+      res: '无变化'
+    }
+  }
+
+  return {
+    symbol: diff > 0 ? 'inc' : 'dec',
+    res: `${formatRecordWeight(Math.abs(diff), 2)} ${isKG.value ? 'kg' : '斤'}`
+  }
 }
 
 function formatRecordDate(date: string | Date) {
@@ -238,12 +304,12 @@ function normalizeDailyRecords(source: WeightRecord[]) {
   return Array.from(daily.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 }
 
-function compactChartRecords(source: WeightRecord[]) {
-  const maxPoints = range.value === 'week' ? 7 : 8
+function compactChartRecords(source: WeightRecord[], limit?: number) {
+  const maxPoints = limit || (range.value === 'week' ? 7 : 8)
   if (source.length <= maxPoints) return source
 
   const step = (source.length - 1) / (maxPoints - 1)
-  return Array.from({ length: maxPoints }, (_, index) => source[Math.round(index * step)]).filter(Boolean)
+  return Array.from({ length: maxPoints }, (_, index) => source[Math.round(index * step)]).filter((item): item is WeightRecord => Boolean(item))
 }
 
 async function loadRecords() {
@@ -272,8 +338,8 @@ function openRecord(record?: WeightRecord) {
   state.editRecordId = record?._id || ''
   state.date = dayjs(record?.date || new Date()).format('YYYY/MM/DD')
   state.tips = record?.tips || ''
-  state.weightInput = target ? formatNumber(displayWeight(target.weight), 1) : ''
-  activeTab.value = 'record'
+  state.weightInput = target ? formatNumber(displayWeight(target.weight), 1) : '50.0'
+  showRecordPopup.value = true
   nextTick(() => {
     window.scrollTo({ top: 0 })
   })
@@ -326,6 +392,7 @@ async function saveRecord() {
     state.editRecordId = ''
     state.tips = ''
     await loadRecords()
+    showRecordPopup.value = false
     activeTab.value = 'home'
   } catch (error) {
     console.error(error)
@@ -421,6 +488,8 @@ onMounted(async () => {
       </header>
 
       <main class="home-content">
+        <FamilySelector v-model="currentFamilyId" :active-color="themeColor" class="family-panel home-family-panel" />
+
         <div class="metric-grid">
           <article class="metric-card current-card">
             <div class="metric-title">
@@ -429,8 +498,7 @@ onMounted(async () => {
             </div>
             <strong>{{ currentWeightText }}</strong>
             <p>
-              距离目标
-              <span>{{ formatRecordWeight(distanceToTarget, 1) }}</span>
+              {{ latestRecord ? formatFullDate(latestRecord.date) : '暂无记录' }}
             </p>
           </article>
 
@@ -448,12 +516,21 @@ onMounted(async () => {
           <span>记录今日体重</span>
         </button>
 
+        <article v-if="overviewData.length" class="panel overview-panel">
+          <p v-for="(item, index) in overviewData" :key="index" class="overview-row">
+            <span>{{ item.text }}</span>
+            <strong :class="item.symbol">{{ item.res }}</strong>
+          </p>
+        </article>
+
         <article class="panel trend-panel">
           <div class="panel-header">
             <h2>最近7天趋势</h2>
-            <span>单位：{{ isKG ? 'kg' : '斤' }}</span>
+            <button class="unit-switch" type="button" @click="isKG = !isKG">
+              {{ isKG ? 'kg' : '斤' }}
+            </button>
           </div>
-          <div v-if="chartPoints.length" class="mini-chart">
+          <div v-if="homeChartPoints.length" class="mini-chart">
             <svg viewBox="0 0 300 128" role="img" aria-label="最近体重趋势图">
               <defs>
                 <linearGradient id="weightFill" x1="0" x2="0" y1="0" y2="1">
@@ -462,9 +539,9 @@ onMounted(async () => {
                 </linearGradient>
               </defs>
               <line v-for="line in [36, 62, 88]" :key="line" x1="18" x2="286" :y1="line" :y2="line" class="grid-line" />
-              <polygon :points="chartAreaPoints" fill="url(#weightFill)" />
-              <polyline :points="chartLinePoints" class="trend-line" />
-              <g v-for="point in chartPoints" :key="point.date">
+              <polygon :points="homeChartAreaPoints" fill="url(#weightFill)" />
+              <polyline :points="homeChartLinePoints" class="trend-line" />
+              <g v-for="point in homeChartPoints" :key="point.date">
                 <circle :cx="point.x" :cy="point.y" r="4" class="point-dot" />
                 <text :x="point.x" :y="point.y - 10" class="point-label" text-anchor="middle">
                   {{ formatRecordWeight(point.value, 1) }}
@@ -495,62 +572,19 @@ onMounted(async () => {
             <em>{{ isKG ? 'kg' : '斤' }}</em>
           </article>
         </div>
-      </main>
-    </section>
 
-    <section v-else-if="activeTab === 'record'" class="screen record-screen safe-padding-top">
-      <header class="page-header">
-        <button class="plain-icon dark" type="button" aria-label="返回首页" @click="activeTab = 'home'">
-          <van-icon name="arrow-left" />
-        </button>
-        <h1>{{ state.editRecordId ? '修改体重' : '记录体重' }}</h1>
-        <button class="plain-icon dark" type="button" aria-label="切换单位" @click="isKG = !isKG">
-          <van-icon name="exchange" />
-        </button>
-      </header>
-
-      <main class="record-content">
-        <div class="field-label">选择日期</div>
-        <button class="date-select" type="button" @click="state.showCalendar = true">
-          <van-icon name="calendar-o" />
-          <span>{{ formatFullDate(dayjs(state.date, 'YYYY/MM/DD').toDate()) }}</span>
-          <em>{{ todayLabel }}</em>
-          <van-icon name="arrow-down" />
-        </button>
-
-        <div class="record-value">
-          <strong>{{ state.weightInput || '0' }}</strong>
-          <span>{{ isKG ? 'kg' : '斤' }}</span>
-        </div>
-
-        <div class="weight-scale" aria-hidden="true">
-          <span v-for="tick in 23" :key="tick" :class="{ major: tick % 5 === 0 }"></span>
-        </div>
-        <div class="scale-labels">
-          <span>{{ isKG ? '55.5' : '111' }}</span>
-          <span>{{ isKG ? '56.0' : '112' }}</span>
-          <span>{{ isKG ? '56.5' : '113' }}</span>
-          <span>{{ isKG ? '57.0' : '114' }}</span>
-          <span>{{ isKG ? '57.5' : '115' }}</span>
-          <span>{{ isKG ? '58.0' : '116' }}</span>
-        </div>
-
-        <div class="keypad">
-          <button v-for="key in keypadItems" :key="key" type="button" @click="handleKeypadTap(key)">
-            <van-icon v-if="key === 'back'" name="clear" />
-            <span v-else>{{ key }}</span>
+        <article class="record-list-panel home-record-panel">
+          <div class="panel-header">
+            <h2>体重记录（{{ isKG ? 'kg' : '斤' }}）</h2>
+            <span>最近 {{ displayRecords.length }} 条</span>
+          </div>
+          <van-empty v-if="displayRecords.length === 0 && !loading" description="暂无记录" />
+          <button v-for="record in displayRecords" :key="record._id || String(record.date)" class="record-row" type="button" @click="openRecordAction(record)">
+            <span>{{ formatRecordDate(record.date) }} <em>{{ formatRecordWeekday(record.date) }}</em></span>
+            <strong>{{ formatRecordWeight(record.weight, 2) }} {{ isKG ? 'kg' : '斤' }}</strong>
+            <van-icon name="arrow" />
           </button>
-        </div>
-
-        <label class="note-box">
-          <span>备注（可选）</span>
-          <textarea v-model="state.tips" maxlength="100" rows="3" placeholder="记录一下今天的状态吧..." />
-          <em>{{ state.tips.length }}/100</em>
-        </label>
-
-        <button class="save-button" type="button" :disabled="!canSaveRecord" @click="saveRecord">
-          保存记录
-        </button>
+        </article>
       </main>
     </section>
 
@@ -702,6 +736,64 @@ onMounted(async () => {
       @confirm="handleCalendarConfirm"
     />
 
+    <van-popup v-model:show="showRecordPopup" position="bottom" round :style="{ height: '92%' }">
+      <section class="record-popup-sheet">
+        <header class="page-header">
+          <button class="plain-icon dark" type="button" aria-label="关闭弹窗" @click="showRecordPopup = false">
+            <van-icon name="arrow-left" />
+          </button>
+          <h1>{{ state.editRecordId ? '修改体重' : '记录体重' }}</h1>
+          <button class="plain-icon dark" type="button" aria-label="切换单位" @click="isKG = !isKG">
+            <van-icon name="exchange" />
+          </button>
+        </header>
+
+        <main class="record-content">
+          <div class="field-label">选择日期</div>
+          <button class="date-select" type="button" @click="state.showCalendar = true">
+            <van-icon name="calendar-o" />
+            <span>{{ formatFullDate(dayjs(state.date, 'YYYY/MM/DD').toDate()) }}</span>
+            <em>{{ todayLabel }}</em>
+            <van-icon name="arrow-down" />
+          </button>
+
+          <div class="record-value">
+            <strong>{{ state.weightInput || '0' }}</strong>
+            <span>{{ isKG ? 'kg' : '斤' }}</span>
+          </div>
+
+          <div class="weight-scale" aria-hidden="true">
+            <span v-for="tick in 23" :key="tick" :class="{ major: tick % 5 === 0 }"></span>
+          </div>
+          <div class="scale-labels">
+            <span>{{ isKG ? '55.5' : '111' }}</span>
+            <span>{{ isKG ? '56.0' : '112' }}</span>
+            <span>{{ isKG ? '56.5' : '113' }}</span>
+            <span>{{ isKG ? '57.0' : '114' }}</span>
+            <span>{{ isKG ? '57.5' : '115' }}</span>
+            <span>{{ isKG ? '58.0' : '116' }}</span>
+          </div>
+
+          <div class="keypad">
+            <button v-for="key in keypadItems" :key="key" type="button" @click="handleKeypadTap(key)">
+              <van-icon v-if="key === 'back'" name="clear" />
+              <span v-else>{{ key }}</span>
+            </button>
+          </div>
+
+          <label class="note-box">
+            <span>备注（可选）</span>
+            <textarea v-model="state.tips" maxlength="100" rows="3" placeholder="记录一下今天的状态吧..." />
+            <em>{{ state.tips.length }}/100</em>
+          </label>
+
+          <button class="save-button" type="button" :disabled="!canSaveRecord" @click="saveRecord">
+            保存记录
+          </button>
+        </main>
+      </section>
+    </van-popup>
+
     <van-action-sheet v-model:show="showRecordActions" title="体重记录">
       <div class="record-actions">
         <button type="button" @click="editSelectedRecord">编辑记录</button>
@@ -802,6 +894,10 @@ button {
 .home-content {
   padding: 0 16px 24px;
   margin-top: -34px;
+}
+
+.home-family-panel {
+  margin: 0 0 12px;
 }
 
 .metric-grid {
@@ -921,6 +1017,41 @@ button {
   margin-top: 14px;
 }
 
+.overview-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.overview-row {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #556070;
+  font-size: 13px;
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    white-space: nowrap;
+    color: #64748b;
+
+    &.inc {
+      color: #f04438;
+    }
+
+    &.dec {
+      color: #16a34a;
+    }
+  }
+}
+
 .panel-header {
   display: flex;
   align-items: center;
@@ -937,6 +1068,16 @@ button {
     color: #6b7280;
     font-size: 12px;
   }
+}
+
+.unit-switch {
+  min-width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #1976ff;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .mini-chart,
@@ -1045,6 +1186,13 @@ button {
 .stats-content,
 .profile-content {
   padding: 12px 16px 24px;
+}
+
+.record-popup-sheet {
+  min-height: 100%;
+  background: #f5f8fc;
+  padding-top: env(safe-area-inset-top);
+  box-sizing: border-box;
 }
 
 .field-label {
@@ -1416,7 +1564,7 @@ button {
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.96);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   z-index: 5;
   box-sizing: border-box;
