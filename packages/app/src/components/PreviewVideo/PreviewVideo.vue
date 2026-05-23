@@ -474,7 +474,7 @@ const menus = computed(() => {
   display: flex;
   flex-direction: column;
   transition: background-color 0.3s ease;
-  --video-chrome-bg: rgba(255, 255, 255, 0.96);
+  --video-chrome-bg: #fff;
   --video-chrome-text: #20242b;
   --video-chrome-subtext: #7d8795;
 }
@@ -548,7 +548,7 @@ const menus = computed(() => {
     right: 0;
     z-index: 10;
     pointer-events: none; // 让点击穿透，除非点在子元素上
-    background: linear-gradient(180deg, var(--video-chrome-bg) 0%, rgba(255, 255, 255, 0.86) 76%, rgba(255, 255, 255, 0));
+    background: var(--video-chrome-bg);
     box-sizing: border-box;
 }
 
@@ -557,16 +557,14 @@ const menus = computed(() => {
 }
 
 .cover-header {
-  min-height: 58px;
-  padding: 10px 12px 12px;
+  padding: 10px;
   transition: all 0.5s ease;
-  background: var(--video-chrome-bg);
+  background: transparent;
   color: var(--video-chrome-text);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   backdrop-filter: blur(12px);
-  box-shadow: 0 1px 0 rgba(17, 24, 39, 0.06);
 
   .header-left {
       display: flex;
