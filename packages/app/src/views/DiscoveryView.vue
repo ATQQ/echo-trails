@@ -61,10 +61,11 @@
 <script setup lang="ts">
 import { checkLogin } from '@/service';
 import { showToast, showConfirmDialog } from 'vant';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFooterStore } from '@/stores/footer';
 import { useScrollRestore } from '@/composables/useScrollRestore';
+import { useLocalStorage } from '@vueuse/core';
 
 defineOptions({
   name: 'DiscoveryView'
@@ -76,6 +77,7 @@ useScrollRestore(scrollContainer)
 const router = useRouter();
 const footerStore = useFooterStore();
 const showEditFooter = ref(false);
+const useLegacyWeightEntry = useLocalStorage('use_legacy_weight_entry', false);
 
 onMounted(() => {
   checkLogin().then((res) => {
@@ -106,9 +108,13 @@ interface AppItem {
   url?: string;
 }
 
-const healthApps = ref<AppItem[]>([
-  { text: '新版体重', icon: 'chart-trending-o', color: '#1976ff', url: '/weight-tracker' },
-  { text: '体重记录', icon: 'chart-trending-o', color: '#1989fa', url: '/weight-record' },
+const healthApps = computed<AppItem[]>(() => [
+  {
+    text: '体重记录',
+    icon: 'chart-trending-o',
+    color: useLegacyWeightEntry.value ? '#1989fa' : '#1976ff',
+    url: useLegacyWeightEntry.value ? '/weight-record' : '/weight-tracker'
+  },
   { text: '血压监测', icon: 'like-o', color: '#ee0a24', url: '/blood-pressure' },
 ]);
 

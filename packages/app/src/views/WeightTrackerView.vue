@@ -165,7 +165,7 @@ const overviewData = computed(() => {
 })
 
 const homeChartPoints = computed(() => {
-  return buildChartPoints(compactChartRecords(normalizeDailyRecords(homeTrendRecords.value), 7), 'day')
+  return buildChartPoints([...homeTrendRecords.value].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), 'day')
 })
 
 const homeChartLinePoints = computed(() => homeChartPoints.value.map(point => `${point.x},${point.y}`).join(' '))
@@ -379,9 +379,12 @@ async function fetchRangeRecords(startTime: number, endTime: number) {
 }
 
 async function loadHomeTrendRecords() {
-  const startTime = dayjs().subtract(6, 'day').startOf('day').valueOf()
-  const endTime = dayjs().endOf('day').valueOf()
-  homeTrendRecords.value = await fetchRangeRecords(startTime, endTime)
+  const res = await getWeightList(currentFamilyId.value, 1, 20)
+  if (res.code === 0) {
+    homeTrendRecords.value = res.data
+    return
+  }
+  homeTrendRecords.value = []
 }
 
 async function loadStatsRecords() {
@@ -715,13 +718,13 @@ onMounted(async () => {
 
         <article class="panel trend-panel">
           <div class="panel-header">
-            <h2>最近7天趋势</h2>
+            <h2>最近20条趋势</h2>
             <button class="unit-switch" type="button" @click="isKG = !isKG">
               {{ isKG ? 'kg' : '斤' }}
             </button>
           </div>
           <div v-if="homeChartPoints.length" class="mini-chart">
-            <svg viewBox="0 0 300 128" role="img" aria-label="最近体重趋势图">
+            <svg viewBox="0 0 300 128" role="img" aria-label="最近20条体重趋势图">
               <defs>
                 <linearGradient id="weightFill" x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stop-color="#1976ff" stop-opacity="0.18" />
@@ -1362,28 +1365,39 @@ button {
   }
 }
 
-.record-content,
 .stats-content {
   padding: 12px 16px 24px;
 }
 
-.record-popup-sheet {
-  min-height: 100%;
-  background: #f5f8fc;
-  padding-top: env(safe-area-inset-top);
+.record-content {
+  min-height: 0;
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
+.record-popup-sheet {
+  height: 100%;
+  background: #f5f8fc;
+  padding-top: env(safe-area-inset-top);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .field-label {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: #3f4958;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .date-select {
   width: 100%;
   min-width: 0;
-  min-height: 58px;
+  min-height: 50px;
   border: 1px solid #dce5ef;
   border-radius: 8px;
   background: #fff;
@@ -1392,7 +1406,7 @@ button {
   grid-template-columns: 24px minmax(0, 1fr) 20px;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   box-sizing: border-box;
   text-align: left;
 
@@ -1407,7 +1421,7 @@ button {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     line-height: 1.2;
   }
@@ -1442,7 +1456,7 @@ button {
 }
 
 .record-value {
-  margin: 24px 0 16px;
+  margin: 10px 0 8px;
   display: flex;
   align-items: baseline;
   justify-content: center;
@@ -1450,7 +1464,7 @@ button {
 
   strong {
     color: #1976ff;
-    font-size: clamp(64px, 20vw, 88px);
+    font-size: clamp(48px, 15vh, 76px);
     line-height: 1;
     font-family: "DIN Alternate", sans-serif;
 
@@ -1469,7 +1483,7 @@ button {
 
 .weight-scale {
   position: relative;
-  height: 36px;
+  height: 32px;
   margin: 0 auto;
   border-radius: 18px;
   background: linear-gradient(180deg, #f6faff, #eef5ff);
@@ -1531,7 +1545,7 @@ button {
   align-items: end;
   justify-content: center;
   gap: 7px;
-  padding-bottom: 8px;
+  padding-bottom: 7px;
   box-sizing: border-box;
   transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1541,7 +1555,7 @@ button {
   left: 50%;
   bottom: 6px;
   width: 2px;
-  height: 24px;
+  height: 22px;
   border-radius: 999px;
   background: #1976ff;
   transform: translateX(-50%);
@@ -1550,7 +1564,7 @@ button {
 }
 
 .scale-hint {
-  margin: 7px 0 5px;
+  margin: 4px 0 2px;
   color: #7d8795;
   font-size: 11px;
   text-align: center;
@@ -1562,16 +1576,16 @@ button {
   color: #556070;
   font-size: 11px;
   text-align: center;
-  margin: 4px 0 20px;
+  margin: 2px 0 8px;
 }
 
 .keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 6px;
 
   button {
-    height: 52px;
+    height: clamp(38px, 7vh, 48px);
     border: 1px solid #dfe7f1;
     border-radius: 8px;
     background: #fff;
@@ -1587,22 +1601,23 @@ button {
 
 .note-box {
   display: block;
-  margin-top: 18px;
+  margin-top: 8px;
+  min-height: 0;
 
   span {
     display: block;
-    margin-bottom: 8px;
-    font-size: 13px;
+    margin-bottom: 5px;
+    font-size: 12px;
     color: #3f4958;
   }
 
   textarea {
     width: 100%;
-    min-height: 78px;
+    min-height: clamp(44px, 10vh, 64px);
     border: 1px solid #dce5ef;
     border-radius: 8px;
     resize: none;
-    padding: 12px;
+    padding: 9px 10px;
     box-sizing: border-box;
     outline: none;
     color: #172033;
@@ -1619,6 +1634,12 @@ button {
     font-style: normal;
     pointer-events: none;
   }
+}
+
+.record-popup-sheet .save-button {
+  height: 46px;
+  margin: 10px 0 0;
+  flex: none;
 }
 
 .range-tabs {

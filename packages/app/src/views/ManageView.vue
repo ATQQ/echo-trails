@@ -60,6 +60,7 @@ const appVersion = ref(version);
 const clickVersionCount = ref(0);
 let clickTimer: any = null;
 const showDebugMenu = ref(false);
+const useLegacyWeightEntry = useLocalStorage('use_legacy_weight_entry', false);
 preventBack(showDebugMenu);
 
 const handleVersionClick = () => {
@@ -330,19 +331,24 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
       </div>
       <div class="debug-menu-content">
         <van-cell-group inset>
-          <van-cell title="原生 S3 上传 Token" label="开启后在客户端内直接生成 S3 预签名 URL（需要配置了云端环境）">
+          <van-cell v-if="isTauri && !isLocalMode()" title="原生 S3 上传 Token" label="开启后在客户端内直接生成 S3 预签名 URL（需要配置了云端环境）">
             <template #right-icon>
               <van-switch v-model="isNativeUploadTokenEnabled" size="20" />
             </template>
           </van-cell>
-          <van-cell title="图片缓存角标" label="在图片左上角显示「缓存」标识并支持点击删除单张缓存">
+          <van-cell v-if="isTauri" title="图片缓存角标" label="在图片左上角显示「缓存」标识并支持点击删除单张缓存">
             <template #right-icon>
               <van-switch v-model="isCacheDebugMode" size="20" />
             </template>
           </van-cell>
-          <van-cell title="禁用图片缓存" label="强制所有图片从网络加载，不读取也不写入本地缓存">
+          <van-cell v-if="isTauri" title="禁用图片缓存" label="强制所有图片从网络加载，不读取也不写入本地缓存">
             <template #right-icon>
               <van-switch v-model="isCacheDisabled" size="20" />
+            </template>
+          </van-cell>
+          <van-cell title="旧版体重入口" label="开启后健康管理里的「体重记录」进入旧版页面">
+            <template #right-icon>
+              <van-switch v-model="useLegacyWeightEntry" size="20" />
             </template>
           </van-cell>
         </van-cell-group>
