@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router';
+import { type RouteLocationNormalizedLoaded, useRoute } from 'vue-router';
 import FooterNav from '@/components/FooterNav/FooterNav.vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { showToast } from 'vant';
@@ -21,6 +21,13 @@ const showNav = computed(() => route.meta.nav === true)
 const isSwipePage = computed(() => ['/home', '/'].includes(route.path))
 const isAlbumScrolled = ref(false)
 const showAlbumBlur = computed(() => route.path === '/' && isAlbumScrolled.value)
+const getRouteViewKey = (viewRoute: RouteLocationNormalizedLoaded) => {
+  if (viewRoute.matched.some(record => record.path === '/asset')) {
+    return 'asset-layout'
+  }
+
+  return ['/home', '/'].includes(viewRoute.path) ? 'main-layout' : viewRoute.fullPath
+}
 
 const handleAlbumScrollState = (event: Event) => {
   const detail = (event as CustomEvent<{ isScrolled?: boolean }>).detail
@@ -160,7 +167,7 @@ onBeforeUnmount(() => {
     <router-view v-slot="{ Component, route }">
       <transition :name="showNav ? '' : 'van-fade'" mode="out-in">
         <KeepAlive :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
-          <component :is="isSwipePage ? MainLayout : Component" :key="isSwipePage ? 'main-layout' : route.fullPath"></component>
+          <component :is="isSwipePage ? MainLayout : Component" :key="getRouteViewKey(route)"></component>
         </KeepAlive>
       </transition>
     </router-view>
