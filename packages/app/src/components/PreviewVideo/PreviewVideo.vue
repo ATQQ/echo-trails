@@ -5,8 +5,8 @@
         :show-indicators="false">
         <van-swipe-item v-for="(item, index) in images" :key="item._id" class="video-swipe-item">
           <div class="video-wrapper">
-            <video v-if="shouldRender(index)" :ref="(el) => setVideoRef(el, index)" controls playsinline webkit-playsinline class="video-player"
-              :poster="item.cover" @click.stop="handleVideoClick">
+            <video v-if="shouldRender(index)" :ref="(el) => setVideoRef(el, index)" :controls="!showMoreOperate" playsinline webkit-playsinline class="video-player"
+              :poster="item.cover" @click.stop="handleVideoTap" @pointerup.stop="handleVideoTap">
               <source :src="item.url" :type="item.type || 'video/mp4'">
               您的浏览器不支持视频播放。
             </video>
@@ -18,7 +18,8 @@
         class="video-tap-layer"
         type="button"
         aria-label="隐藏视频工具栏"
-        @click.stop="hideControls"
+        @click.stop="handleVideoTap"
+        @pointerup.stop="handleVideoTap"
       ></button>
 
       <!-- 顶部操作栏 -->
@@ -124,6 +125,7 @@ const swipeRef = ref()
 const showMoreOperate = ref(true)
 const showSpeedSheet = ref(false)
 const playbackRate = ref(1)
+const lastVideoTapAt = ref(0)
 const videoRefs = new Map<number, HTMLVideoElement>()
 preventBack(showSpeedSheet)
 
@@ -158,8 +160,15 @@ const showControls = () => {
   showMoreOperate.value = true
 }
 
-const handleVideoClick = () => {
-  if (showMoreOperate.value) return
+const handleVideoTap = () => {
+  const now = Date.now()
+  if (now - lastVideoTapAt.value < 180) return
+  lastVideoTapAt.value = now
+
+  if (showMoreOperate.value) {
+    hideControls()
+    return
+  }
   showControls()
 }
 
@@ -465,9 +474,9 @@ const menus = computed(() => {
   display: flex;
   flex-direction: column;
   transition: background-color 0.3s ease;
-  --video-chrome-bg: rgba(0, 0, 0, 0.58);
-  --video-chrome-text: #fff;
-  --video-chrome-subtext: rgba(255, 255, 255, 0.72);
+  --video-chrome-bg: rgba(255, 255, 255, 0.96);
+  --video-chrome-text: #20242b;
+  --video-chrome-subtext: #7d8795;
 }
 
 .video-preview-container {
@@ -539,7 +548,7 @@ const menus = computed(() => {
     right: 0;
     z-index: 10;
     pointer-events: none; // 让点击穿透，除非点在子元素上
-    background: linear-gradient(180deg, var(--video-chrome-bg), rgba(0, 0, 0, 0));
+    background: linear-gradient(180deg, var(--video-chrome-bg) 0%, rgba(255, 255, 255, 0.86) 76%, rgba(255, 255, 255, 0));
     box-sizing: border-box;
 }
 
@@ -557,6 +566,7 @@ const menus = computed(() => {
   justify-content: space-between;
   align-items: flex-start;
   backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(17, 24, 39, 0.06);
 
   .header-left {
       display: flex;
