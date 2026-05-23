@@ -1,37 +1,32 @@
 <template>
-  <van-overlay :show="show" @click="close" :class="['video-preview-overlay', { 'white-bg': showMoreOperate }]" z-index="2000">
-    <div class="video-preview-container" @click.stop="toggleControls">
+  <van-overlay :show="show" @click="close" :class="['video-preview-overlay', { 'chrome-visible': showMoreOperate }]" z-index="2000">
+    <div class="video-preview-container" @click.stop>
       <van-swipe ref="swipeRef" :initial-swipe="start" @change="onChange" :loop="false" class="video-swipe"
         :show-indicators="false">
         <van-swipe-item v-for="(item, index) in images" :key="item._id" class="video-swipe-item">
           <div class="video-wrapper">
-            <!-- 阻止点击冒泡到 container，避免与 toggleControls 冲突，或者让 container 处理 -->
-            <!-- 这里 video 使用 controls，点击 video 内部可能会被原生控件拦截。
-                 为了能切换 UI 显隐，我们可以在 video 上层放一个透明遮罩，或者依赖点击空白处。
-                 但在移动端，点击 video 往往是播放/暂停。
-                 策略：点击 video 区域不做处理（交给原生控件或 video 自身交互），
-                 点击非 video 区域（如果 video 没填满）切换 UI。
-                 或者：接受点击 video 可能会导致 UI 切换不灵敏。
-
-                 PreviewImage 是通过监听 touch 事件来判断点击的。
-
-                 这里简化处理：点击 container 切换。
-            -->
-            <video v-if="shouldRender(index)" controls playsinline webkit-playsinline class="video-player"
-              :poster="item.cover" @click.stop>
+            <video v-if="shouldRender(index)" :ref="(el) => setVideoRef(el, index)" controls playsinline webkit-playsinline class="video-player"
+              :poster="item.cover" @click.stop="handleVideoClick">
               <source :src="item.url" :type="item.type || 'video/mp4'">
               您的浏览器不支持视频播放。
             </video>
           </div>
         </van-swipe-item>
       </van-swipe>
+      <button
+        v-show="showMoreOperate"
+        class="video-tap-layer"
+        type="button"
+        aria-label="隐藏视频工具栏"
+        @click.stop="hideControls"
+      ></button>
 
       <!-- 顶部操作栏 -->
       <transition name="slide-down">
         <div v-show="showMoreOperate" class="cover-wrapper safe-padding-top" @click.stop>
-          <header class="cover-header" @click="close">
+          <header class="cover-header">
             <div class="header-left">
-                <van-icon name="arrow-left" size="24" class="back-icon" />
+                <van-icon name="arrow-left" size="24" class="back-icon" @click.stop="close" />
                 <div class="header-text">
                     <h3>
                       {{ coverDate }}
@@ -86,6 +81,15 @@
         </div>
       </transition>
 
+      <van-action-sheet
+        v-model:show="showSpeedSheet"
+        title="播放速度"
+        :actions="speedActions"
+        cancel-text="取消"
+        close-on-click-action
+        @select="handleSpeedSelect"
+      />
+
       <!-- 选择相册 -->
       <SelectAlbumModal v-model:show="showAlbumSelect" @save="handleSaveAlbumSelect" :current-album-id="album?._id"
         :selected="selectedAlbums" />
@@ -100,10 +104,11 @@ import { downloadFile, formatSize, generateDownloadFileName } from '@/lib/file';
 import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
 import dayjs from 'dayjs';
 import { showConfirmDialog, showNotify, showLoadingToast, closeToast } from 'vant';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import BottomActions from '../BottomActions/BottomActions.vue';
+import { preventBack } from '@/lib/router';
 
 const props = defineProps<{
   images: any[]
@@ -117,6 +122,10 @@ const show = defineModel("show", { type: Boolean, default: false })
 const currentIdx = ref(props.start || 0)
 const swipeRef = ref()
 const showMoreOperate = ref(true)
+const showSpeedSheet = ref(false)
+const playbackRate = ref(1)
+const videoRefs = new Map<number, HTMLVideoElement>()
+preventBack(showSpeedSheet)
 
 watch(() => props.start, (val) => {
   currentIdx.value = val || 0
@@ -134,11 +143,60 @@ const shouldRender = (index: number) => {
 const onChange = (index: number) => {
   currentIdx.value = index
   editMode.value = false
-  // 切换视频时，最好重置UI显示状态或保持不变，这里保持不变
+  showInfoDetail.value = false
+  editMode.value = false
+  nextTick(() => applyPlaybackRate())
 }
 
-const toggleControls = () => {
-    showMoreOperate.value = !showMoreOperate.value
+const hideControls = () => {
+  showMoreOperate.value = false
+  showInfoDetail.value = false
+  editMode.value = false
+}
+
+const showControls = () => {
+  showMoreOperate.value = true
+}
+
+const handleVideoClick = () => {
+  if (showMoreOperate.value) return
+  showControls()
+}
+
+const setVideoRef = (el: Element | any, index: number) => {
+  if (el instanceof HTMLVideoElement) {
+    videoRefs.set(index, el)
+    el.playbackRate = playbackRate.value
+    return
+  }
+  videoRefs.delete(index)
+}
+
+const activeVideo = () => videoRefs.get(currentIdx.value)
+
+const applyPlaybackRate = () => {
+  const video = activeVideo()
+  if (video) {
+    video.playbackRate = playbackRate.value
+  }
+}
+
+const openSpeedSheet = () => {
+  showSpeedSheet.value = true
+  showMoreOperate.value = true
+}
+
+const speedActions = computed(() => {
+  return [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3].map(rate => ({
+    name: rate === 1 ? '正常速度' : `${rate}x`,
+    value: rate,
+    color: playbackRate.value === rate ? '#1989fa' : undefined
+  }))
+})
+
+const handleSpeedSelect = (action: { value: number }) => {
+  playbackRate.value = action.value
+  applyPlaybackRate()
 }
 
 const activeItem = computed(() => props.images[currentIdx.value] || {})
@@ -290,10 +348,16 @@ const downloadImage = () => {
 }
 
 const close = () => {
+  showSpeedSheet.value = false
   show.value = false
 }
 
 onBeforeRouteLeave((to, from, next) => {
+  if (showSpeedSheet.value) {
+    showSpeedSheet.value = false
+    next(false)
+    return false
+  }
   if (showAlbumSelect.value) {
     showAlbumSelect.value = false
     next(false)
@@ -308,8 +372,16 @@ onBeforeRouteLeave((to, from, next) => {
 })
 
 const menus = computed(() => {
+  const speedMenu = {
+    icon: 'clock-o',
+    text: playbackRate.value === 1 ? '倍速' : `${playbackRate.value}x`,
+    handleClick: openSpeedSheet,
+    color: playbackRate.value === 1 ? undefined : '#1989fa'
+  }
+
   if (props.isDelete) {
     return [
+      speedMenu,
       {
         icon: 'replay',
         text: '恢复',
@@ -323,6 +395,7 @@ const menus = computed(() => {
     ]
   }
   return [
+    speedMenu,
     // {
     //   icon: activeItem.value.isLiked ? 'like' : 'like-o',
     //   text: '我喜欢',
@@ -392,12 +465,9 @@ const menus = computed(() => {
   display: flex;
   flex-direction: column;
   transition: background-color 0.3s ease;
-  --van-image-preview-overlay-background: rgba(0,0,0,0.5); // 默认半透明黑
-
-  &.white-bg {
-      background-color: #fff;
-      --van-image-preview-overlay-background: #fff; // 激活时为白
-  }
+  --video-chrome-bg: rgba(0, 0, 0, 0.58);
+  --video-chrome-text: #fff;
+  --video-chrome-subtext: rgba(255, 255, 255, 0.72);
 }
 
 .video-preview-container {
@@ -440,6 +510,7 @@ const menus = computed(() => {
 }
 
 .video-wrapper {
+  position: relative;
   width: 100%;
   height: 100%;
   display: flex;
@@ -453,6 +524,14 @@ const menus = computed(() => {
   width: 100%;
 }
 
+.video-tap-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: pointer;
+  background: transparent;
+}
+
 .cover-wrapper {
     position: absolute;
     top: 0;
@@ -460,6 +539,8 @@ const menus = computed(() => {
     right: 0;
     z-index: 10;
     pointer-events: none; // 让点击穿透，除非点在子元素上
+    background: linear-gradient(180deg, var(--video-chrome-bg), rgba(0, 0, 0, 0));
+    box-sizing: border-box;
 }
 
 .cover-wrapper > * {
@@ -467,33 +548,37 @@ const menus = computed(() => {
 }
 
 .cover-header {
-  padding: 10px;
+  min-height: 58px;
+  padding: 10px 12px 12px;
   transition: all 0.5s ease;
-  background: var(--van-image-preview-overlay-background); // 保持一致
-  color: #333; // 白色背景下文字改为深色
+  background: var(--video-chrome-bg);
+  color: var(--video-chrome-text);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  backdrop-filter: blur(12px);
 
   .header-left {
       display: flex;
       align-items: center;
+      min-width: 0;
       .back-icon {
           padding: 10px 10px 10px 0;
           margin-right: 5px;
-          color: #333;
+          color: var(--video-chrome-text);
       }
       .header-text {
+          min-width: 0;
           h3 {
             margin: 0;
             font-size: 16px;
             font-weight: 500;
-            color: #333;
+            color: var(--video-chrome-text);
 
             .week-day, .lunar-date {
                 font-size: 12px;
                 opacity: 0.8;
-                color: #999;
+                color: var(--video-chrome-subtext);
             }
           }
 
@@ -502,10 +587,10 @@ const menus = computed(() => {
             font-size: 12px;
             font-weight: normal;
             opacity: 0.8;
-            color: #666;
+            color: var(--video-chrome-subtext);
 
             .lunar-date {
-              color: #999;
+              color: var(--video-chrome-subtext);
             }
           }
       }
@@ -519,7 +604,7 @@ const menus = computed(() => {
 
     .van-icon {
       margin-left: 20px;
-      color: #333;
+      color: var(--video-chrome-text);
     }
   }
 }
@@ -561,6 +646,11 @@ const menus = computed(() => {
     left: 0;
     right: 0;
     z-index: 10;
+
+    :deep(.footer-nav) {
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(12px);
+    }
 }
 
 // 适配 BottomActions 在深色背景下的显示，如果需要的话。
