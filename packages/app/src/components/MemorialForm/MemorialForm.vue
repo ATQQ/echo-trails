@@ -146,6 +146,9 @@ onMounted(() => {
     if (form.coverImage) {
       previewUrl.value = form.coverImage;
     }
+    if (props.initialData.rawCoverImage) {
+      form.coverImage = props.initialData.rawCoverImage;
+    }
   }
   datePickerValue.value = form.date.split('-');
   if (form.endDate) {
@@ -279,8 +282,7 @@ const save = async () => {
         await uploadFile(fileInfo.file, uploadUrl);
       }
 
-      const cdn = import.meta.env.VITE_BITIFUL_CDN || '';
-      form.coverImage = `${cdn}/${key}`;
+      form.coverImage = key;
     }
     // If pendingFile is null, form.coverImage might be a preset URL or empty
 

@@ -280,11 +280,8 @@ const uploadAndSave = async (fileInfo: any) => {
              await uploadFile(fileInfo.file, uploadUrl);
         }
 
-        const cdn = import.meta.env.VITE_BITIFUL_CDN || '';
-        const fullUrl = `${cdn}/${key}`;
-
-        await store.updateMemorial(props.item.id, { coverImage: fullUrl });
-        emit('update', { ...props.item, coverImage: fullUrl });
+        await store.updateMemorial(props.item.id, { coverImage: key });
+        emit('update', { ...props.item, coverImage: key });
 
         showToast('更换成功');
 

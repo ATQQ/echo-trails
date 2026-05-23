@@ -362,7 +362,10 @@ export function createMemorial(data: any) {
 
 export function updateMemorial(id: string, data: any) {
     if (isLocalMode()) return local.updateMemorial(id, data)
-    return api.put<ServerResponse<any>>('memorial/update', { json: { id, ...data } }).json();
+    const payload = { ...data }
+    delete payload.rawCoverImage
+    delete payload._id
+    return api.put<ServerResponse<any>>('memorial/update', { json: { id, ...payload } }).json();
 }
 
 export function deleteMemorial(id: string) {

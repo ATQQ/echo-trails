@@ -77,12 +77,13 @@ const imageSrc = computed(() => {
   if (props.item.cover) return props.item.cover;
 
   const key = props.item.image;
-  if (!key) return 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg';
+  if (!key) return '/assets/images/asset-placeholder.svg';
   if (key.startsWith('http')) return key;
+  if (key.startsWith('/')) return key;
 
   // Fallback to client-side generation
   const cdn = import.meta.env.VITE_BITIFUL_CDN || '';
-  return `${cdn}/${key}?style=cover`;
+  return cdn ? `${cdn}/${key}?style=cover` : '/assets/images/asset-placeholder.svg';
 });
 
 const previewImage = () => {

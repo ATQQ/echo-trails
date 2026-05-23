@@ -1,59 +1,17 @@
 import { invoke } from '@tauri-apps/api/core'
-import { getBitifulConfigLocal } from '@/lib/bitifulConfig'
 import dayjs from 'dayjs'
-import SparkMD5 from 'spark-md5'
-
-// Cache for bitiful config to avoid repeated reads
-let _bitifulConfigCache: Awaited<ReturnType<typeof getBitifulConfigLocal>> = null
-async function getCachedBitifulConfig() {
-  if (!_bitifulConfigCache) {
-    _bitifulConfigCache = await getBitifulConfigLocal()
-  }
-  return _bitifulConfigCache
-}
-
-// Construct image URL from S3 key using Bitiful config
-// Matches server's createLink: signs URLs with CDN token when available
-async function buildFileUrl(s3Key: string, style?: string, queryParams?: string): Promise<string> {
-  const config = await getCachedBitifulConfig()
-  if (!config?.domain || !s3Key) return ''
-
-  const base = config.domain.replace(/\/$/, '')
-  const encodedParts = s3Key.split('/').map(p => encodeURIComponent(p)).join('/')
-  const fileName = `/${encodedParts}` + (style ? `!style:${style}` : '')
-  const fullKey = fileName + (queryParams ? `?${queryParams}` : '')
-
-  // If CDN token is available, sign the URL (matches server's createLink)
-  if (config.cdnToken) {
-    const deadLine = Math.floor(Date.now() / 1000) + 60 * 30
-    const rawString = config.cdnToken + fileName + deadLine
-    const md5Result = SparkMD5.hash(rawString)
-    const separator = fullKey.includes('?') ? '&' : '?'
-    return `${base}${fullKey}${separator}_btf_tk=${md5Result}&_ts=${deadLine}`
-  }
-
-  return `${base}${fullKey}`
-}
-
-async function buildCoverUrl(s3Key: string, isImage = true): Promise<string> {
-  const config = await getCachedBitifulConfig()
-  const params = !isImage ? 'frame=0' : undefined
-  const style = isImage ? config?.coverStyle : undefined
-  return buildFileUrl(s3Key, style, params)
-}
+import { MEMORIAL_PRESET_COVERS } from '@/constants/memorialCovers'
+import { buildCoverUrl, buildFileUrl, buildPreviewUrl } from './fileUrl'
 
 async function enrichPhotoUrls(row: any): Promise<any> {
   const photo = mapPhoto(row)
-  const config = await getCachedBitifulConfig()
   const s3Key = photo.key
-  if (s3Key && config?.domain) {
+  if (s3Key) {
     const isImage = (photo.type || '').startsWith('image/')
     if (!photo.url) photo.url = await buildFileUrl(s3Key)
     if (!photo.cover) photo.cover = await buildCoverUrl(s3Key, isImage)
     if (!photo.preview) {
-      const params = !isImage ? 'frame=0' : undefined
-      const style = isImage ? config.previewStyle : undefined
-      photo.preview = await buildFileUrl(s3Key, style, params)
+      photo.preview = await buildPreviewUrl(s3Key, isImage)
     }
   }
   return photo
@@ -415,16 +373,32 @@ export async function getUsageRecords(targetId: string, options?: { targetType?:
 
 export async function getMemorials() {
   const result = await invoke<any>('db_memorial_list')
-  return (result.data || []).map((m: any) => ({
-    ...m,
-    _id: m.id || m._id,
-    isPinned: !!m.isPinned,
-    isLunar: !!m.isLunar,
+  const memorials = await Promise.all((result.data || []).map(async (m: any) => {
+    const rawCoverImage = m.coverImage || ''
+    const coverImage = rawCoverImage ? await buildPreviewUrl(rawCoverImage, true) : ''
+    return {
+      ...m,
+      id: m.id || m._id,
+      _id: m.id || m._id,
+      isPinned: !!m.isPinned,
+      isLunar: !!m.isLunar,
+      coverImage,
+      rawCoverImage,
+      createdAt: Number.isFinite(m.createdAt) ? m.createdAt : new Date(m.createdAt || m.updated_at || Date.now()).getTime(),
+    }
   }))
+  return memorials.sort((a, b) => {
+    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
+    return String(a.date || '').localeCompare(String(b.date || ''))
+  })
 }
 
 export async function createMemorial(data: any) {
-  const memorialData = JSON.stringify(data)
+  const now = Date.now()
+  const memorialData = JSON.stringify({
+    ...data,
+    createdAt: data.createdAt || now,
+  })
   const result = await invoke<any>('db_memorial_create', {
     id: crypto.randomUUID(),
     data: memorialData,
@@ -433,7 +407,10 @@ export async function createMemorial(data: any) {
 }
 
 export async function updateMemorial(id: string, data: any) {
-  const memorialData = JSON.stringify(data)
+  const updates = { ...data }
+  delete updates.rawCoverImage
+  delete updates._id
+  const memorialData = JSON.stringify(updates)
   return invoke('db_memorial_update', { id, data: memorialData })
 }
 
@@ -442,8 +419,7 @@ export async function deleteMemorial(id: string) {
 }
 
 export async function getMemorialCovers() {
-  const result = await invoke<any>('db_memorial_covers')
-  return result.data || []
+  return [...MEMORIAL_PRESET_COVERS]
 }
 
 // ==================== Check Update ====================

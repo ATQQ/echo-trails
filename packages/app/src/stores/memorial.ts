@@ -13,6 +13,7 @@ export interface MemorialDay {
   isLunar: boolean;
   isPinned: boolean;
   coverImage?: string;
+  rawCoverImage?: string;
   createdAt: number;
 }
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="Asset placeholder">
+  <rect width="160" height="160" rx="18" fill="#f2f4f7"/>
+  <path d="M45 60h70a10 10 0 0 1 10 10v42a10 10 0 0 1-10 10H45a10 10 0 0 1-10-10V70a10 10 0 0 1 10-10Z" fill="#d8dee8"/>
+  <path d="M57 60V48a16 16 0 0 1 16-16h14a16 16 0 0 1 16 16v12h-10V48a6 6 0 0 0-6-6H73a6 6 0 0 0-6 6v12H57Z" fill="#b7c1d1"/>
+  <path d="M35 84h90v12H35z" fill="#c7cfdb"/>
+  <circle cx="80" cy="91" r="7" fill="#8f9aad"/>
+</svg>

@@ -7,7 +7,10 @@ use super::{merge_row, new_id, TursoDb};
 pub async fn db_memorial_list(state: State<'_, TursoDb>) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     let mut rows = conn
-        .query("SELECT * FROM memorials WHERE deleted = 0 ORDER BY updated_at DESC", ())
+        .query(
+            "SELECT * FROM memorials WHERE deleted = 0 ORDER BY updated_at DESC",
+            (),
+        )
         .await
         .map_err(|e| e.to_string())?;
 
@@ -57,9 +60,23 @@ pub async fn db_memorial_update(
     let conn = state.0.connect().map_err(|e| e.to_string())?;
 
     if let Some(d) = data {
+        let mut merged_data = get_memorial_data(&conn, &id)
+            .await
+            .unwrap_or_else(|_| json!({}));
+        if let Ok(incoming) = serde_json::from_str::<JsonValue>(&d) {
+            if let (Some(existing_obj), Some(incoming_obj)) =
+                (merged_data.as_object_mut(), incoming.as_object())
+            {
+                for (key, value) in incoming_obj {
+                    existing_obj.insert(key.clone(), value.clone());
+                }
+            } else {
+                merged_data = incoming;
+            }
+        }
         conn.execute(
             "UPDATE memorials SET data = ?1, updated_at = datetime('now') WHERE id = ?2",
-            (d, id.clone()),
+            (merged_data.to_string(), id.clone()),
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -80,10 +97,7 @@ pub async fn db_memorial_update(
 }
 
 #[tauri::command]
-pub async fn db_memorial_delete(
-    state: State<'_, TursoDb>,
-    id: String,
-) -> Result<(), String> {
+pub async fn db_memorial_delete(state: State<'_, TursoDb>, id: String) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE memorials SET deleted = 1, updated_at = datetime('now') WHERE id = ?1",
@@ -96,21 +110,38 @@ pub async fn db_memorial_delete(
 
 #[tauri::command]
 pub async fn db_memorial_covers() -> Result<JsonValue, String> {
-    // Return preset cover images (same as server)
     let covers = vec![
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800",
-        "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800",
-        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800",
-        "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800",
-        "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800",
-        "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800",
-        "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=800",
-        "https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=800",
-        "https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?w=800",
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800",
-        "https://images.unsplash.com/photo-1518173946687-a2fa81026e3a?w=800",
+        "/memorial-covers/pink-clouds.jpg",
+        "/memorial-covers/minimal-leaves.jpg",
+        "/memorial-covers/flower-closeup.jpg",
+        "/memorial-covers/sunset-beach.jpg",
+        "/memorial-covers/misty-forest.jpg",
+        "/memorial-covers/gift-celebration.jpg",
+        "/memorial-covers/road-trip-car.jpg",
+        "/memorial-covers/party-lights.jpg",
+        "/memorial-covers/starry-night.jpg",
+        "/memorial-covers/books-coffee.jpg",
+        "/memorial-covers/abstract-gradient.jpg",
     ];
     Ok(json!({ "data": covers }))
+}
+
+async fn get_memorial_data(conn: &turso::Connection, id: &str) -> Result<JsonValue, String> {
+    let mut rows = conn
+        .query("SELECT data FROM memorials WHERE id = ?1", (id,))
+        .await
+        .map_err(|e| e.to_string())?;
+    if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+        let data_str = row
+            .get_value(0)
+            .map_err(|e| e.to_string())?
+            .as_text()
+            .map_or("{}", |v| v)
+            .to_string();
+        serde_json::from_str(&data_str).map_err(|e| e.to_string())
+    } else {
+        Err("Memorial not found".to_string())
+    }
 }
 
 fn row_to_json(row: &turso::Row) -> Result<JsonValue, String> {

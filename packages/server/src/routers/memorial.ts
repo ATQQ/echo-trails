@@ -14,7 +14,7 @@ export default function memorialRouter(router: Hono<BlankEnv, BlankSchema, "/">)
     const data = await Promise.all(memorials.map(async m => {
         let coverImage = '';
         if (m.coverImage) {
-            if (m.coverImage.startsWith('http')) {
+            if (m.coverImage.startsWith('http') || m.coverImage.startsWith('/')) {
                 coverImage = m.coverImage;
             } else {
                 coverImage = await createPreviewLink(m.coverImage, true);
@@ -32,6 +32,7 @@ export default function memorialRouter(router: Hono<BlankEnv, BlankSchema, "/">)
             isLunar: m.isLunar,
             isPinned: m.isPinned,
             coverImage: coverImage,
+            rawCoverImage: m.coverImage,
             createdAt: new Date(m.createdAt).getTime()
         };
     }));
@@ -84,17 +85,17 @@ export default function memorialRouter(router: Hono<BlankEnv, BlankSchema, "/">)
   // Get Preset Covers
   router.get('covers', (ctx) => {
     const PRESET_COVERS = [
-        'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // 默认 (粉色云朵)
-        'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // 极简叶子 (清新)
-        'https://images.unsplash.com/photo-1490750967868-58cb7506aed6?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // 花朵特写 (温馨)
-        'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // 海滩日落 (浪漫)
-        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // 森林雾气 (神秘/自然)
-        'https://images.unsplash.com/photo-1513201099705-a9746e1e201f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // 礼物/节日 (庆祝)
-        'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // 汽车/旅行 (在路上)
-        'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // 派对灯光 (欢乐)
-        'https://images.unsplash.com/photo-1501901609772-df0848060b33?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // 星空 (永恒)
-        'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80', // 书籍/咖啡 (宁静)
-        'https://images.unsplash.com/photo-1530103862676-de3c9a59af57?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'  // 抽象渐变 (现代)
+        '/memorial-covers/pink-clouds.jpg',
+        '/memorial-covers/minimal-leaves.jpg',
+        '/memorial-covers/flower-closeup.jpg',
+        '/memorial-covers/sunset-beach.jpg',
+        '/memorial-covers/misty-forest.jpg',
+        '/memorial-covers/gift-celebration.jpg',
+        '/memorial-covers/road-trip-car.jpg',
+        '/memorial-covers/party-lights.jpg',
+        '/memorial-covers/starry-night.jpg',
+        '/memorial-covers/books-coffee.jpg',
+        '/memorial-covers/abstract-gradient.jpg'
     ];
     return ctx.json({ code: 0, data: PRESET_COVERS });
   });

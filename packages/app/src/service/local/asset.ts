@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { buildCoverUrl, buildPreviewUrl } from './fileUrl'
 
 const DEFAULT_CATEGORIES = [
   { name: '数码', subs: ['手机', '电脑', '平板', '相机', '配件'] },
@@ -10,11 +11,41 @@ const DEFAULT_CATEGORIES = [
   { name: '虚拟', subs: ['软件', '订阅'] },
 ]
 
-function mapAsset(row: any): any {
+function normalizeTimestamp(value: any) {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value)
+  const time = new Date(value || Date.now()).getTime()
+  return Number.isFinite(time) ? time : Date.now()
+}
+
+function calcDaysHeld(purchaseDate: number) {
+  return Math.max(1, Math.floor((Date.now() - purchaseDate) / (1000 * 60 * 60 * 24)))
+}
+
+async function mapAsset(row: any): Promise<any> {
+  const purchaseDate = normalizeTimestamp(row.purchaseDate)
+  const usageCount = Number(row.usageCount || 0)
+  const price = Number(row.price || 0)
+  const calcType = row.calcType || 'count'
+  const daysHeld = calcDaysHeld(purchaseDate)
+  const image = row.image || ''
+  const cover = row.cover || (image ? await buildCoverUrl(image, true) : '')
+  const preview = row.preview || (image ? await buildPreviewUrl(image, true) : '')
+
   return {
     ...row,
     _id: row.id || row._id,
     id: row.id || row._id,
+    price,
+    purchaseDate,
+    usageCount,
+    calcType,
+    cover,
+    preview,
+    createTime: normalizeTimestamp(row.createdAt || row.updated_at || row.updatedAt),
+    daysHeld,
+    costPerUse: calcType === 'count' ? (usageCount > 0 ? price / usageCount : price) : 0,
+    costPerDay: calcType === 'day' ? price / daysHeld : 0,
   }
 }
 
@@ -79,7 +110,7 @@ export async function getAssets(params?: { categoryId?: string, subCategoryId?: 
     subCategoryId: params?.subCategoryId,
     status: params?.status,
   })
-  return (result.data || []).map(mapAsset)
+  return Promise.all((result.data || []).map(mapAsset))
 }
 
 export async function createAsset(data: any) {
@@ -105,6 +136,15 @@ export async function deleteAsset(id: string) {
 }
 
 export async function getAssetStats() {
-  const result = await invoke<any>('db_asset_stats')
-  return result.data || { totalValue: 0, dailyCost: 0 }
+  const assets = await getAssets()
+  const stats = assets.reduce((acc, asset) => {
+    acc.totalValue += asset.price || 0
+    acc.dailyCost += asset.price / calcDaysHeld(asset.purchaseDate)
+    return acc
+  }, { totalValue: 0, dailyCost: 0 })
+
+  return {
+    totalValue: Math.round(stats.totalValue * 100) / 100,
+    dailyCost: Math.round(stats.dailyCost * 100) / 100,
+  }
 }

@@ -1,7 +1,7 @@
 import { fileURLToPath, URL } from 'node:url'
 import { networkInterfaces } from 'os';
 
-import { defineConfig } from 'vite'
+import { defineConfig, type PluginOption } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
@@ -27,14 +27,14 @@ const host = getLocalIp();
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    vue(),
+    vue() as unknown as PluginOption,
     // vueDevTools(),
     AutoImport({
       resolvers: [VantResolver()],
-    }),
+    }) as unknown as PluginOption,
     Components({
       resolvers: [VantResolver()],
-    }),
+    }) as unknown as PluginOption,
   ],
   // build:{
   //   sourcemap: true

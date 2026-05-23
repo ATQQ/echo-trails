@@ -110,7 +110,7 @@ onMounted(() => {
     const tags = new Set<string>()
     const all = [...(res.large || []), ...(res.small || [])]
     all.forEach(album => {
-      album.tags?.forEach(tag => tags.add(tag))
+      album.tags?.forEach((tag: string) => tags.add(tag))
     })
     allTags.value = Array.from(tags)
   })
