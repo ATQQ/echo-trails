@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useLocalStorage } from '@vueuse/core'
 import dayjs from 'dayjs'
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { showConfirmDialog, showSuccessToast, showToast } from 'vant'
 import { useRouter } from 'vue-router'
 import TimeRangePicker from '@/components/TimeRangePicker/TimeRangePicker.vue'
@@ -50,6 +50,11 @@ const scaleDragging = ref(false)
 const scaleDragStartX = ref(0)
 const scaleDragStartValue = ref(0)
 const scaleDragOffset = ref(0)
+const homeChartScrollRef = ref<HTMLElement | null>(null)
+const homeChartFitPercent = ref(0)
+const homeChartScrollPercent = ref(0)
+const homeChartCanScroll = ref(false)
+const homeChartViewportWidth = ref(300)
 const customRange = ref<[number, number]>([
   dayjs().subtract(6, 'day').startOf('day').valueOf(),
   dayjs().endOf('day').valueOf()
@@ -167,7 +172,14 @@ const overviewData = computed(() => {
 
 const homeTrendDailyRecords = computed(() => normalizeDailyRecords(records.value))
 
-const homeChartSvgWidth = computed(() => getChartWidth(homeTrendDailyRecords.value.length, 52))
+const homeChartFitWidth = computed(() => Math.max(300, homeChartViewportWidth.value))
+
+const homeChartSvgWidth = computed(() => {
+  const wideWidth = getChartWidth(homeTrendDailyRecords.value.length, 56)
+  const fitWidth = homeChartFitWidth.value
+  const fitRatio = homeChartFitPercent.value / 100
+  return Math.round(wideWidth - (wideWidth - fitWidth) * fitRatio)
+})
 
 const homeChartViewBox = computed(() => `0 0 ${homeChartSvgWidth.value} 128`)
 
@@ -176,6 +188,19 @@ const homeChartPoints = computed(() => buildChartPoints(homeTrendDailyRecords.va
 const homeChartLinePoints = computed(() => homeChartPoints.value.map(point => `${point.x},${point.y}`).join(' '))
 
 const homeChartAreaPoints = computed(() => buildChartAreaPoints(homeChartPoints.value, homeChartLinePoints.value))
+
+const homeChartLabelStep = computed(() => {
+  const count = homeChartPoints.value.length
+  if (count <= 1) return 1
+  const gap = (homeChartSvgWidth.value - 48) / (count - 1)
+  return Math.max(1, Math.ceil(34 / gap))
+})
+
+watch(() => [homeChartSvgWidth.value, homeChartPoints.value.length], () => {
+  nextTick(() => {
+    syncHomeChartScroll(homeChartScrollPercent.value)
+  })
+})
 
 const chartPoints = computed<ChartPoint[]>(() => {
   return buildChartPoints(compactChartRecords(normalizeDailyRecords(statsRecords.value)), range.value)
@@ -305,6 +330,47 @@ function buildChartAreaPoints(points: ChartPoint[], linePoints: string) {
   const first = points[0]
   const last = points[points.length - 1]
   return `${first.x},112 ${linePoints} ${last.x},112`
+}
+
+function shouldShowHomeChartLabel(index: number) {
+  const lastIndex = homeChartPoints.value.length - 1
+  return index === 0 || index === lastIndex || index % homeChartLabelStep.value === 0
+}
+
+function updateHomeChartScrollState() {
+  const el = homeChartScrollRef.value
+  if (!el) return
+  const maxScroll = Math.max(el.scrollWidth - el.clientWidth, 0)
+  homeChartViewportWidth.value = el.clientWidth || 300
+  homeChartCanScroll.value = maxScroll > 1
+  homeChartScrollPercent.value = maxScroll ? Math.round((el.scrollLeft / maxScroll) * 100) : 0
+}
+
+function syncHomeChartScroll(percent: number) {
+  const el = homeChartScrollRef.value
+  if (!el) return
+  const maxScroll = Math.max(el.scrollWidth - el.clientWidth, 0)
+  el.scrollLeft = maxScroll * (percent / 100)
+  updateHomeChartScrollState()
+}
+
+function handleHomeChartScroll() {
+  updateHomeChartScrollState()
+}
+
+function handleHomeChartFitInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  homeChartFitPercent.value = Number(target.value)
+  nextTick(() => {
+    syncHomeChartScroll(homeChartScrollPercent.value)
+  })
+}
+
+function handleHomeChartScrollInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  const percent = Number(target.value)
+  homeChartScrollPercent.value = percent
+  syncHomeChartScroll(percent)
 }
 
 function formatNumber(value: number, digits = 1) {
@@ -689,11 +755,18 @@ const encouragementMessages = {
 }
 
 onMounted(async () => {
+  window.addEventListener('resize', updateHomeChartScrollState)
   await refreshFamilies()
   isInitializingFamilySelection.value = true
   ensureCurrentFamilySelection()
   isInitializingFamilySelection.value = false
   await refreshAllData()
+  await nextTick()
+  updateHomeChartScrollState()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateHomeChartScrollState)
 })
 </script>
 
@@ -750,7 +823,7 @@ onMounted(async () => {
               {{ isKG ? 'kg' : '斤' }}
             </button>
           </div>
-          <div v-if="homeChartPoints.length" class="mini-chart trend-chart-scroll">
+          <div v-if="homeChartPoints.length" ref="homeChartScrollRef" class="mini-chart trend-chart-scroll" @scroll="handleHomeChartScroll">
             <div class="trend-chart-canvas" :style="{ width: `${homeChartSvgWidth}px` }">
               <svg :viewBox="homeChartViewBox" role="img" aria-label="最近体重趋势图">
                 <defs>
@@ -762,19 +835,49 @@ onMounted(async () => {
                 <line v-for="line in [36, 62, 88]" :key="line" x1="24" :x2="homeChartSvgWidth - 24" :y1="line" :y2="line" class="grid-line" />
                 <polygon :points="homeChartAreaPoints" fill="url(#weightFill)" />
                 <polyline :points="homeChartLinePoints" class="trend-line" />
-                <g v-for="point in homeChartPoints" :key="point.date">
+                <g v-for="(point, index) in homeChartPoints" :key="point.date">
                   <circle :cx="point.x" :cy="point.y" r="4" class="point-dot" />
-                  <text :x="point.x" :y="point.y - 10" class="point-label" text-anchor="middle">
+                  <text v-if="shouldShowHomeChartLabel(index)" :x="point.x" :y="point.y - 10" class="point-label" text-anchor="middle">
                     {{ formatRecordWeight(point.value, 1) }}
                   </text>
-                  <text :x="point.x" y="122" class="axis-label" text-anchor="middle">
+                  <text v-if="shouldShowHomeChartLabel(index)" :x="point.x" y="122" class="axis-label" text-anchor="middle">
                     {{ point.label }}
                   </text>
                 </g>
               </svg>
             </div>
           </div>
-          <van-empty v-else description="暂无趋势数据" />
+          <div v-if="homeChartPoints.length > 1" class="trend-chart-toolbar">
+            <label class="chart-slider-row">
+              <span>间距</span>
+              <input
+                :value="homeChartFitPercent"
+                class="chart-slider"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                aria-label="调整最近趋势横坐标间距"
+                @input="handleHomeChartFitInput"
+              />
+              <span>一屏</span>
+            </label>
+            <label v-if="homeChartCanScroll" class="chart-slider-row">
+              <span>位置</span>
+              <input
+                :value="homeChartScrollPercent"
+                class="chart-slider"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                aria-label="横向滑动最近趋势图"
+                @input="handleHomeChartScrollInput"
+              />
+              <span>{{ homeChartScrollPercent }}%</span>
+            </label>
+          </div>
+          <van-empty v-if="!homeChartPoints.length" description="暂无趋势数据" />
         </article>
 
         <article class="record-list-panel home-record-panel">
@@ -1348,6 +1451,70 @@ button {
 .trend-chart-canvas {
   min-width: 100%;
   height: 100%;
+}
+
+.trend-chart-toolbar {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f6f9ff;
+  border: 1px solid #e5edf8;
+}
+
+.chart-slider-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 11px;
+
+  span:last-child {
+    text-align: right;
+  }
+}
+
+.chart-slider {
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: ew-resize;
+
+  &::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(25, 118, 255, 0.22), rgba(25, 118, 255, 0.72));
+  }
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #1976ff;
+    box-shadow: 0 4px 12px rgba(25, 118, 255, 0.22);
+  }
+
+  &::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(25, 118, 255, 0.22), rgba(25, 118, 255, 0.72));
+  }
+
+  &::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #1976ff;
+    box-shadow: 0 4px 12px rgba(25, 118, 255, 0.22);
+  }
 }
 
 .grid-line {
