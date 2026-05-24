@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Changelog"
+  short_description: "从 Git commit 生成并更新 CHANGELOG"
+  default_prompt: "Use $generate-changelog to update CHANGELOG.md from commits between the current and previous version tags."

@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.7.9",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.9.apk",
+      "forceUpdate": false,
+      "description": "fix: 系列问题优化",
+      "md5": "13ee025347b575bcbf75156a579890f0"
+    },
+    {
       "version": "0.7.8",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.8.apk",
       "forceUpdate": false,
