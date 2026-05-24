@@ -8,6 +8,7 @@
 - 基线快照：`docs/android-package-size-baseline-0.7.9.md`
 - Step 2 结果快照：`docs/android-package-size-step2-strip-0.7.9.md`
 - Step 3 结果快照：`docs/android-package-size-step3-compress-native-libs-0.7.9.md`
+- Step 4 结果快照：`docs/android-package-size-step4-shrink-resources-0.7.9.md`
 - 当前版本：`0.7.9`
 - 最新 APK：`release/echo-trails-release-0.7.9.apk`，42.89 MB。
 - 最新 AAB：`release/echo-trails-release-0.7.9.aab`，17.63 MB。
@@ -106,17 +107,20 @@
 
 ## Step 4：开启 Android 资源 shrink
 
-- 状态：待 Step 3 确认后执行
+- 状态：已完成，真机安装验证通过
 - 目标：移除未使用的 Android 资源，压缩 `resources.arsc` 和 `res` 目录。
 - 改动范围：
-  - `packages/native/src-tauri/gen/android/app/build.gradle.kts`
-  - 在 release build 中配合已有 `isMinifyEnabled = true` 开启 `isShrinkResources = true`。
+  - 已修改 `packages/native/src-tauri/gen/android/app/build.gradle.kts`
+  - 已在 release build 中配合已有 `isMinifyEnabled = true` 开启 `isShrinkResources = true`。
 - 验证方式：
-  - 构建 release APK/AAB。
-  - 对比 `resources.arsc`、`res/*` 和总体体积。
-  - 检查图标、主题、文件选择、安装 APK 等 Android 侧功能是否有资源缺失风险。
+  - 已构建 release APK/AAB。
+  - 已对比 `resources.arsc`、`resources.pb` 和总体体积。
+  - 真机检查图标、主题、文件选择、安装 APK 等 Android 侧功能验证通过。
 - 预期收益：
   - 小到中等。
+  - 实际结果：build arm64 APK 从 14.51 MB 降到 13.90 MB，减少 0.61 MB。
+  - 实际结果：build arm64 AAB 从 15.40 MB 降到 15.07 MB，减少 0.33 MB。
+  - 实际结果：APK `resources.arsc` 从 1010.15 KB 降到 591.39 KB。
 - 风险：
   - 低到中等。动态引用资源可能被误删，需要验证。
 - 完成后暂停点：
