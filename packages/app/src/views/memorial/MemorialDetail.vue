@@ -320,7 +320,7 @@ const uploadAndSave = async (fileInfo: any) => {
         top: 0;
         left: 0;
         right: 0;
-        z-index: 10;
+        z-index: 20;
         display: flex;
         justify-content: space-between;
         padding: var(--safe-area-top) 16px 10px;
@@ -331,7 +331,7 @@ const uploadAndSave = async (fileInfo: any) => {
 
     .content {
         position: relative;
-        z-index: 10;
+        z-index: 1;
         height: 100%;
         box-sizing: border-box;
         text-align: center;
@@ -416,7 +416,7 @@ const uploadAndSave = async (fileInfo: any) => {
         left: 0;
         right: 0;
         bottom: 0;
-        z-index: 10;
+        z-index: 20;
         display: flex;
         justify-content: space-around;
         padding-bottom: calc(20px + var(--safe-area-bottom));
