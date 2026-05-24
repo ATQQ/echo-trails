@@ -128,7 +128,7 @@
 
 ## Step 5：清理 native 依赖重复和 feature
 
-- 状态：进行中，Step 5A 已验证后恢复，不采用该优化
+- 状态：进行中，Step 5B-1 已完成且真机验证通过
 - 目标：减少 Rust native 依赖带来的代码体积。
 - 当前观察：
   - native 中依赖 `aws-sdk-s3`、`aws-smithy-http-client`、`reqwest`、`tauri-plugin-http`、`turso`。
@@ -150,6 +150,22 @@
   - APP 安装验证通过。
   - 因收益只有约 80 KB，且后续桌面端可能需要 Cookie、HTTP/2、charset 或 macOS 系统网络配置支持，已恢复 `Cargo.toml` 和 `Cargo.lock`，不采用该优化。
   - 详细记录见 `docs/android-package-size-step5a-http-feature-trim-0.7.9.md`。
+- Step 5B 分析：
+  - 目标是保留离线模式、本地模式获取上传 URL 能力，同时评估 native `aws-sdk-s3` 体积成本。
+  - 当前 `aws-sdk-s3` 已经关闭默认 feature，仅保留 `rt-tokio` 和 `http-1x`，继续裁剪 feature 的空间有限。
+  - 可先实验保留 AWS SDK，但用本地 no-op HTTP client 替换 `aws-smithy-http-client`；风险较低，收益需要实测。
+  - 如果第一轮收益很小，再评估手写 S3 SigV4 presigned PUT URL，彻底移除 `aws-sdk-s3` 和大部分 AWS/Smithy runtime。
+  - 详细分析见 `docs/android-package-size-step5b-aws-sdk-s3-analysis-0.7.9.md`。
+- Step 5B-1 结果：
+  - 已保留 `aws-sdk-s3` 的 presign 逻辑，移除 `aws-smithy-http-client`，改用本地 no-op HTTP client。
+  - `cargo check` 通过。
+  - Android release 构建通过。
+  - `cargo tree --target aarch64-linux-android -i aws-smithy-http-client` 已无法匹配到包。
+  - build arm64 APK 从 13.90 MB 降到 13.59 MB，减少约 0.31 MB。
+  - build arm64 AAB 从 15.07 MB 降到 14.76 MB，减少约 0.31 MB。
+  - arm64 `libtauri_app_lib.so` 从 28.58 MB 降到 27.85 MB，减少约 0.73 MB。
+  - 详细记录见 `docs/android-package-size-step5b1-presign-http-client-0.7.9.md`。
+  - 真机验证通过，可保留该优化。
 - 验证方式：
   - 构建通过。
   - 对比 so、APK、AAB 体积。

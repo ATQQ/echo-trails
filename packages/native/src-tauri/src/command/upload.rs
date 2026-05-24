@@ -8,6 +8,43 @@ use futures_util::StreamExt;
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_fs::OpenOptions;
 use tauri_plugin_fs::FilePath;
+use aws_smithy_runtime_api::client::http::{
+    HttpClient, HttpConnector, HttpConnectorFuture, HttpConnectorSettings, SharedHttpConnector,
+};
+use aws_smithy_runtime_api::client::orchestrator::HttpRequest;
+use aws_smithy_runtime_api::client::result::ConnectorError;
+use aws_smithy_runtime_api::client::runtime_components::RuntimeComponents;
+use aws_smithy_runtime_api::shared::IntoShared;
+
+// Presigning is local-only, so the AWS SDK only needs an HTTP client placeholder.
+// If this connector is ever called, a future code path is trying to send an S3 request.
+#[derive(Clone, Debug, Default)]
+struct PresignOnlyHttpClient;
+
+#[derive(Clone, Debug, Default)]
+struct PresignOnlyHttpConnector;
+
+impl HttpClient for PresignOnlyHttpClient {
+    fn http_connector(
+        &self,
+        _: &HttpConnectorSettings,
+        _: &RuntimeComponents,
+    ) -> SharedHttpConnector {
+        PresignOnlyHttpConnector.into_shared()
+    }
+}
+
+impl HttpConnector for PresignOnlyHttpConnector {
+    fn call(&self, _: HttpRequest) -> HttpConnectorFuture {
+        HttpConnectorFuture::new(async {
+            let error = std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "presign-only S3 client cannot send HTTP requests",
+            );
+            Err(ConnectorError::other(Box::new(error), None).never_connected())
+        })
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct UploadTokenResponse {
@@ -75,29 +112,13 @@ pub async fn upload_token(
             "manual",
         );
 
-        // Build a custom HTTP client that skips native root cert loading.
-        // The default AWS SDK HTTP client uses rustls-native-certs which panics
-        // in the Tauri sandboxed environment. Since presigning is a local-only
-        // operation (no actual HTTP requests), an empty trust store is fine.
-        let trust_store = aws_smithy_http_client::tls::TrustStore::empty();
-        let tls_context = aws_smithy_http_client::tls::TlsContext::builder()
-            .with_trust_store(trust_store)
-            .build()
-            .map_err(|e| format!("Failed to build TLS context: {}", e))?;
-        let http_client = aws_smithy_http_client::Builder::new()
-            .tls_provider(aws_smithy_http_client::tls::Provider::Rustls(
-                aws_smithy_http_client::tls::rustls_provider::CryptoMode::Ring,
-            ))
-            .tls_context(tls_context)
-            .build_https();
-
         let config = aws_sdk_s3::config::Builder::new()
             .behavior_version(aws_sdk_s3::config::BehaviorVersion::latest())
             .credentials_provider(credentials)
             .region(Region::new(region_value))
             .endpoint_url(&parsed_endpoint)
             .force_path_style(true)
-            .http_client(http_client)
+            .http_client(PresignOnlyHttpClient)
             .build();
 
         let client = Client::from_conf(config);
