@@ -128,7 +128,7 @@
 
 ## Step 5：清理 native 依赖重复和 feature
 
-- 状态：进行中，Step 5B-1 已完成且真机验证通过
+- 状态：进行中，Step 5C 已完成构建和单元测试，待真机上传验证
 - 目标：减少 Rust native 依赖带来的代码体积。
 - 当前观察：
   - native 中依赖 `aws-sdk-s3`、`aws-smithy-http-client`、`reqwest`、`tauri-plugin-http`、`turso`。
@@ -166,6 +166,25 @@
   - arm64 `libtauri_app_lib.so` 从 28.58 MB 降到 27.85 MB，减少约 0.73 MB。
   - 详细记录见 `docs/android-package-size-step5b1-presign-http-client-0.7.9.md`。
   - 真机验证通过，可保留该优化。
+- Step 5C 分析：
+  - 目标是评估手写 S3 SigV4 presigned PUT URL，彻底移除 native `aws-sdk-s3` 和 AWS/Smithy runtime。
+  - 预期收益高于 Step 5B-1，但风险也明显更高。
+  - 保守预估：arm64 `libtauri_app_lib.so` 可能减少 1-3 MB，build arm64 APK/AAB 可能减少 0.4-1.5 MB。
+  - 最大风险是 S3 SigV4 的 URI 编码和 canonical request 细节，尤其当前 key 会包含原文件名，可能出现中文、空格、括号、`+`、`#`、`%` 等字符。
+  - 建议只有在先补齐签名单元测试后再实现；如果 APK 收益低于 500 KB 或特殊字符上传不稳定，应恢复 AWS SDK。
+  - 详细分析见 `docs/android-package-size-step5c-remove-aws-sdk-s3-risk-analysis-0.7.9.md`。
+- Step 5C 结果：
+  - 已移除 native `aws-sdk-s3` 和 `aws-smithy-runtime-api`。
+  - 已新增本地轻量 S3 SigV4 presigned PUT URL 实现。
+  - 已新增签名单元测试，对齐 AWS SDK 固定输出，覆盖普通 key、中文/空格/特殊字符 key、endpoint 规范化和非法 endpoint path。
+  - `cargo test s3_presign` 通过。
+  - Android release 构建通过。
+  - `cargo tree --target aarch64-linux-android -i aws-sdk-s3`、`aws-sigv4`、`aws-smithy-runtime-api` 均已无法匹配到包。
+  - build arm64 APK 从 13.59 MB 降到 11.88 MB，较 Step 5B-1 减少约 1.71 MB。
+  - build arm64 AAB 从 14.76 MB 降到 13.05 MB，较 Step 5B-1 减少约 1.71 MB。
+  - arm64 `libtauri_app_lib.so` 从 27.85 MB 降到 24.07 MB，较 Step 5B-1 减少约 3.78 MB。
+  - 详细记录见 `docs/android-package-size-step5c-remove-aws-sdk-s3-result-0.7.9.md`。
+  - 下一步需要真机验证本地模式上传、远程模式开启原生上传 Token 后上传、中文/空格/特殊字符文件名上传。
 - 验证方式：
   - 构建通过。
   - 对比 so、APK、AAB 体积。
@@ -179,11 +198,15 @@
 
 ## Step 6：评估移除客户端 AWS SDK 预签名逻辑
 
-- 状态：待 Step 5 确认后执行
+- 状态：核心体积目标已由 Step 5C 覆盖，暂不单独执行接口重构
 - 目标：尽量移除 `aws-sdk-s3` 和 `aws-smithy-http-client` 在客户端 native 包中的体积成本。
 - 当前逻辑：
-  - native 的 `upload_token` 会在客户端生成 S3 presigned URL。
+  - Step 5C 后，native 的 `upload_token` 仍会在客户端生成 S3 presigned URL，但不再依赖 `aws-sdk-s3`。
   - server 侧也具备 S3 相关能力。
+- 当前决策：
+  - 为兼容本地模式和离线模式，保留 native 本地生成上传 URL 的能力。
+  - 远程模式默认仍可走 server 生成上传 URL。
+  - 暂不把远程/本地上传入口重新设计为统一 server token 模式，避免改变现有功能边界。
 - 目标方案：
   - 远程模式：统一由 server 生成上传 URL。
   - 本地模式：保留可用降级策略，避免破坏本地数据和上传流程。

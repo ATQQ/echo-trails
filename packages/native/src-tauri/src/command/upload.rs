@@ -8,43 +8,7 @@ use futures_util::StreamExt;
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_fs::OpenOptions;
 use tauri_plugin_fs::FilePath;
-use aws_smithy_runtime_api::client::http::{
-    HttpClient, HttpConnector, HttpConnectorFuture, HttpConnectorSettings, SharedHttpConnector,
-};
-use aws_smithy_runtime_api::client::orchestrator::HttpRequest;
-use aws_smithy_runtime_api::client::result::ConnectorError;
-use aws_smithy_runtime_api::client::runtime_components::RuntimeComponents;
-use aws_smithy_runtime_api::shared::IntoShared;
-
-// Presigning is local-only, so the AWS SDK only needs an HTTP client placeholder.
-// If this connector is ever called, a future code path is trying to send an S3 request.
-#[derive(Clone, Debug, Default)]
-struct PresignOnlyHttpClient;
-
-#[derive(Clone, Debug, Default)]
-struct PresignOnlyHttpConnector;
-
-impl HttpClient for PresignOnlyHttpClient {
-    fn http_connector(
-        &self,
-        _: &HttpConnectorSettings,
-        _: &RuntimeComponents,
-    ) -> SharedHttpConnector {
-        PresignOnlyHttpConnector.into_shared()
-    }
-}
-
-impl HttpConnector for PresignOnlyHttpConnector {
-    fn call(&self, _: HttpRequest) -> HttpConnectorFuture {
-        HttpConnectorFuture::new(async {
-            let error = std::io::Error::new(
-                std::io::ErrorKind::Unsupported,
-                "presign-only S3 client cannot send HTTP requests",
-            );
-            Err(ConnectorError::other(Box::new(error), None).never_connected())
-        })
-    }
-}
+use super::s3_presign::{presign_put_object_url, PresignPutObjectParams};
 
 #[derive(Serialize, Deserialize)]
 pub struct UploadTokenResponse {
@@ -69,14 +33,7 @@ pub async fn upload_token(
     access_key: String,
     secret_key: String,
 ) -> Result<UploadTokenResponse, String> {
-    use aws_sdk_s3::presigning::PresigningConfig;
-    use aws_sdk_s3::config::{Credentials, Region};
-    use aws_sdk_s3::Client;
-    use std::time::Duration;
-    use std::panic::AssertUnwindSafe;
-    use futures_util::FutureExt;
-
-    // Validate inputs before calling SDK
+    // Validate inputs before generating the local S3 signature.
     if endpoint.is_empty() {
         return Err("Endpoint is empty. Please configure your S3 endpoint.".to_string());
     }
@@ -99,62 +56,24 @@ pub async fn upload_token(
     }
 
     let region_value = if region.is_empty() { "us-east-1".to_string() } else { region.clone() };
-    let bucket_clone = bucket.clone();
-    let endpoint_clone = parsed_endpoint.clone();
-    let region_clone = region.clone();
+    let url = presign_put_object_url(
+        PresignPutObjectParams {
+            key: &key,
+            bucket: &bucket,
+            region: &region_value,
+            endpoint: &parsed_endpoint,
+            access_key: &access_key,
+            secret_key: &secret_key,
+            expires_seconds: 3600,
+        },
+        chrono::Utc::now(),
+    )?;
 
-    let future = async move {
-        let credentials = Credentials::new(
-            access_key,
-            secret_key,
-            None,
-            None,
-            "manual",
-        );
-
-        let config = aws_sdk_s3::config::Builder::new()
-            .behavior_version(aws_sdk_s3::config::BehaviorVersion::latest())
-            .credentials_provider(credentials)
-            .region(Region::new(region_value))
-            .endpoint_url(&parsed_endpoint)
-            .force_path_style(true)
-            .http_client(PresignOnlyHttpClient)
-            .build();
-
-        let client = Client::from_conf(config);
-
-        let presigning_config = PresigningConfig::expires_in(Duration::from_secs(3600))
-            .map_err(|e| format!("Failed to create presigning config: {}", e))?;
-
-        let presigned_request = client
-            .put_object()
-            .bucket(&bucket)
-            .key(&key)
-            .presigned(presigning_config)
-            .await
-            .map_err(|e| format!("Failed to presign request: {}", e))?;
-
-        Ok::<UploadTokenResponse, String>(UploadTokenResponse {
-            url: presigned_request.uri().to_string(),
-            code: 0,
-            message: None,
-        })
-    };
-
-    match AssertUnwindSafe(future).catch_unwind().await {
-        Ok(Ok(val)) => Ok(val),
-        Ok(Err(e)) => Err(e),
-        Err(panic_err) => {
-            let panic_msg = if let Some(s) = panic_err.downcast_ref::<String>() {
-                s.clone()
-            } else if let Some(s) = panic_err.downcast_ref::<&str>() {
-                s.to_string()
-            } else {
-                "Unknown panic".to_string()
-            };
-            Err(format!("Upload token generation panicked: {}. Endpoint: '{}', Bucket: '{}', Region: '{}'", panic_msg, endpoint_clone, bucket_clone, region_clone))
-        }
-    }
+    Ok(UploadTokenResponse {
+        url,
+        code: 0,
+        message: None,
+    })
 }
 
 #[tauri::command]
