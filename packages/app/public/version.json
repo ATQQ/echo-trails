@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.7.9",
-    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.9.apk",
+    "version": "0.7.10",
+    "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.10.apk",
     "forceUpdate": false,
-    "description": "fix: 系列问题优化",
-    "md5": "13ee025347b575bcbf75156a579890f0"
+    "description": "包体积优化",
+    "md5": "d8672270875a48132dcca3ece31d949d"
   },
   "ios": {
     "version": "0.1.2",

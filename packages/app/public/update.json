@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.7.10",
+      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.10.apk",
+      "forceUpdate": false,
+      "description": "包体积优化",
+      "md5": "d8672270875a48132dcca3ece31d949d"
+    },
+    {
       "version": "0.7.9",
       "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.9.apk",
       "forceUpdate": false,

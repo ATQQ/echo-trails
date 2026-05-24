@@ -1,4 +1,23 @@
 # Changelog
+## 0.7.10
+
+### Feature
+- 最近趋势增加图表工具条
+- 隐藏最近趋势工具条并改为图标入口
+- 启用 Rust release 符号裁剪
+- 验证精简 Tauri HTTP 插件默认特性
+
+### Bug Fixes
+- 优化新版体重页默认家人与趋势图
+- 优化纪念日预览文字可读性
+- 修复纪念日预览顶部工具条不可点击
+
+### Performance
+- 压缩 release APK 内 native so
+- 开启 release 资源瘦身
+- 精简 native S3 presign HTTP client
+- 移除 native aws-sdk-s3 预签名依赖
+
 ## 0.7.9
 
 ### Feature
