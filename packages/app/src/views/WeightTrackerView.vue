@@ -55,6 +55,7 @@ const homeChartFitPercent = ref(0)
 const homeChartScrollPercent = ref(0)
 const homeChartCanScroll = ref(false)
 const homeChartViewportWidth = ref(300)
+const showHomeChartToolbar = ref(false)
 const customRange = ref<[number, number]>([
   dayjs().subtract(6, 'day').startOf('day').valueOf(),
   dayjs().endOf('day').valueOf()
@@ -371,6 +372,13 @@ function handleHomeChartScrollInput(event: Event) {
   const percent = Number(target.value)
   homeChartScrollPercent.value = percent
   syncHomeChartScroll(percent)
+}
+
+function toggleHomeChartToolbar() {
+  showHomeChartToolbar.value = !showHomeChartToolbar.value
+  if (showHomeChartToolbar.value) {
+    nextTick(updateHomeChartScrollState)
+  }
 }
 
 function formatNumber(value: number, digits = 1) {
@@ -819,9 +827,20 @@ onBeforeUnmount(() => {
         <article class="panel trend-panel">
           <div class="panel-header">
             <h2>最近趋势</h2>
-            <button class="unit-switch" type="button" @click="isKG = !isKG">
-              {{ isKG ? 'kg' : '斤' }}
-            </button>
+            <div class="trend-panel-actions">
+              <button
+                v-if="homeChartPoints.length > 1"
+                :class="['chart-tool-button', { active: showHomeChartToolbar }]"
+                type="button"
+                aria-label="显示或隐藏趋势图工具条"
+                @click="toggleHomeChartToolbar"
+              >
+                <van-icon name="setting-o" />
+              </button>
+              <button class="unit-switch" type="button" @click="isKG = !isKG">
+                {{ isKG ? 'kg' : '斤' }}
+              </button>
+            </div>
           </div>
           <div v-if="homeChartPoints.length" ref="homeChartScrollRef" class="mini-chart trend-chart-scroll" @scroll="handleHomeChartScroll">
             <div class="trend-chart-canvas" :style="{ width: `${homeChartSvgWidth}px` }">
@@ -847,7 +866,7 @@ onBeforeUnmount(() => {
               </svg>
             </div>
           </div>
-          <div v-if="homeChartPoints.length > 1" class="trend-chart-toolbar">
+          <div v-if="homeChartPoints.length > 1 && showHomeChartToolbar" class="trend-chart-toolbar">
             <label class="chart-slider-row">
               <span>间距</span>
               <input
@@ -860,7 +879,6 @@ onBeforeUnmount(() => {
                 aria-label="调整最近趋势横坐标间距"
                 @input="handleHomeChartFitInput"
               />
-              <span>一屏</span>
             </label>
             <label v-if="homeChartCanScroll" class="chart-slider-row">
               <span>位置</span>
@@ -874,7 +892,6 @@ onBeforeUnmount(() => {
                 aria-label="横向滑动最近趋势图"
                 @input="handleHomeChartScrollInput"
               />
-              <span>{{ homeChartScrollPercent }}%</span>
             </label>
           </div>
           <van-empty v-if="!homeChartPoints.length" description="暂无趋势数据" />
@@ -1424,6 +1441,34 @@ button {
   font-weight: 700;
 }
 
+.trend-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-tool-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: #f3f7ff;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+
+  .van-icon {
+    font-size: 17px;
+  }
+
+  &.active {
+    background: #1976ff;
+    color: #fff;
+    transform: rotate(45deg);
+  }
+}
+
 .mini-chart,
 .large-chart {
   height: 150px;
@@ -1465,15 +1510,11 @@ button {
 
 .chart-slider-row {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 36px;
+  grid-template-columns: 32px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   color: #6b7280;
   font-size: 11px;
-
-  span:last-child {
-    text-align: right;
-  }
 }
 
 .chart-slider {
