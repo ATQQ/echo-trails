@@ -128,7 +128,7 @@
 
 ## Step 5：清理 native 依赖重复和 feature
 
-- 状态：待 Step 4 确认后执行
+- 状态：进行中，Step 5A 已验证后恢复，不采用该优化
 - 目标：减少 Rust native 依赖带来的代码体积。
 - 当前观察：
   - native 中依赖 `aws-sdk-s3`、`aws-smithy-http-client`、`reqwest`、`tauri-plugin-http`、`turso`。
@@ -141,6 +141,15 @@
   - 先分析 `cargo tree` 和 feature。
   - 关闭明确无用的 feature。
   - 再评估能否减少重复 HTTP/TLS 依赖。
+- Step 5A 结果：
+  - 曾将 `tauri-plugin-http` 改为 `default-features = false`，仅保留 `rustls-tls` 和 `unsafe-headers`。
+  - 构建通过。
+  - build arm64 APK 从 13.90 MB 降到 13.82 MB，减少约 0.08 MB。
+  - build arm64 AAB 从 15.07 MB 降到 14.99 MB，减少约 0.08 MB。
+  - arm64 `libtauri_app_lib.so` 从 28.58 MB 降到 28.39 MB，减少约 0.19 MB。
+  - APP 安装验证通过。
+  - 因收益只有约 80 KB，且后续桌面端可能需要 Cookie、HTTP/2、charset 或 macOS 系统网络配置支持，已恢复 `Cargo.toml` 和 `Cargo.lock`，不采用该优化。
+  - 详细记录见 `docs/android-package-size-step5a-http-feature-trim-0.7.9.md`。
 - 验证方式：
   - 构建通过。
   - 对比 so、APK、AAB 体积。

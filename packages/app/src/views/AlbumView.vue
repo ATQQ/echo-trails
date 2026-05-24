@@ -138,8 +138,6 @@ const loadAlbum = async (_loading = false) => {
   loading.value = _loading
   try {
     const res = await getAlbums()
-    console.log('loadAlbum res', res);
-
     albumList.value.large = res.large || []
     albumList.value.small = res.small || []
     showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
