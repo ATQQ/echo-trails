@@ -31,7 +31,6 @@ const isKG = ref(localStorage.getItem('weight-kg') === 'true')
 const activeTab = ref<TabName>('home')
 const range = ref<RangeName>('day')
 const records = ref<WeightRecord[]>([])
-const homeTrendRecords = ref<WeightRecord[]>([])
 const statsRecords = ref<WeightRecord[]>([])
 const listLoading = ref(false)
 const listFinished = ref(false)
@@ -55,6 +54,7 @@ const customRange = ref<[number, number]>([
   dayjs().subtract(6, 'day').startOf('day').valueOf(),
   dayjs().endOf('day').valueOf()
 ])
+const isInitializingFamilySelection = ref(false)
 
 const state = reactive({
   date: dayjs().format('YYYY/MM/DD'),
@@ -86,6 +86,7 @@ watch(isKG, (value, oldValue) => {
 })
 
 watch(currentFamilyId, () => {
+  if (isInitializingFamilySelection.value) return
   refreshAllData()
 })
 
@@ -164,9 +165,13 @@ const overviewData = computed(() => {
   return result
 })
 
-const homeChartPoints = computed(() => {
-  return buildChartPoints([...homeTrendRecords.value].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), 'day')
-})
+const homeTrendDailyRecords = computed(() => normalizeDailyRecords(records.value))
+
+const homeChartSvgWidth = computed(() => getChartWidth(homeTrendDailyRecords.value.length, 52))
+
+const homeChartViewBox = computed(() => `0 0 ${homeChartSvgWidth.value} 128`)
+
+const homeChartPoints = computed(() => buildChartPoints(homeTrendDailyRecords.value, 'day', homeChartSvgWidth.value))
 
 const homeChartLinePoints = computed(() => homeChartPoints.value.map(point => `${point.x},${point.y}`).join(' '))
 
@@ -258,7 +263,14 @@ function getStatsRange() {
   return { start: now.startOf('year').valueOf(), end: now.endOf('year').valueOf() }
 }
 
-function buildChartPoints(source: WeightRecord[], chartRange: RangeName): ChartPoint[] {
+function getChartWidth(pointCount: number, minGap = 36) {
+  if (pointCount <= 1) return 300
+  const left = 24
+  const right = 24
+  return Math.max(300, left + right + (pointCount - 1) * minGap)
+}
+
+function buildChartPoints(source: WeightRecord[], chartRange: RangeName, width = 300): ChartPoint[] {
   if (!source.length) return []
 
   const values = source.map(item => item.weight)
@@ -267,9 +279,8 @@ function buildChartPoints(source: WeightRecord[], chartRange: RangeName): ChartP
   const gap = Math.max(max - min, 0.8)
   const top = max + gap * 0.25
   const bottom = min - gap * 0.25
-  const width = 300
-  const left = 20
-  const right = 14
+  const left = 24
+  const right = 24
   const usableWidth = width - left - right
   const usableHeight = 86
   const topOffset = 20
@@ -364,6 +375,29 @@ function compactChartRecords(source: WeightRecord[], limit?: number) {
   return Array.from({ length: maxPoints }, (_, index) => source[Math.round(index * step)]).filter((item): item is WeightRecord => Boolean(item))
 }
 
+function ensureCurrentFamilySelection() {
+  const options = familyOptions.value
+  const optionValues = new Set(options.map(item => item.value))
+  const familyIds = familyStore.familyList.map(item => item.familyId).filter(Boolean)
+
+  if (currentFamilyId.value !== 'default' && optionValues.has(currentFamilyId.value)) return
+
+  const storeFamilyId = familyStore.currentFamily.familyId
+  if (storeFamilyId && storeFamilyId !== 'default' && optionValues.has(storeFamilyId)) {
+    currentFamilyId.value = storeFamilyId
+    return
+  }
+
+  if (familyIds.length && currentFamilyId.value === 'default') {
+    currentFamilyId.value = familyIds[0]
+    return
+  }
+
+  if (!optionValues.has(currentFamilyId.value)) {
+    currentFamilyId.value = 'default'
+  }
+}
+
 async function fetchRangeRecords(startTime: number, endTime: number) {
   const result: WeightRecord[] = []
   let page = 1
@@ -376,15 +410,6 @@ async function fetchRangeRecords(startTime: number, endTime: number) {
     page += 1
   }
   return result
-}
-
-async function loadHomeTrendRecords() {
-  const res = await getWeightList(currentFamilyId.value, 1, 20)
-  if (res.code === 0) {
-    homeTrendRecords.value = res.data
-    return
-  }
-  homeTrendRecords.value = []
 }
 
 async function loadStatsRecords() {
@@ -435,7 +460,6 @@ async function refreshRecords() {
 async function refreshAllData() {
   await Promise.all([
     refreshRecords(),
-    loadHomeTrendRecords(),
     loadStatsRecords()
   ])
 }
@@ -666,6 +690,9 @@ const encouragementMessages = {
 
 onMounted(async () => {
   await refreshFamilies()
+  isInitializingFamilySelection.value = true
+  ensureCurrentFamilySelection()
+  isInitializingFamilySelection.value = false
   await refreshAllData()
 })
 </script>
@@ -718,32 +745,34 @@ onMounted(async () => {
 
         <article class="panel trend-panel">
           <div class="panel-header">
-            <h2>最近20条趋势</h2>
+            <h2>最近趋势</h2>
             <button class="unit-switch" type="button" @click="isKG = !isKG">
               {{ isKG ? 'kg' : '斤' }}
             </button>
           </div>
-          <div v-if="homeChartPoints.length" class="mini-chart">
-            <svg viewBox="0 0 300 128" role="img" aria-label="最近20条体重趋势图">
-              <defs>
-                <linearGradient id="weightFill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stop-color="#1976ff" stop-opacity="0.18" />
-                  <stop offset="100%" stop-color="#1976ff" stop-opacity="0" />
-                </linearGradient>
-              </defs>
-              <line v-for="line in [36, 62, 88]" :key="line" x1="18" x2="286" :y1="line" :y2="line" class="grid-line" />
-              <polygon :points="homeChartAreaPoints" fill="url(#weightFill)" />
-              <polyline :points="homeChartLinePoints" class="trend-line" />
-              <g v-for="point in homeChartPoints" :key="point.date">
-                <circle :cx="point.x" :cy="point.y" r="4" class="point-dot" />
-                <text :x="point.x" :y="point.y - 10" class="point-label" text-anchor="middle">
-                  {{ formatRecordWeight(point.value, 1) }}
-                </text>
-                <text :x="point.x" y="122" class="axis-label" text-anchor="middle">
-                  {{ point.label }}
-                </text>
-              </g>
-            </svg>
+          <div v-if="homeChartPoints.length" class="mini-chart trend-chart-scroll">
+            <div class="trend-chart-canvas" :style="{ width: `${homeChartSvgWidth}px` }">
+              <svg :viewBox="homeChartViewBox" role="img" aria-label="最近体重趋势图">
+                <defs>
+                  <linearGradient id="weightFill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="#1976ff" stop-opacity="0.18" />
+                    <stop offset="100%" stop-color="#1976ff" stop-opacity="0" />
+                  </linearGradient>
+                </defs>
+                <line v-for="line in [36, 62, 88]" :key="line" x1="24" :x2="homeChartSvgWidth - 24" :y1="line" :y2="line" class="grid-line" />
+                <polygon :points="homeChartAreaPoints" fill="url(#weightFill)" />
+                <polyline :points="homeChartLinePoints" class="trend-line" />
+                <g v-for="point in homeChartPoints" :key="point.date">
+                  <circle :cx="point.x" :cy="point.y" r="4" class="point-dot" />
+                  <text :x="point.x" :y="point.y - 10" class="point-label" text-anchor="middle">
+                    {{ formatRecordWeight(point.value, 1) }}
+                  </text>
+                  <text :x="point.x" y="122" class="axis-label" text-anchor="middle">
+                    {{ point.label }}
+                  </text>
+                </g>
+              </svg>
+            </div>
           </div>
           <van-empty v-else description="暂无趋势数据" />
         </article>
@@ -1302,6 +1331,23 @@ button {
     height: 100%;
     overflow: visible;
   }
+}
+
+.trend-chart-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.trend-chart-canvas {
+  min-width: 100%;
+  height: 100%;
 }
 
 .grid-line {
