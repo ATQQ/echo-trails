@@ -7,6 +7,7 @@
 - 基线命令：`bun run analyze:android-size`
 - 基线快照：`docs/android-package-size-baseline-0.7.9.md`
 - Step 2 结果快照：`docs/android-package-size-step2-strip-0.7.9.md`
+- Step 3 结果快照：`docs/android-package-size-step3-compress-native-libs-0.7.9.md`
 - 当前版本：`0.7.9`
 - 最新 APK：`release/echo-trails-release-0.7.9.apk`，42.89 MB。
 - 最新 AAB：`release/echo-trails-release-0.7.9.aab`，17.63 MB。
@@ -76,25 +77,28 @@
 
 ## Step 3：评估 APK native library 压缩
 
-- 状态：待 Step 2 确认后执行
+- 状态：已完成，真机安装验证通过
 - 目标：降低自分发 APK 的下载体积。
 - 主要依据：
   - 当前 APK 中 `libtauri_app_lib.so` 是 `stor`，没有压缩。
   - 临时压缩测试显示，strip 前 so gzip 后约 14M，strip 后约 12M。
 - 改动范围：
-  - `packages/native/src-tauri/gen/android/app/build.gradle.kts`
-  - Android packaging 配置。
+  - 已修改 `packages/native/src-tauri/gen/android/app/build.gradle.kts`
+  - 已在 release build 中设置 `jniLibs.useLegacyPackaging = true`。
 - 关键评估点：
   - Android 版本对压缩 native libs 的加载行为。
   - 安装体积、安装耗时、启动加载的影响。
   - 自分发 APK 与应用商店 AAB 的取舍。
 - 验证方式：
-  - 构建 APK。
-  - 使用 `zipinfo -l` 确认 so 从 `stor` 变为 `defN`。
-  - 对比 APK 下载体积。
-  - 如有设备验证条件，再安装运行检查。
+  - 已构建 APK/AAB。
+  - 已使用 `bun run analyze:android-size` 确认 so 从 `stor` 变为 `defN`。
+  - 已对比 APK 下载体积。
+  - 真机安装运行验证通过。
 - 预期收益：
   - 自分发 APK 可能进一步降到 20M 以内，具体取决于 Step 2 结果。
+  - 实际结果：build arm64 APK 从 31.00 MB 降到 14.51 MB，减少 16.49 MB。
+  - 实际结果：APK 内 `libtauri_app_lib.so` 从 28.58 MB / `stor` 变为 28.58 MB -> 12.09 MB / `defN`。
+  - 实际结果：build arm64 AAB 保持 15.40 MB，符合预期。
 - 风险：
   - 中等。需要谨慎验证 Android 安装和加载行为。
 - 完成后暂停点：
