@@ -309,7 +309,9 @@ const uploadAndSave = async (fileInfo: any) => {
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0,0,0,0.3);
+        background:
+            linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.18) 30%, rgba(0, 0, 0, 0.28) 64%, rgba(0, 0, 0, 0.58) 100%),
+            rgba(0, 0, 0, 0.2);
         z-index: 0;
     }
 
@@ -342,8 +344,10 @@ const uploadAndSave = async (fileInfo: any) => {
         .title {
             font-size: 20px;
             margin-bottom: 20px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            letter-spacing: 1px;
+            color: #fff;
+            font-weight: 600;
+            letter-spacing: 0;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.68), 0 0 2px rgba(0, 0, 0, 0.8);
         }
 
         .counter {
@@ -351,14 +355,16 @@ const uploadAndSave = async (fileInfo: any) => {
             .label-top {
                 font-size: 16px;
                 margin-bottom: 10px;
-                opacity: 0.9;
+                color: rgba(255, 255, 255, 0.92);
+                text-shadow: 0 1px 6px rgba(0, 0, 0, 0.58);
             }
             .number {
                 font-size: 80px;
                 font-weight: bold;
                 line-height: 1;
                 font-family: 'Helvetica Neue', sans-serif;
-                text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                color: #fff;
+                text-shadow: 0 4px 14px rgba(0, 0, 0, 0.62), 0 0 2px rgba(0, 0, 0, 0.8);
             }
             .unit {
                 font-size: 16px;
@@ -378,8 +384,9 @@ const uploadAndSave = async (fileInfo: any) => {
 
             .label {
                 font-size: 14px;
-                opacity: 0.9;
+                color: rgba(255, 255, 255, 0.92);
                 margin-bottom: 8px;
+                text-shadow: 0 1px 6px rgba(0, 0, 0, 0.58);
             }
             .progress-section {
                 margin: 20px auto;
@@ -388,16 +395,18 @@ const uploadAndSave = async (fileInfo: any) => {
                 .progress-text {
                     margin-top: 8px;
                     font-size: 12px;
-                    opacity: 0.8;
+                    color: rgba(255, 255, 255, 0.82);
+                    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.48);
                 }
             }
             .description {
                 font-size: 16px;
-                opacity: 1;
+                color: #fff;
                 margin-top: 16px;
                 max-width: 80%;
                 margin-left: auto;
                 margin-right: auto;
+                text-shadow: 0 1px 7px rgba(0, 0, 0, 0.58);
             }
         }
     }
