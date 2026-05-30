@@ -520,6 +520,29 @@ const startUpload = async (values: FileInfoItem[]) => {
   }
 }
 
+const handleCancelAll = () => {
+  const errorItems = waitUploadList.filter(v => v.status === UploadStatus.ERROR || v.status === UploadStatus.DUPLICATE)
+  if (!errorItems.length) return
+
+  errorItems.forEach(item => {
+    const index = waitUploadList.findIndex(upload => upload.key === item.key)
+    if (index !== -1) {
+      waitUploadList.splice(index, 1)
+    }
+
+    if (uploadValueMap.has(item.key)) {
+      uploadInfoMap.delete(uploadValueMap.get(item.key)!)
+      uploadValueMap.delete(item.key)
+    }
+
+    if (item.url) {
+      URL.revokeObjectURL(item.url)
+    }
+  })
+
+  showNotify({ type: 'success', message: '已取消所有失败/重复项' })
+}
+
 const handleRetryAll = () => {
   const errorItems = waitUploadList.filter(v => v.status === UploadStatus.ERROR || v.status === UploadStatus.DUPLICATE)
   if (!errorItems.length) return
@@ -1029,7 +1052,10 @@ watch(containerRef, (el) => {
             <!-- Upload Header -->
             <div v-else-if="item.data.type === 'upload-header'" class="upload-list-header">
                <span class="upload-title">正在上传 ({{ item.data.count }})</span>
-               <van-button v-if="hasErrorUploads" size="mini" plain type="primary" @click="handleRetryAll" class="retry-all-btn">全部重试</van-button>
+               <div class="upload-actions" v-if="hasErrorUploads">
+                 <van-button size="mini" plain type="danger" @click="handleCancelAll" class="cancel-all-btn" style="margin-right: 8px;">全部取消</van-button>
+                 <van-button size="mini" plain type="primary" @click="handleRetryAll" class="retry-all-btn">全部重试</van-button>
+               </div>
             </div>
 
             <!-- Upload Row -->
@@ -1158,6 +1184,11 @@ watch(containerRef, (el) => {
 
   .upload-title {
     font-weight: 500;
+  }
+  
+  .upload-actions {
+    display: flex;
+    align-items: center;
   }
 }
 

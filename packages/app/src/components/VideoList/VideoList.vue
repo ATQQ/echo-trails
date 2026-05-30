@@ -76,6 +76,7 @@ const { likedMode = false, album, isDelete = false } = defineProps<{
 const waitUploadList = reactive<{ key: string, url: string, cover?: string, status: UploadStatus, progress?: number }[]>([])
 
 const showUploadList = computed(() => waitUploadList.filter(v => v.status !== UploadStatus.SUCCESS))
+const hasErrorUploads = computed(() => showUploadList.value.some(v => v.status === UploadStatus.ERROR || v.status === UploadStatus.DUPLICATE))
 
 const pageInfo = reactive({
   pageSize: 20,
@@ -537,6 +538,55 @@ const startUpload = async (values: FileInfoItem[]) => {
   }
 }
 
+const handleCancelAll = () => {
+  const errorItems = waitUploadList.filter(v => v.status === UploadStatus.ERROR || v.status === UploadStatus.DUPLICATE)
+  if (!errorItems.length) return
+
+  errorItems.forEach(item => {
+    const index = waitUploadList.findIndex(upload => upload.key === item.key)
+    if (index !== -1) {
+      waitUploadList.splice(index, 1)
+    }
+
+    if (uploadValueMap.has(item.key)) {
+      uploadInfoMap.delete(uploadValueMap.get(item.key)!)
+      uploadValueMap.delete(item.key)
+    }
+
+    if (item.url) {
+      URL.revokeObjectURL(item.url)
+    }
+  })
+
+  showNotify({ type: 'success', message: '已取消所有失败/重复项' })
+}
+
+const handleRetryAll = () => {
+  const errorItems = waitUploadList.filter(v => v.status === UploadStatus.ERROR || v.status === UploadStatus.DUPLICATE)
+  if (!errorItems.length) return
+
+  pendingCount.value += errorItems.length
+
+  errorItems.forEach(item => {
+    const isDuplicate = item.status === UploadStatus.DUPLICATE
+    item.status = UploadStatus.PENDING
+    item.progress = 0
+
+    limit(async () => {
+      try {
+        const fileInfo = uploadValueMap.get(item.key)
+        if (fileInfo) {
+          await uploadOneFile(fileInfo, generateUploadInfo(fileInfo), isDuplicate)
+        }
+      } catch (e) {
+        console.error(e)
+      } finally {
+        pendingCount.value--
+      }
+    })
+  })
+}
+
 const reUpload = (item: { key: string, url: string, cover?: string, status: UploadStatus, progress?: number }) => {
   item.status = UploadStatus.PENDING
   item.progress = 0
@@ -825,7 +875,14 @@ const handleOpenFile = async () => {
         <slot name="header"></slot>
         <van-empty v-if="!photoList.length && showEmpty && !showUploadList.length" description="空空如也，快去添加吧" />
         <!-- 待上传列表 -->
-        <van-grid :border="false" square>
+        <div v-if="showUploadList.length > 0" class="upload-list-header">
+           <span class="upload-title">正在上传 ({{ showUploadList.length }})</span>
+           <div class="upload-actions" v-if="hasErrorUploads">
+             <van-button size="mini" plain type="danger" @click="handleCancelAll" class="cancel-all-btn" style="margin-right: 8px;">全部取消</van-button>
+             <van-button size="mini" plain type="primary" @click="handleRetryAll" class="retry-all-btn">全部重试</van-button>
+           </div>
+        </div>
+        <van-grid v-if="showUploadList.length > 0" :border="false" square>
           <van-grid-item v-for="item in showUploadList" :key="item.key" class="img-border">
             <VideoCell :src="item.url" :cover="item.cover">
               <!-- 等待中 -->
@@ -920,4 +977,22 @@ const handleOpenFile = async () => {
 </template>
 <style scoped lang="scss">
 @import url(./style.scss);
+
+.upload-list-header {
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #333;
+
+  .upload-title {
+    font-weight: 500;
+  }
+  
+  .upload-actions {
+    display: flex;
+    align-items: center;
+  }
+}
 </style>
