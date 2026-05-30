@@ -12,7 +12,7 @@ import pLimit from 'p-limit';
 import { open } from '@tauri-apps/plugin-dialog';
 import BottomActions from '../BottomActions/BottomActions.vue';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
-import { showConfirmDialog, showNotify } from 'vant';
+import { showConfirmDialog, showNotify, showImagePreview } from 'vant';
 import { preventBack } from '@/lib/router'
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -590,6 +590,10 @@ const forceUpload = (item: { key: string, url: string, status: UploadStatus, pro
   }
 }
 
+const previewDuplicate = (item: { url: string }) => {
+  showImagePreview([item.url])
+}
+
 const afterRead = (files: any) => {
   // 解析获取图片信息
   const fileInfoList = [files].flat().map(value => {
@@ -1041,7 +1045,7 @@ watch(containerRef, (el) => {
                       </div>
                       <!-- 重复 -->
                       <div v-else-if="subItem.status === UploadStatus.DUPLICATE" class="duplicate-mask">
-                        <div class="duplicate-info">
+                        <div class="duplicate-info" @click.stop="previewDuplicate(subItem)">
                           <van-icon name="warning" />
                           <span>照片存在</span>
                         </div>
