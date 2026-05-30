@@ -32,3 +32,5 @@ coverage
 # Release artifacts
 release/
 qzone_photos_download
+qzone_photos_download-new-new
+qzone_auth_state.json
