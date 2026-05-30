@@ -69,6 +69,24 @@ function downloadImage(url, filepath, timeStr) {
   const downloadedUrls = new Set();
   let hasSavedState = false;
 
+  // ==== 并发下载队列 ====
+  const CONCURRENCY_LIMIT = 2;
+  const downloadQueue = [];
+  let activeCount = 0;
+
+  async function processQueue() {
+    while (activeCount < CONCURRENCY_LIMIT && downloadQueue.length > 0) {
+      const task = downloadQueue.shift();
+      activeCount++;
+      try {
+        await task();
+      } finally {
+        activeCount--;
+        processQueue();
+      }
+    }
+  }
+
   // 监听并拦截 QQ 空间的网络请求，直接获取包含精确时间和原图的 JSON 数据
   page.on('response', async (response) => {
     const url = response.url();
@@ -91,8 +109,22 @@ function downloadImage(url, filepath, timeStr) {
         const jsonMatch = text.match(/_Callback\(([\s\S]*)\);?/);
         if (jsonMatch && jsonMatch[1]) {
           const data = JSON.parse(jsonMatch[1]);
-          if (data.data && data.data.photoList) {
-            const photos = data.data.photoList;
+          let photos = [];
+          if (data.data) {
+            if (Array.isArray(data.data.photoList)) {
+              photos = photos.concat(data.data.photoList);
+            }
+            // 兼容某些接口数据在 rangeList 下的结构
+            if (Array.isArray(data.data.rangeList)) {
+              data.data.rangeList.forEach(range => {
+                if (Array.isArray(range.photoList)) {
+                  photos = photos.concat(range.photoList);
+                }
+              });
+            }
+          }
+
+          if (photos.length > 0) {
             // 尝试获取当前相册名称，如果找不到则放入“未命名相册”
             const topic = data.data.topic || {};
             const albumName = topic.name || '未命名相册';
@@ -168,20 +200,25 @@ function downloadImage(url, filepath, timeStr) {
                 const filepath = path.join(albumDir, filename);
 
                 if (!fs.existsSync(filepath)) {
-                  console.log(`⬇️ 正在下载: ${filename} (原时间信息: ${timeInfo})`);
-                  try {
-                    // 将实际的 Date 对象传递给下载函数用于修改文件时间
-                    await downloadImage(photoUrl, filepath, actualDate);
-                    totalDownloaded++;
-                  } catch (e) {
-                    console.error(`❌ 下载失败: ${filename}`, e.message);
-                  }
+                  // 将下载任务放入队列
+                  downloadQueue.push(async () => {
+                    console.log(`⬇️ 正在下载: ${filename} (原时间信息: ${timeInfo}) | 队列剩余未完成: ${downloadQueue.length} 个`);
+                    try {
+                      // 将实际的 Date 对象传递给下载函数用于修改文件时间
+                      await downloadImage(photoUrl, filepath, actualDate);
+                      totalDownloaded++;
+                    } catch (e) {
+                      console.error(`❌ 下载失败: ${filename}`, e.message);
+                    }
+                  });
                 } else {
                   console.log(`⏭️ 已存在，跳过: ${filename}`);
                 }
               }
             }
-            console.log(`✅ 当前批次处理完成。总计已下载 ${totalDownloaded} 张照片。\n`);
+            console.log(`✅ 当前批次处理完成，已加入下载队列。当前队列等待数: ${downloadQueue.length}，已成功下载总计 ${totalDownloaded} 张。\n`);
+            // 触发队列消费
+            processQueue();
           }
         }
       } catch (e) {
@@ -199,7 +236,12 @@ function downloadImage(url, filepath, timeStr) {
   console.log('4. 全部完成后，您可以直接关闭浏览器或在终端按 Ctrl+C 结束脚本');
   console.log('====================================================\n');
 
-  await page.goto('https://user.qzone.qq.com/2655901404/photo');
+  try {
+    // 禁用超时时间（timeout: 0），防止因为网络慢或某些资源一直 pending 导致脚本直接崩溃
+    await page.goto('https://user.qzone.qq.com/2655901404/photo', { timeout: 0 });
+  } catch (e) {
+    console.error('⚠️ 页面导航超时或出现异常，但不影响继续操作：', e.message);
+  }
 
   // 保持脚本运行，直到用户手动关闭
   page.on('close', () => {
