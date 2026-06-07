@@ -1,9 +1,10 @@
 <script lang="ts" setup>
-import { getAlbums } from '@/service';
+import { getAlbums, getAlbumFolders } from '@/service';
 import { ref, reactive, onActivated, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
+import FolderEditModal from '@/components/FolderEditCard/FolderEditModal.vue';
 import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton/AddButton.vue';
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
@@ -32,6 +33,15 @@ const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
   },
   ttl: 15 * 60 * 1000,
   persistInTauri: true // 开启离线支持，Tauri 环境下即使过期也先加载缓存
+})
+
+// 文件夹列表（仅存于内存，与相册列表一起加载）
+const folderList = ref<AlbumFolder[]>([])
+const { data: cachedFolders, load: loadFolderCache, save: saveFolderCache } = useTTLStorage<AlbumFolder[]>({
+  key: 'albumFolders',
+  initialValue: [],
+  ttl: 15 * 60 * 1000,
+  persistInTauri: true
 })
 
 type SortType = 'time' | 'time_asc' | 'tag'
@@ -137,11 +147,17 @@ const loading = ref(false)
 const loadAlbum = async (_loading = false) => {
   loading.value = _loading
   try {
-    const res = await getAlbums()
+    const [res, folders] = await Promise.all([
+      getAlbums(),
+      getAlbumFolders().catch(() => [] as AlbumFolder[]),
+    ])
     albumList.value.large = res.large || []
     albumList.value.small = res.small || []
-    showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
+    folderList.value = folders || []
+    cachedFolders.value = folderList.value
     saveCache()
+    saveFolderCache()
+    showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length && !folderList.value.length
   } catch (e) {
     console.error('Load albums failed:', e)
     showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
@@ -172,13 +188,17 @@ onActivated(() => {
   } else {
     // 尝试加载缓存
     const loaded = loadCache()
+    const foldersLoaded = loadFolderCache()
+    if (foldersLoaded) {
+      folderList.value = cachedFolders.value || []
+    }
     if (!loaded) {
       // 缓存失效或不存在
       const isEmpty = !albumList.value.large?.length && !albumList.value.small?.length
       loadAlbum(isEmpty)
     } else {
       // 缓存加载成功，更新empty状态
-      showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
+      showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length && !folderList.value.length
 
       // 异步更新一下数据，不设置全局 loading，避免闪烁
       loadAlbum(false).catch(e => {
@@ -215,6 +235,48 @@ onUnmounted(() => {
 const showAddModal = ref(false)
 const currentEditId = ref('')
 const currentEditData = ref<Album | undefined>(undefined)
+
+const showFolderModal = ref(false)
+const currentFolderEditId = ref('')
+const currentFolderEditData = ref<AlbumFolder | undefined>(undefined)
+
+const handleAddFolderClick = () => {
+  currentFolderEditId.value = ''
+  currentFolderEditData.value = undefined
+  showFolderModal.value = true
+}
+
+const handleFolderLongPress = (folder: AlbumFolder) => {
+  currentFolderEditId.value = folder._id
+  currentFolderEditData.value = folder
+  showFolderModal.value = true
+}
+
+const goToFolder = (folderId: string) => {
+  if (isFolderLongPressTriggered) {
+    isFolderLongPressTriggered = false
+    return
+  }
+  router.push({ name: 'album-folder', params: { folderId } })
+}
+
+let folderTouchTimer: any = null
+let isFolderLongPressTriggered = false
+
+const handleFolderTouchStart = (folder: AlbumFolder) => {
+  isFolderLongPressTriggered = false
+  if (folderTouchTimer) clearTimeout(folderTouchTimer)
+  folderTouchTimer = setTimeout(() => {
+    isFolderLongPressTriggered = true
+    handleFolderLongPress(folder)
+  }, 500)
+}
+const handleFolderTouchEnd = () => {
+  if (folderTouchTimer) {
+    clearTimeout(folderTouchTimer)
+    folderTouchTimer = null
+  }
+}
 
 const getScrollTop = () => {
   const current = scrollContainer.value
@@ -290,6 +352,7 @@ const changeTagStyle = (tag: string) => {
 }
 
 preventBack(showAddModal)
+preventBack(showFolderModal)
 </script>
 
 <template>
@@ -317,6 +380,31 @@ preventBack(showAddModal)
       </div>
       <template v-else>
         <van-empty v-if="showEmpty" description="空空如也，快去创建吧" />
+        <!-- 文件夹区块 -->
+        <div class="section folder-section" v-if="folderList.length">
+          <div class="section-header">
+            <h2>文件夹</h2>
+            <van-icon name="plus" size="18" color="#1989fa" @click.stop="handleAddFolderClick" />
+          </div>
+          <div class="horizontal-scroll folder-scroll">
+            <div
+              class="scroll-item folder-item"
+              v-for="folder in folderList"
+              :key="folder._id"
+              @click.stop.prevent="goToFolder(folder._id)"
+              @touchstart="handleFolderTouchStart(folder)"
+              @touchend="handleFolderTouchEnd"
+              @touchcancel="handleFolderTouchEnd"
+              @touchmove="handleFolderTouchEnd"
+            >
+              <ImageCell :src="folder.cover || ''" :cache-key="folder.coverKey ? folder.coverKey + '_folder_cover' : undefined" />
+              <div class="title-desc">
+                <h2>{{ folder.name }}</h2>
+                <p>{{ folder.albumCount || 0 }} 个相册</p>
+              </div>
+            </div>
+          </div>
+        </div>
         <!-- 大卡片 -->
         <van-grid :column-num="1" :border="false" :gutter="16">
           <van-grid-item v-for="album in displayAlbumList.large" :key="album._id">
@@ -397,6 +485,7 @@ preventBack(showAddModal)
   <!-- 添加相册 -->
   <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal" />
     <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="handleAlbumSaved" />
+    <FolderEditModal v-model:visible="showFolderModal" :edit-id="currentFolderEditId" :initial-data="currentFolderEditData" @success="handleAlbumSaved" />
   </div>
 </template>
 
@@ -489,6 +578,47 @@ preventBack(showAddModal)
 .section {
   margin-top: 24px;
 }
+
+.folder-section {
+  margin-top: 16px;
+}
+
+.folder-scroll {
+  .folder-item {
+    width: 38vw;
+    aspect-ratio: 1 / 1;
+    :deep(.van-image) {
+      border-radius: 14px;
+      overflow: hidden;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .title-desc {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 24px 10px 10px;
+      background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.55));
+      color: #fff;
+      h2 {
+        margin: 0;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      p {
+        margin: 4px 0 0 0;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.85);
+      }
+    }
+  }
+}
+
 
 .section-header {
   display: flex;

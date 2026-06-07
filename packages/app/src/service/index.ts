@@ -219,14 +219,15 @@ export function getAlbums() {
   }>>('album/list').json().then((v) => v.data)
 }
 
-export function createAlbum(name: string, description: string, isLarge: boolean, tags: string[]) {
-  if (isLocalMode()) return local.createAlbum(name, description, isLarge, tags)
+export function createAlbum(name: string, description: string, isLarge: boolean, tags: string[], folderId?: string | null) {
+  if (isLocalMode()) return local.createAlbum(name, description, isLarge, tags, folderId)
   return api.post<ServerResponse<Album>>('album/create', {
     json: {
       name,
       description,
       isLarge,
-      tags
+      tags,
+      folderId: folderId || null,
     }
   })
 }
@@ -235,13 +236,15 @@ export function updateAlbum(id: string, options: {
   name: string,
   description: string,
   isLarge: boolean,
-  tags: string[]
+  tags: string[],
+  folderId?: string | null
 }) {
   if (isLocalMode()) return local.updateAlbum(id, options)
   return api.put<ServerResponse<Album>>('album/update', {
     json: {
       id,
-      ...options
+      ...options,
+      folderId: options.folderId === undefined ? undefined : (options.folderId || null),
     }
   })
 }
@@ -264,6 +267,73 @@ export function updateAlbumCover(id: string, key: string) {
       key
     }
   })
+}
+
+// ==================== Album Folders ====================
+
+export function getAlbumFolders() {
+  if (isLocalMode()) return local.getAlbumFolders()
+  return api.get<ServerResponse<AlbumFolder[]>>('albumFolder/list').json().then(async (v) => {
+    const folders = v.data || []
+    // 计算 cover / albumCount：与本地实现保持一致（前端 join）
+    try {
+      const albumRes = await getAlbums()
+      const all = [...(albumRes.large || []), ...(albumRes.small || [])]
+      const countMap = new Map<string, number>()
+      const coverMap = new Map<string, string>()
+      all.forEach((a) => {
+        if (a.folderId) {
+          countMap.set(a.folderId, (countMap.get(a.folderId) || 0) + 1)
+          if (a.cover && !coverMap.has(a.folderId)) {
+            coverMap.set(a.folderId, a.cover)
+          }
+        }
+      })
+      return folders.map(f => ({
+        ...f,
+        albumCount: countMap.get(f._id) || 0,
+        cover: coverMap.get(f._id) || f.cover || '',
+      }))
+    } catch (e) {
+      console.warn('Enrich album folder covers failed', e)
+      return folders
+    }
+  })
+}
+
+export function createAlbumFolder(name: string, description: string) {
+  if (isLocalMode()) return local.createAlbumFolder(name, description)
+  return api.post<ServerResponse<AlbumFolder>>('albumFolder/create', {
+    json: { name, description }
+  }).json().then((v) => v.data)
+}
+
+export function updateAlbumFolder(id: string, options: { name?: string, description?: string }) {
+  if (isLocalMode()) return local.updateAlbumFolder(id, options)
+  return api.put<ServerResponse<AlbumFolder>>('albumFolder/update', {
+    json: { id, ...options }
+  }).json().then((v) => v.data)
+}
+
+export function deleteAlbumFolder(id: string) {
+  if (isLocalMode()) return local.deleteAlbumFolder(id)
+  return api.delete<ServerResponse>('albumFolder/delete', {
+    json: { id }
+  }).json()
+}
+
+export function setAlbumFolder(albumId: string, folderId: string | null) {
+  if (isLocalMode()) return local.setAlbumFolder(albumId, folderId)
+  return api.put<ServerResponse>('albumFolder/setAlbum', {
+    json: { albumId, folderId: folderId || null }
+  }).json()
+}
+
+export function setAlbumsFolder(albumIds: string[], folderId: string | null) {
+  if (isLocalMode()) return local.setAlbumsFolder(albumIds, folderId)
+  return api.put<ServerResponse>('albumFolder/setAlbums', {
+    json: { albumIds, folderId: folderId || null }
+  }).json()
 }
 
 export function deletePhoto(id: string, albumId?: string) {

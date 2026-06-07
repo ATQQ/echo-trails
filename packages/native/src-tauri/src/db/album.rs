@@ -213,6 +213,7 @@ pub async fn db_album_create(
     description: Option<String>,
     style: Option<String>,
     tags: Option<Vec<String>>,
+    folder_id: Option<String>,
     data: Option<String>,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
@@ -223,13 +224,16 @@ pub async fn db_album_create(
         .unwrap_or_else(|| "[]".to_string());
 
     let data_val = data.unwrap_or_else(|| {
-        json!({
+        let mut obj = json!({
             "name": name,
             "description": description.unwrap_or_default(),
             "style": style_val,
             "tags": serde_json::from_str::<JsonValue>(&tags_json).unwrap_or(json!([]))
-        })
-        .to_string()
+        });
+        if let Some(fid) = folder_id.as_ref().filter(|s| !s.is_empty()) {
+            obj["folderId"] = json!(fid);
+        }
+        obj.to_string()
     });
 
     conn.execute(
@@ -259,6 +263,7 @@ pub async fn db_album_update(
     description: Option<String>,
     style: Option<String>,
     tags: Option<Vec<String>>,
+    folder_id: Option<String>,
     data: Option<String>,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
@@ -285,6 +290,16 @@ pub async fn db_album_update(
         if let Some(t) = tags {
             existing["tags"] = json!(t);
         }
+        if let Some(fid) = folder_id {
+            // folderId 为空字符串时视为移出（清空字段）
+            if fid.is_empty() {
+                if let Some(obj) = existing.as_object_mut() {
+                    obj.remove("folderId");
+                }
+            } else {
+                existing["folderId"] = json!(fid);
+            }
+        }
         conn.execute(
             "UPDATE albums SET data = ?1, updated_at = datetime('now') WHERE id = ?2",
             (existing.to_string(), id.clone()),
@@ -303,6 +318,63 @@ pub async fn db_album_update(
     } else {
         Err("Album not found".to_string())
     }
+}
+
+#[tauri::command]
+pub async fn db_album_set_folder(
+    state: State<'_, TursoDb>,
+    id: String,
+    folder_id: Option<String>,
+) -> Result<JsonValue, String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+    let mut existing = get_album_data(&conn, &id).await?;
+    if let Some(obj) = existing.as_object_mut() {
+        match folder_id {
+            Some(fid) if !fid.is_empty() => {
+                obj.insert("folderId".to_string(), json!(fid));
+            }
+            _ => {
+                obj.remove("folderId");
+            }
+        }
+    }
+    conn.execute(
+        "UPDATE albums SET data = ?1, updated_at = datetime('now') WHERE id = ?2",
+        (existing.to_string(), id.clone()),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(json!({ "code": 0 }))
+}
+
+#[tauri::command]
+pub async fn db_albums_set_folder(
+    state: State<'_, TursoDb>,
+    album_ids: Vec<String>,
+    folder_id: Option<String>,
+) -> Result<JsonValue, String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+    for album_id in &album_ids {
+        let mut existing = get_album_data(&conn, album_id).await?;
+        if let Some(obj) = existing.as_object_mut() {
+            match folder_id.as_ref() {
+                Some(fid) if !fid.is_empty() => {
+                    obj.insert("folderId".to_string(), json!(fid));
+                }
+                _ => {
+                    obj.remove("folderId");
+                }
+            }
+        }
+        conn.execute(
+            "UPDATE albums SET data = ?1, updated_at = datetime('now') WHERE id = ?2",
+            (existing.to_string(), album_id.clone()),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(json!({ "code": 0 }))
 }
 
 #[tauri::command]

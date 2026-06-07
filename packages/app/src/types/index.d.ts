@@ -35,6 +35,18 @@ interface Album {
   style: 'large' | 'small'
   createdAt: string
   tags: string[]
+  folderId?: string | null
+}
+
+interface AlbumFolder {
+  _id: string
+  name: string
+  description: string
+  cover?: string
+  coverKey?: string
+  albumCount?: number
+  createdAt: string
+  updatedAt?: string
 }
 
 interface InfoItem {

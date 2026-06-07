@@ -5,6 +5,7 @@ use tauri::Manager;
 use turso::{Builder, Database};
 
 pub mod album;
+pub mod album_folder;
 pub mod asset;
 pub mod blood_pressure;
 pub mod family;
@@ -16,6 +17,7 @@ pub mod weight;
 
 // Re-export all commands so they're accessible via `use db::*`
 pub use album::*;
+pub use album_folder::*;
 pub use asset::*;
 pub use blood_pressure::*;
 pub use family::*;
@@ -132,6 +134,15 @@ async fn create_schema(app: &tauri::AppHandle) -> Result<(), String> {
         )",
         // Albums
         "CREATE TABLE IF NOT EXISTS albums (
+            id TEXT PRIMARY KEY,
+            remote_id TEXT,
+            sync_status TEXT DEFAULT 'local',
+            updated_at TEXT DEFAULT (datetime('now')),
+            deleted INTEGER DEFAULT 0,
+            data TEXT NOT NULL DEFAULT '{}'
+        )",
+        // Album Folders
+        "CREATE TABLE IF NOT EXISTS album_folders (
             id TEXT PRIMARY KEY,
             remote_id TEXT,
             sync_status TEXT DEFAULT 'local',

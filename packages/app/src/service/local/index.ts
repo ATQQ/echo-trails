@@ -60,6 +60,19 @@ function mapAlbum(row: any): any {
     coverKey: row.coverKey || '',
     createdAt: row.createdAt || row.created_at || updatedAt,
     updatedAt,
+    folderId: row.folderId || null,
+  }
+}
+
+function mapAlbumFolder(row: any): any {
+  return {
+    ...row,
+    _id: row.id || row._id,
+    name: row.name || '',
+    description: row.description || '',
+    coverKey: row.coverKey || '',
+    createdAt: row.createdAt || row.updated_at || '',
+    updatedAt: row.updated_at || row.createdAt || '',
   }
 }
 
@@ -280,13 +293,14 @@ export async function getAlbums() {
   return { large, small }
 }
 
-export async function createAlbum(name: string, description: string, isLarge: boolean, tags: string[]) {
+export async function createAlbum(name: string, description: string, isLarge: boolean, tags: string[], folderId?: string | null) {
   const now = new Date().toISOString()
   const result = await invoke<any>('db_album_create', {
     name,
     description,
     style: isLarge ? 'large' : 'small',
     tags,
+    folderId: folderId || null,
     data: JSON.stringify({
       name,
       description,
@@ -294,6 +308,7 @@ export async function createAlbum(name: string, description: string, isLarge: bo
       tags,
       createdAt: now,
       updatedAt: now,
+      ...(folderId ? { folderId } : {}),
     }),
   })
   return mapAlbum(result)
@@ -304,12 +319,16 @@ export async function updateAlbum(id: string, options: {
   description: string,
   isLarge: boolean,
   tags: string[]
+  folderId?: string | null
 }) {
   const data = JSON.stringify({
     name: options.name,
     description: options.description,
     style: options.isLarge ? 'large' : 'small',
     tags: options.tags,
+    ...(options.folderId !== undefined
+      ? (options.folderId ? { folderId: options.folderId } : { folderId: null })
+      : {}),
   })
   const result = await invoke<any>('db_album_update', { id, data })
   return mapAlbum(result)
@@ -340,6 +359,82 @@ export async function getAlbumInfo(id: string) {
 export async function updateAlbumCover(id: string, key: string) {
   const result = await invoke<any>('db_album_update_cover', { id, key })
   return mapAlbum(result)
+}
+
+// ==================== Album Folders ====================
+
+export async function getAlbumFolders() {
+  const result = await invoke<any>('db_album_folder_list')
+  const data = result?.data || result
+  const list = Array.isArray(data) ? data : []
+  // 统计每个 folder 下的相册数量
+  const albums = await getAlbums()
+  const all = [...(albums.large || []), ...(albums.small || [])]
+  const countMap = new Map<string, number>()
+  all.forEach((a: any) => {
+    if (a.folderId) {
+      countMap.set(a.folderId, (countMap.get(a.folderId) || 0) + 1)
+    }
+  })
+  // 计算封面：取每个 folder 第一个关联相册的 cover
+  const coverMap = new Map<string, string>()
+  all.forEach((a: any) => {
+    if (a.folderId && a.cover && !coverMap.has(a.folderId)) {
+      coverMap.set(a.folderId, a.cover)
+    }
+  })
+  return list.map((row: any) => {
+    const f = mapAlbumFolder(row)
+    return {
+      ...f,
+      albumCount: countMap.get(f._id) || 0,
+      cover: coverMap.get(f._id) || '',
+    }
+  })
+}
+
+export async function createAlbumFolder(name: string, description: string) {
+  const now = new Date().toISOString()
+  const result = await invoke<any>('db_album_folder_create', {
+    name,
+    description,
+    data: JSON.stringify({
+      name,
+      description,
+      createdAt: now,
+      updatedAt: now,
+    }),
+  })
+  const folder = mapAlbumFolder(result.data || result)
+  return { ...folder, albumCount: 0, cover: '' }
+}
+
+export async function updateAlbumFolder(id: string, options: { name?: string, description?: string }) {
+  const result = await invoke<any>('db_album_folder_update', {
+    id,
+    name: options.name,
+    description: options.description,
+  })
+  const folder = mapAlbumFolder(result.data || result)
+  return folder
+}
+
+export async function deleteAlbumFolder(id: string) {
+  return invoke<any>('db_album_folder_delete', { id })
+}
+
+export async function setAlbumFolder(albumId: string, folderId: string | null) {
+  return invoke<any>('db_album_set_folder', {
+    id: albumId,
+    folderId: folderId || null,
+  })
+}
+
+export async function setAlbumsFolder(albumIds: string[], folderId: string | null) {
+  return invoke<any>('db_albums_set_folder', {
+    albumIds,
+    folderId: folderId || null,
+  })
 }
 
 // ==================== Usage Records ====================

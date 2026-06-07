@@ -75,6 +75,14 @@ pub fn run() {
             db_album_create,
             db_album_update,
             db_album_update_cover,
+            db_album_set_folder,
+            db_albums_set_folder,
+            // Album Folder CRUD
+            db_album_folder_list,
+            db_album_folder_get,
+            db_album_folder_create,
+            db_album_folder_update,
+            db_album_folder_delete,
             // Asset Category CRUD
             db_asset_category_list,
             db_asset_category_create,

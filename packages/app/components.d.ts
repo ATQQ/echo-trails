@@ -18,6 +18,8 @@ declare module 'vue' {
     BottomActions: typeof import('./src/components/BottomActions/BottomActions.vue')['default']
     EditAlbumCard: typeof import('./src/components/EditAlbumCard/EditAlbumCard.vue')['default']
     FamilySelector: typeof import('./src/components/FamilySelector/FamilySelector.vue')['default']
+    FolderEditCard: typeof import('./src/components/FolderEditCard/FolderEditCard.vue')['default']
+    FolderEditModal: typeof import('./src/components/FolderEditCard/FolderEditModal.vue')['default']
     FooterNav: typeof import('./src/components/FooterNav/FooterNav.vue')['default']
     ImageCell: typeof import('./src/components/ImageCell/ImageCell.vue')['default']
     InfoCard: typeof import('./src/components/InfoCard/InfoCard.vue')['default']
