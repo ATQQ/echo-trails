@@ -1,9 +1,10 @@
 <script lang="ts" setup>
-import { getAlbums } from '@/service';
+import { getAlbums, getAlbumFolders, setAlbumsFolder } from '@/service';
 import { ref, computed, onActivated, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
+import FolderEditModal from '@/components/FolderEditCard/FolderEditModal.vue';
 import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton/AddButton.vue';
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
@@ -11,6 +12,7 @@ import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useScrollRestore } from '@/composables/useScrollRestore';
 import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
+import { showToast } from 'vant';
 
 defineOptions({
   name: 'AllAlbumView'
@@ -20,6 +22,9 @@ const scrollContainer = ref<HTMLElement | null>(null)
 useScrollRestore(scrollContainer)
 
 const { addRecent } = useRecentAlbums()
+
+// Tab 状态
+const activeTab = ref<'all' | 'folders'>('all')
 
 // 添加本地存储
 const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
@@ -35,6 +40,15 @@ const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
   persistInTauri: true // 开启离线支持，Tauri 环境下即使过期也先加载缓存
 })
 
+// 文件夹数据
+const { data: folderList, load: loadFolderCache, save: saveFolderCache } = useTTLStorage<AlbumFolder[]>({
+  key: 'albumFolders',
+  initialValue: [],
+  ttl: 15 * 60 * 1000,
+  persistInTauri: true
+})
+
+// 全部相册 tab 的数据和逻辑
 type SortType = 'time' | 'time_asc' | 'tag'
 const sortType = ref<SortType>((localStorage.getItem('all_album_sort_type') as SortType) || 'tag')
 const showSortPopover = ref(false)
@@ -138,8 +152,73 @@ const toggleTag = (tag: string) => {
   activeTag.value = activeTag.value === tag ? '' : tag
 }
 
+// 相册分类 tab 的数据和逻辑
+const folderSearchKeyword = ref('')
+const selectedAlbums = ref<string[]>([])
+const isEditMode = ref(false)
+
+const allAlbums = computed(() => [
+  ...(albumList.value.large || []),
+  ...(albumList.value.small || [])
+])
+
+const uncategorizedAlbums = computed(() => {
+  return allAlbums.value.filter(a => !a.folderId)
+})
+
+const folderAlbums = computed(() => {
+  const keyword = folderSearchKeyword.value.trim().toLowerCase()
+  return allAlbums.value.filter(album => {
+    const matchKeyword = keyword
+      ? (album.name || '').toLowerCase().includes(keyword)
+      : true
+    return matchKeyword
+  })
+})
+
+const toggleAlbumSelection = (albumId: string) => {
+  const index = selectedAlbums.value.indexOf(albumId)
+  if (index > -1) {
+    selectedAlbums.value.splice(index, 1)
+  } else {
+    selectedAlbums.value.push(albumId)
+  }
+}
+
+const selectAllAlbums = () => {
+  selectedAlbums.value = folderAlbums.value.map(a => a._id)
+}
+
+const clearSelection = () => {
+  selectedAlbums.value = []
+}
+
+const moveToFolder = async (folderId: string | null) => {
+  if (selectedAlbums.value.length === 0) {
+    showToast('请先选择相册')
+    return
+  }
+  try {
+    await setAlbumsFolder(selectedAlbums.value, folderId)
+    showToast('移动成功')
+    selectedAlbums.value = []
+    isEditMode.value = false
+    await loadAlbum(false)
+    await loadFolders(false)
+  } catch (e: any) {
+    showToast(e?.message || '操作失败')
+  }
+}
+
+const router = useRouter()
+const goToFolderDetail = (folderId: string) => {
+  router.push({ name: 'album-folder', params: { folderId } })
+}
+
+// 公共逻辑
 const showEmpty = ref(false)
 const loading = ref(false)
+
 const loadAlbum = async (_loading = false) => {
   loading.value = _loading
   try {
@@ -148,6 +227,25 @@ const loadAlbum = async (_loading = false) => {
     albumList.value.small = res.small || []
     showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
     saveCache()
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadFolders = async (_loading = false) => {
+  try {
+    const folders = await getAlbumFolders()
+    folderList.value = folders || []
+    saveFolderCache()
+  } catch (e) {
+    console.warn('Load folders failed:', e)
+  }
+}
+
+const loadAll = async (_loading = false) => {
+  loading.value = _loading
+  try {
+    await Promise.all([loadAlbum(false), loadFolders(false)])
   } finally {
     loading.value = false
   }
@@ -162,6 +260,10 @@ const handleAlbumSaved = async () => {
   }
 }
 
+const handleFolderChanged = async () => {
+  await loadFolders(false)
+}
+
 onActivated(() => {
   // 在这里如果有预请求数据直接回填，不用再发起请求
   if ((window as any).__PREFETCHED_ALBUMS__) {
@@ -171,20 +273,22 @@ onActivated(() => {
     showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
     saveCache()
     delete (window as any).__PREFETCHED_ALBUMS__
+    loadFolders(false)
   } else {
     // 尝试加载缓存
     const loaded = loadCache()
+    loadFolderCache()
     if (!loaded) {
       // 缓存失效或不存在
       const isEmpty = !albumList.value.large?.length && !albumList.value.small?.length
-      loadAlbum(isEmpty)
+      loadAll(isEmpty)
     } else {
       // 缓存加载成功，更新empty状态
       showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
 
       // 异步更新一下数据，不设置全局 loading，避免闪烁
-      loadAlbum(false).catch(e => {
-        console.warn('Silent refresh failed (might be offline):', e)
+      loadAll(false).catch(e => {
+        console.warn('Silent refresh failed (may be offline):', e)
       })
     }
   }
@@ -194,7 +298,7 @@ let stopAlbumsChangedListener: (() => void) | undefined
 onMounted(() => {
   stopAlbumsChangedListener = onAlbumsChanged((detail) => {
     if (detail.source === albumChangeSource) return
-    loadAlbum(false).catch(e => {
+    loadAll(false).catch(e => {
       console.warn('Refresh all albums from change event failed:', e)
     })
   })
@@ -204,9 +308,13 @@ onUnmounted(() => {
   stopAlbumsChangedListener?.()
 })
 
+// 弹窗和按钮逻辑
 const showAddModal = ref(false)
 const currentEditId = ref('')
 const currentEditData = ref<Album | undefined>(undefined)
+const showFolderModal = ref(false)
+const currentFolderEditId = ref('')
+const currentFolderEditData = ref<AlbumFolder | undefined>(undefined)
 
 const isScrolled = ref(false)
 const handleScroll = (e: Event) => {
@@ -233,7 +341,12 @@ const handleAddClick = () => {
   showAddModal.value = true
 }
 
-const router = useRouter()
+const handleAddFolderClick = () => {
+  currentFolderEditId.value = ''
+  currentFolderEditData.value = undefined
+  showFolderModal.value = true
+}
+
 const goToDetail = (albumId: string) => {
   if (isLongPressTriggered) {
     isLongPressTriggered = false
@@ -262,15 +375,16 @@ const handleTouchEnd = () => {
 }
 
 preventBack(showAddModal)
+preventBack(showFolderModal)
 </script>
 
 <template>
   <div class="app-wrapper">
     <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div>
-    <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)" class="pull-refresh-container" ref="scrollContainer" @scroll="handleScroll">
+    <van-pull-refresh v-model="loading" @refresh="loadAll(true)" class="pull-refresh-container" ref="scrollContainer" @scroll="handleScroll">
       <PageTitle title="全部相册" :info="false" back>
         <template #action>
-          <van-popover v-model:show="showSortPopover" :actions="sortActions" @select="onSelectSort"
+          <van-popover v-if="activeTab === 'all'" v-model:show="showSortPopover" :actions="sortActions" @select="onSelectSort"
             placement="bottom-end">
             <template #reference>
               <van-icon style="margin-right: 16px;" name="sort" size="18" color="#333" />
@@ -278,69 +392,167 @@ preventBack(showAddModal)
           </van-popover>
         </template>
       </PageTitle>
-      <div class="album">
-        <van-search
-          v-model="searchKeyword"
-          class="album-search"
-          shape="round"
-          clearable
-          placeholder="搜索相册名"
-        />
-        <div v-if="albumTags.length" class="tag-filter" aria-label="按标签筛选相册">
-          <button
-            class="tag-chip"
-            :class="{ active: !activeTag }"
-            type="button"
-            @click="activeTag = ''"
-          >
-            全部
-          </button>
-          <button
-            v-for="tag in albumTags"
-            :key="tag.name"
-            class="tag-chip"
-            :class="{ active: activeTag === tag.name }"
-            type="button"
-            @click="toggleTag(tag.name)"
-          >
-            <span>{{ tag.name }}</span>
-            <span class="tag-count">{{ tag.count }}</span>
-          </button>
-        </div>
-        <div v-if="loading && !displayAlbumList.length"
-          class="skeleton-container">
-          <div class="skeleton-grid">
-            <div class="skeleton-card" v-for="i in 6" :key="i">
-              <div class="skeleton-small skeleton-bg"></div>
-              <div class="skeleton-title skeleton-bg"></div>
-              <div class="skeleton-count skeleton-bg"></div>
+      <!-- Tab 导航 -->
+      <van-tabs v-model:active="activeTab" class="album-tabs" line-width="32px" sticky>
+        <van-tab title="全部相册" name="all">
+          <!-- 全部相册内容 -->
+          <div class="album">
+            <van-search
+              v-model="searchKeyword"
+              class="album-search"
+              shape="round"
+              clearable
+              placeholder="搜索相册名"
+            />
+            <div v-if="albumTags.length" class="tag-filter" aria-label="按标签筛选相册">
+              <button
+                class="tag-chip"
+                :class="{ active: !activeTag }"
+                type="button"
+                @click="activeTag = ''"
+              >
+                全部
+              </button>
+              <button
+                v-for="tag in albumTags"
+                :key="tag.name"
+                class="tag-chip"
+                :class="{ active: activeTag === tag.name }"
+                type="button"
+                @click="toggleTag(tag.name)"
+              >
+                <span>{{ tag.name }}</span>
+                <span class="tag-count">{{ tag.count }}</span>
+              </button>
             </div>
-          </div>
-        </div>
-        <template v-else>
-          <van-empty
-            v-if="showEmpty || !displayAlbumList.length"
-            :description="searchKeyword || activeTag ? '没有匹配的相册' : '空空如也，快去创建吧'"
-          />
-          <van-grid v-else :gutter="10" :column-num="3" :border="false" class="small-card-grid">
-            <van-grid-item v-for="album in displayAlbumList" :key="album._id">
-              <div class="small-card"
-                   @click.stop.prevent="goToDetail(album._id)"
-                   @contextmenu="handleContextMenu($event, album)"
-                   @touchstart="handleTouchStart(album)"
-                   @touchend="handleTouchEnd"
-                   @touchcancel="handleTouchEnd"
-                   @touchmove="handleTouchEnd">
-                <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
-                <div class="title-desc">
-                  <h2>{{ album.name }}</h2>
-                  <p>{{ album.count }}</p>
+            <div v-if="loading && !displayAlbumList.length"
+              class="skeleton-container">
+              <div class="skeleton-grid">
+                <div class="skeleton-card" v-for="i in 6" :key="i">
+                  <div class="skeleton-small skeleton-bg"></div>
+                  <div class="skeleton-title skeleton-bg"></div>
+                  <div class="skeleton-count skeleton-bg"></div>
                 </div>
               </div>
-            </van-grid-item>
-          </van-grid>
-        </template>
-      </div>
+            </div>
+            <template v-else>
+              <van-empty
+                v-if="showEmpty || !displayAlbumList.length"
+                :description="searchKeyword || activeTag ? '没有匹配的相册' : '空空如也，快去创建吧'"
+              />
+              <van-grid v-else :gutter="10" :column-num="3" :border="false" class="small-card-grid">
+                <van-grid-item v-for="album in displayAlbumList" :key="album._id">
+                  <div class="small-card"
+                       @click.stop.prevent="goToDetail(album._id)"
+                       @contextmenu="handleContextMenu($event, album)"
+                       @touchstart="handleTouchStart(album)"
+                       @touchend="handleTouchEnd"
+                       @touchcancel="handleTouchEnd"
+                       @touchmove="handleTouchEnd">
+                    <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
+                    <div class="title-desc">
+                      <h2>{{ album.name }}</h2>
+                      <p>{{ album.count }}</p>
+                    </div>
+                  </div>
+                </van-grid-item>
+              </van-grid>
+            </template>
+          </div>
+        </van-tab>
+        <van-tab title="相册分类" name="folders">
+          <!-- 相册分类内容 -->
+          <div class="album-folders">
+            <!-- 文件夹列表 -->
+            <div class="folders-section">
+              <div class="section-header">
+                <span class="section-title">文件夹</span>
+                <van-button size="small" type="primary" plain @click="handleAddFolderClick">新建</van-button>
+              </div>
+              <div v-if="folderList.length === 0" class="empty-folders">
+                <van-empty description="暂无文件夹，点击上方按钮新建" />
+              </div>
+              <div v-else class="folders-list">
+                <div
+                  v-for="folder in folderList"
+                  :key="folder._id"
+                  class="folder-item"
+                  @click="goToFolderDetail(folder._id)"
+                >
+                  <div class="folder-cover">
+                    <ImageCell v-if="folder.cover" :src="folder.cover" />
+                    <div v-else class="folder-cover-empty">
+                      <van-icon name="folder-o" size="32" color="#ccc" />
+                    </div>
+                  </div>
+                  <div class="folder-info">
+                    <div class="folder-name">{{ folder.name }}</div>
+                    <div class="folder-count">{{ folder.albumCount || 0 }} 个相册</div>
+                  </div>
+                  <van-icon name="arrow" size="16" color="#ccc" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 相册分类管理 -->
+            <div class="albums-section">
+              <div class="section-header">
+                <span class="section-title">相册</span>
+                <div class="section-actions">
+                  <van-button v-if="!isEditMode" size="small" type="default" plain @click="isEditMode = true">管理</van-button>
+                  <template v-else>
+                    <van-button size="small" type="default" plain @click="clearSelection">取消</van-button>
+                    <van-button size="small" type="primary" plain @click="selectAllAlbums">全选</van-button>
+                  </template>
+                </div>
+              </div>
+
+              <van-search
+                v-model="folderSearchKeyword"
+                class="album-search"
+                shape="round"
+                clearable
+                placeholder="搜索相册名"
+              />
+
+              <!-- 编辑模式底部操作栏 -->
+              <div v-if="isEditMode && selectedAlbums.length > 0" class="folder-actions">
+                <span class="selected-count">已选 {{ selectedAlbums.length }} 个</span>
+                <div class="action-buttons">
+                  <van-button size="small" type="default" plain @click="moveToFolder(null)">移出文件夹</van-button>
+                  <van-button v-for="folder in folderList" :key="folder._id" size="small" type="primary" plain @click="moveToFolder(folder._id)">
+                    移入{{ folder.name }}
+                  </van-button>
+                </div>
+              </div>
+
+              <van-grid v-if="folderAlbums.length > 0" :gutter="10" :column-num="3" :border="false" class="small-card-grid">
+                <van-grid-item v-for="album in folderAlbums" :key="album._id">
+                  <div
+                    class="small-card"
+                    :class="{ selected: selectedAlbums.includes(album._id) }"
+                    @click.stop.prevent="isEditMode ? toggleAlbumSelection(album._id) : goToDetail(album._id)"
+                  >
+                    <van-checkbox v-if="isEditMode" :model-value="selectedAlbums.includes(album._id)" class="album-checkbox" />
+                    <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
+                    <div class="title-desc">
+                      <h2>{{ album.name }}</h2>
+                      <p>
+                        {{ album.count }}
+                        <span v-if="album.folderId" class="folder-tag">
+                          {{ folderList.find(f => f._id === album.folderId)?.name || '' }}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </van-grid-item>
+              </van-grid>
+              <van-empty v-else-if="folderSearchKeyword" description="没有匹配的相册" />
+              <van-empty v-else description="暂无相册" />
+            </div>
+          </div>
+        </van-tab>
+      </van-tabs>
     </van-pull-refresh>
     <!-- 回到顶部 -->
     <van-back-top :bottom="'calc(var(--footer-area-height) + 48px)'" :right="20" :style="{
@@ -350,6 +562,7 @@ preventBack(showAddModal)
     <!-- 添加相册 -->
     <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal" />
     <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="handleAlbumSaved" />
+    <FolderEditModal v-model:visible="showFolderModal" :edit-id="currentFolderEditId" :initial-data="currentFolderEditData" @success="handleFolderChanged" />
   </div>
 </template>
 
@@ -400,6 +613,16 @@ preventBack(showAddModal)
 }
 
 .album {
+  padding-bottom: var(--footer-area-height);
+}
+
+.album-tabs {
+  :deep(.van-tabs__content) {
+    overflow: visible;
+  }
+}
+
+.album-folders {
   padding-bottom: var(--footer-area-height);
 }
 
@@ -482,6 +705,7 @@ preventBack(showAddModal)
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 
   :deep(.van-image) {
     border-radius: 12px;
@@ -510,6 +734,29 @@ preventBack(showAddModal)
       margin: 2px 0 0 0;
       font-size: 12px;
       color: #999;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+  }
+
+  .folder-tag {
+    background: #f0f0f0;
+    padding: 0 4px;
+    border-radius: 4px;
+    font-size: 10px;
+    color: #666;
+  }
+
+  &.selected {
+    :deep(.van-image) {
+      opacity: 0.7;
+    }
+    .album-checkbox {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 1;
     }
   }
 }
@@ -560,5 +807,116 @@ preventBack(showAddModal)
   100% {
     background-position: 0 50%;
   }
+}
+
+/* 相册分类样式 */
+.folders-section, .albums-section {
+  padding: 16px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.folders-section:last-child, .albums-section:last-child {
+  border-bottom: none;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.section-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.empty-folders {
+  padding: 40px 0;
+}
+
+.folders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.folder-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f8f8f8;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.folder-cover {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.folder-cover-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.folder-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.folder-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-count {
+  font-size: 13px;
+  color: #999;
+}
+
+.folder-actions {
+  margin: 12px 0;
+  padding: 12px;
+  background: #f8f8f8;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.selected-count {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 </style>
