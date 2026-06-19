@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { getAlbums, getAlbumFolders } from '@/service';
-import { ref, computed, onActivated, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
@@ -24,6 +24,7 @@ const { addRecent } = useRecentAlbums()
 
 // Tab 状态
 const activeTab = ref<'all' | 'folders'>('all')
+const showStickySafeArea = ref(false)
 
 // 添加本地存储
 const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
@@ -151,6 +152,18 @@ const toggleTag = (tag: string) => {
   activeTag.value = activeTag.value === tag ? '' : tag
 }
 
+const displayFolderList = computed(() => {
+  return [...(folderList.value || [])].sort((a, b) => {
+    const aHasAlbums = (a.albumCount || 0) > 0
+    const bHasAlbums = (b.albumCount || 0) > 0
+    if (aHasAlbums !== bHasAlbums) return aHasAlbums ? -1 : 1
+
+    const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime()
+    const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime()
+    return timeB - timeA
+  })
+})
+
 const router = useRouter()
 const goToFolderDetail = (folderId: string) => {
   router.push({ name: 'album-folder', params: { folderId } })
@@ -206,6 +219,10 @@ const handleFolderChanged = async () => {
 }
 
 onActivated(() => {
+  nextTick(() => {
+    startScrollStateWatcher()
+    updateScrollState(getScrollElement())
+  })
   // 在这里如果有预请求数据直接回填，不用再发起请求
   if ((window as any).__PREFETCHED_ALBUMS__) {
     const data = (window as any).__PREFETCHED_ALBUMS__
@@ -237,6 +254,8 @@ onActivated(() => {
 
 let stopAlbumsChangedListener: (() => void) | undefined
 onMounted(() => {
+  startScrollStateWatcher()
+  nextTick(() => updateScrollState(getScrollElement()))
   stopAlbumsChangedListener = onAlbumsChanged((detail) => {
     if (detail.source === albumChangeSource) return
     loadAll(false).catch(e => {
@@ -245,7 +264,12 @@ onMounted(() => {
   })
 })
 
+onDeactivated(() => {
+  stopScrollStateWatcher()
+})
+
 onUnmounted(() => {
+  stopScrollStateWatcher()
   stopAlbumsChangedListener?.()
 })
 
@@ -258,11 +282,39 @@ const currentFolderEditId = ref('')
 const currentFolderEditData = ref<AlbumFolder | undefined>(undefined)
 
 const isScrolled = ref(false)
+
+const getSafeAreaTop = () => {
+  const value = getComputedStyle(document.body).getPropertyValue('--safe-area-top')
+    || getComputedStyle(document.documentElement).getPropertyValue('--safe-area-top')
+  return Number.parseFloat(value) || 0
+}
+
+const updateScrollState = (target: HTMLElement | null) => {
+  if (!target) return
+  isScrolled.value = target.scrollTop > 20
+  showStickySafeArea.value = target.scrollTop > getSafeAreaTop()
+}
+
+const getScrollElement = () => {
+  return document.querySelector<HTMLElement>('.pull-refresh-container')
+}
+
 const handleScroll = (e: Event) => {
-  const target = e.target as HTMLElement
-  if (target) {
-    isScrolled.value = target.scrollTop > 20
-  }
+  updateScrollState(e.target as HTMLElement)
+}
+
+let scrollStateTimer: number | undefined
+const startScrollStateWatcher = () => {
+  stopScrollStateWatcher()
+  scrollStateTimer = window.setInterval(() => {
+    updateScrollState(getScrollElement())
+  }, 100)
+}
+
+const stopScrollStateWatcher = () => {
+  if (scrollStateTimer === undefined) return
+  window.clearInterval(scrollStateTimer)
+  scrollStateTimer = undefined
 }
 
 const handleLongPress = (album: Album) => {
@@ -326,7 +378,7 @@ preventBack(showFolderModal)
 
 <template>
   <div class="app-wrapper">
-    <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div>
+    <!-- <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div> -->
     <van-pull-refresh v-model="loading" @refresh="loadAll(true)" class="pull-refresh-container" ref="scrollContainer" @scroll="handleScroll">
       <PageTitle title="全部相册" :info="false" back>
         <template #action>
@@ -339,7 +391,7 @@ preventBack(showFolderModal)
         </template>
       </PageTitle>
       <!-- Tab 导航 -->
-      <van-tabs v-model:active="activeTab" class="album-tabs" line-width="32px" sticky>
+      <van-tabs v-model:active="activeTab" class="album-tabs" :class="{ 'show-sticky-safe-area': showStickySafeArea }" line-width="32px">
         <van-tab title="全部相册" name="all">
           <!-- 全部相册内容 -->
           <div class="album">
@@ -411,15 +463,12 @@ preventBack(showFolderModal)
           <div class="album-folders">
             <!-- 文件夹列表 -->
             <div class="folders-section">
-              <div class="section-header">
-                <span class="section-title">文件夹</span>
-              </div>
-              <div v-if="folderList.length === 0" class="empty-folders">
+              <div v-if="displayFolderList.length === 0" class="empty-folders">
                 <van-empty description="暂无文件夹，点击右下角按钮新建" />
               </div>
               <div v-else class="folders-list">
                 <div
-                  v-for="folder in folderList"
+                  v-for="folder in displayFolderList"
                   :key="folder._id"
                   class="folder-item"
                   @click="goToFolderDetail(folder._id)"
@@ -432,6 +481,7 @@ preventBack(showFolderModal)
                   </div>
                   <div class="folder-info">
                     <div class="folder-name">{{ folder.name }}</div>
+                    <div v-if="folder.description" class="folder-description">{{ folder.description }}</div>
                     <div class="folder-count">{{ folder.albumCount || 0 }} 个相册</div>
                   </div>
                   <van-icon name="arrow" size="16" color="#ccc" />
@@ -480,34 +530,48 @@ preventBack(showFolderModal)
   overflow-y: auto;
 }
 
-.top-blur-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 120px;
-  pointer-events: none;
-  z-index: 10;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.top-blur-mask.is-visible {
-  opacity: 1;
-}
+// .top-blur-mask {
+//   position: absolute;
+//   top: 0;
+//   left: 0;
+//   right: 0;
+//   height: 120px;
+//   pointer-events: none;
+//   z-index: 10;
+//   background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 100%);
+//   backdrop-filter: blur(12px);
+//   -webkit-backdrop-filter: blur(12px);
+//   -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+//   mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+//   opacity: 0;
+//   transition: opacity 0.3s ease;
+// }
+//
+// .top-blur-mask.is-visible {
+//   opacity: 1;
+// }
 
 .album {
   padding-bottom: var(--footer-area-height);
 }
 
 .album-tabs {
-  :deep(.van-tabs__wrap--sticky) {
-    top: var(--safe-area-top) !important;
+  :deep(.van-tabs__wrap) {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #fff;
+  }
+
+  &.show-sticky-safe-area {
+    :deep(.van-tabs__wrap) {
+      top: var(--safe-area-top, 0px);
+      box-shadow: 0 calc(-1 * var(--safe-area-top, 0px)) 0 var(--safe-area-top, 0px) #fff;
+    }
+  }
+
+  :deep(.van-tabs__nav) {
+    background: #fff;
   }
 
   :deep(.van-tabs__content) {
@@ -696,21 +760,7 @@ preventBack(showFolderModal)
 
 /* 相册分类样式 */
 .folders-section {
-  padding: 16px 12px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  padding: 0 4px;
-}
-
-.section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
+  padding: 12px;
 }
 
 .empty-folders {
@@ -762,7 +812,17 @@ preventBack(showFolderModal)
   font-size: 15px;
   font-weight: 500;
   color: #333;
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-description {
   margin-bottom: 4px;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
