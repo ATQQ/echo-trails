@@ -1,11 +1,12 @@
 use serde_json::{json, Value as JsonValue};
 use tauri::State;
 
-use super::{merge_row, new_id, TursoDb};
+use super::{ensure_album_folders_table, merge_row, new_id, TursoDb};
 
 #[tauri::command]
 pub async fn db_album_folder_list(state: State<'_, TursoDb>) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
+    ensure_album_folders_table(&conn).await?;
     let mut rows = conn
         .query(
             "SELECT * FROM album_folders WHERE deleted = 0 ORDER BY updated_at DESC",
@@ -29,6 +30,7 @@ pub async fn db_album_folder_get(
     id: String,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
+    ensure_album_folders_table(&conn).await?;
     let mut rows = conn
         .query("SELECT * FROM album_folders WHERE id = ?1", (id,))
         .await
@@ -50,6 +52,7 @@ pub async fn db_album_folder_create(
     data: Option<String>,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
+    ensure_album_folders_table(&conn).await?;
     let folder_id = new_id();
 
     let data_val = data.unwrap_or_else(|| {
@@ -88,6 +91,7 @@ pub async fn db_album_folder_update(
     data: Option<String>,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
+    ensure_album_folders_table(&conn).await?;
 
     if let Some(d) = data {
         conn.execute(
@@ -130,6 +134,7 @@ pub async fn db_album_folder_delete(
     id: String,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
+    ensure_album_folders_table(&conn).await?;
 
     // 把该文件夹下相册的 folderId 置空
     let mut album_rows = conn

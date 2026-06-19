@@ -394,16 +394,10 @@ export async function getAlbumFolders() {
 }
 
 export async function createAlbumFolder(name: string, description: string) {
-  const now = new Date().toISOString()
   const result = await invoke<any>('db_album_folder_create', {
     name,
     description,
-    data: JSON.stringify({
-      name,
-      description,
-      createdAt: now,
-      updatedAt: now,
-    }),
+    data: null,
   })
   const folder = mapAlbumFolder(result.data || result)
   return { ...folder, albumCount: 0, cover: '' }

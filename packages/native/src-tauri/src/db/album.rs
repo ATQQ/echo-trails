@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use serde_json::{json, Value as JsonValue};
 use tauri::State;
 
-use super::{merge_row, new_id, TursoDb};
+use super::{ensure_album_folders_table, merge_row, new_id, TursoDb};
 
 #[tauri::command]
 pub async fn db_album_list(state: State<'_, TursoDb>) -> Result<JsonValue, String> {
@@ -327,6 +327,7 @@ pub async fn db_album_set_folder(
     folder_id: Option<String>,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
+    ensure_album_folder_exists(&conn, folder_id.as_deref()).await?;
     let mut existing = get_album_data(&conn, &id).await?;
     if let Some(obj) = existing.as_object_mut() {
         match folder_id {
@@ -355,6 +356,7 @@ pub async fn db_albums_set_folder(
     folder_id: Option<String>,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
+    ensure_album_folder_exists(&conn, folder_id.as_deref()).await?;
     for album_id in &album_ids {
         let mut existing = get_album_data(&conn, album_id).await?;
         if let Some(obj) = existing.as_object_mut() {
@@ -375,6 +377,31 @@ pub async fn db_albums_set_folder(
         .map_err(|e| e.to_string())?;
     }
     Ok(json!({ "code": 0 }))
+}
+
+async fn ensure_album_folder_exists(
+    conn: &turso::Connection,
+    folder_id: Option<&str>,
+) -> Result<(), String> {
+    let Some(folder_id) = folder_id.filter(|id| !id.is_empty()) else {
+        return Ok(());
+    };
+
+    ensure_album_folders_table(conn).await?;
+
+    let mut rows = conn
+        .query(
+            "SELECT id FROM album_folders WHERE id = ?1 AND deleted = 0 LIMIT 1",
+            (folder_id,),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if rows.next().await.map_err(|e| e.to_string())?.is_some() {
+        Ok(())
+    } else {
+        Err("目标文件夹不存在".to_string())
+    }
 }
 
 #[tauri::command]

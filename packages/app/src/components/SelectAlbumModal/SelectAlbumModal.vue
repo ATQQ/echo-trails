@@ -9,7 +9,7 @@
     <div class="sheet-header">
       <button type="button" class="header-action" @click="closeSheet">取消</button>
       <div class="header-title">
-        <h2>选择相册</h2>
+        <h2>{{ title }}</h2>
         <span>{{ selectedAlbums.length ? `已选 ${selectedAlbums.length} 个` : `${albumList.length} 个相册` }}</span>
       </div>
       <button type="button" class="header-action clear-action" :disabled="!selectedAlbums.length" @click="clearSelection">清空</button>
@@ -20,11 +20,11 @@
       class="album-search"
       shape="round"
       clearable
-      placeholder="搜索相册"
+      :placeholder="searchPlaceholder"
     />
 
     <div v-if="!albumList.length" class="album-state">
-      <van-empty description="空空如也，快去创建吧" />
+      <van-empty :description="emptyDescription" />
     </div>
     <div v-else-if="!filteredAlbumList.length" class="album-state">
       <van-empty description="没有匹配的相册" />
@@ -70,7 +70,7 @@
         :disabled="!selectedAlbums.length"
         @click="handleSaveAlbumSelect"
       >
-        {{ selectedAlbums.length ? `完成 (${selectedAlbums.length})` : '选择相册' }}
+        {{ selectedAlbums.length ? `完成 (${selectedAlbums.length})` : confirmLabel }}
       </van-button>
     </div>
   </van-action-sheet>
@@ -81,9 +81,22 @@ import { getAlbums } from '@/service';
 import { computed, ref, watch } from 'vue';
 import { preventBack } from '@/lib/router';
 
-const { currentAlbumId, selected } = defineProps<{
+const {
+  currentAlbumId,
+  selected,
+  albums,
+  title = '选择相册',
+  emptyDescription = '空空如也，快去创建吧',
+  confirmLabel = '选择相册',
+  searchPlaceholder = '搜索相册',
+} = defineProps<{
   currentAlbumId?: string
   selected?: string[]
+  albums?: Album[]
+  title?: string
+  emptyDescription?: string
+  confirmLabel?: string
+  searchPlaceholder?: string
 }>()
 
 watch(() => selected, () => {
@@ -114,6 +127,11 @@ const filteredAlbumList = computed(() => {
 })
 
 const loadAlbum = () => {
+  if (albums) {
+    albumList.value = [...albums]
+    return Promise.resolve()
+  }
+
   return getAlbums().then((res) => {
     const newValue: Album[] = []
     if (res.large) {

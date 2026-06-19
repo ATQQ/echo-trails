@@ -1,15 +1,17 @@
 <script lang="ts" setup>
-import { getAlbums, getAlbumFolders } from '@/service';
+import { getAlbums, getAlbumFolders, setAlbumsFolder } from '@/service';
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import FolderEditModal from '@/components/FolderEditCard/FolderEditModal.vue';
+import SelectAlbumModal from '@/components/SelectAlbumModal/SelectAlbumModal.vue';
 import { preventBack } from '@/lib/router'
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useScrollRestore } from '@/composables/useScrollRestore';
 import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
+import { showToast } from 'vant';
 
 defineOptions({
   name: 'AlbumFolderView'
@@ -51,6 +53,14 @@ const folderAlbums = computed<Album[]>(() => {
     ...(albumList.value.small || [])
   ]
   return all.filter(a => a.folderId === fid)
+})
+
+const uncategorizedAlbums = computed<Album[]>(() => {
+  const all = [
+    ...(albumList.value.large || []),
+    ...(albumList.value.small || [])
+  ]
+  return all.filter(a => !a.folderId)
 })
 
 const displayAlbumList = computed<Album[]>(() => {
@@ -136,6 +146,7 @@ onUnmounted(() => {
 const showEditModal = ref(false)
 const currentEditId = ref('')
 const currentEditData = ref<AlbumFolder | undefined>(undefined)
+const showAlbumSelect = ref(false)
 
 const handleEditClick = () => {
   if (!folder.value) return
@@ -144,14 +155,22 @@ const handleEditClick = () => {
   showEditModal.value = true
 }
 
-const handleAddClick = () => {
-  currentEditId.value = ''
-  currentEditData.value = undefined
-  showEditModal.value = true
+const handleAddAlbumsClick = () => {
+  showAlbumSelect.value = true
 }
 
-const goToManage = () => {
-  router.push({ name: 'album-folder-manage', params: { folderId: folderId.value } })
+const handleSaveAlbumSelect = async (albumIds: string[]) => {
+  if (!albumIds.length) return
+
+  try {
+    await setAlbumsFolder(albumIds, folderId.value)
+    showToast('添加成功')
+    showAlbumSelect.value = false
+    await loadData(false)
+    notifyAlbumsChanged(folderChangeSource)
+  } catch (e: any) {
+    showToast(e?.message || '添加失败')
+  }
 }
 
 const { addRecent } = useRecentAlbums()
@@ -186,10 +205,10 @@ preventBack(showEditModal)
           <p v-if="folder.description" class="folder-desc">{{ folder.description }}</p>
           <p class="folder-stats">共 {{ folderAlbums.length }} 个相册</p>
         </div>
-        <div v-if="folder" class="manage-bar" @click="goToManage">
-          <van-icon name="apps-o" size="16" />
-          <span>管理相册</span>
-          <van-icon name="arrow" size="14" color="#969799" />
+        <div v-if="folder" class="folder-actions-bar">
+          <van-button size="small" type="primary" plain icon="plus" @click="handleAddAlbumsClick">
+            添加相册
+          </van-button>
         </div>
         <van-search
           v-model="searchKeyword"
@@ -235,6 +254,15 @@ preventBack(showEditModal)
       :edit-id="currentEditId"
       :initial-data="currentEditData"
       @success="handleFolderChanged"
+    />
+    <SelectAlbumModal
+      v-model:show="showAlbumSelect"
+      :albums="uncategorizedAlbums"
+      title="添加相册"
+      empty-description="没有未归类的相册"
+      confirm-label="添加相册"
+      search-placeholder="搜索未归类相册"
+      @save="handleSaveAlbumSelect"
     />
   </div>
 </template>
@@ -292,16 +320,10 @@ preventBack(showEditModal)
   font-size: 12px;
   color: #969799;
 }
-.manage-bar {
+.folder-actions-bar {
   margin: 12px 16px 0;
-  padding: 10px 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #f7f8fa;
-  border-radius: 10px;
-  font-size: 14px;
-  color: #333;
 }
 .album-search {
   padding: 12px 12px 8px;

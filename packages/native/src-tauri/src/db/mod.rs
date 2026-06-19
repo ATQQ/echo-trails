@@ -327,6 +327,23 @@ pub fn turso_value_to_json(val: &turso::Value) -> JsonValue {
     }
 }
 
+pub async fn ensure_album_folders_table(conn: &turso::Connection) -> Result<(), String> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS album_folders (
+            id TEXT PRIMARY KEY,
+            remote_id TEXT,
+            sync_status TEXT DEFAULT 'local',
+            updated_at TEXT DEFAULT (datetime('now')),
+            deleted INTEGER DEFAULT 0,
+            data TEXT NOT NULL DEFAULT '{}'
+        )",
+        (),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 // ==================== Legacy KV cache commands ====================
 
 #[tauri::command]

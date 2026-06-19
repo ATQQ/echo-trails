@@ -10,12 +10,12 @@ export default function albumFolderRouter(router: Hono<BlankEnv, BlankSchema, "/
     const folders = await AlbumFolder.find({ username, deleted: false }).sort({ createdAt: -1 }).lean()
 
     // 统计每个文件夹下的相册数量
-    const folderIds = folders.map(f => f._id.toString())
+    const folderIds = folders.map(f => f._id)
     const counts = await Album.aggregate([
       { $match: { username, deleted: false, folderId: { $in: folderIds } } },
       { $group: { _id: '$folderId', count: { $sum: 1 } } }
     ])
-    const countMap = new Map(counts.map(c => [c._id, c.count]))
+    const countMap = new Map(counts.map(c => [c._id.toString(), c.count]))
 
     const data = folders.map(f => ({
       _id: f._id.toString(),
@@ -108,7 +108,7 @@ export default function albumFolderRouter(router: Hono<BlankEnv, BlankSchema, "/
 
     // 清空该文件夹下的相册关联
     await Album.updateMany(
-      { username, deleted: false, folderId: folder._id.toString() },
+      { username, deleted: false, folderId: folder._id },
       { $set: { folderId: null, updatedBy: operator } }
     )
 
@@ -129,11 +129,14 @@ export default function albumFolderRouter(router: Hono<BlankEnv, BlankSchema, "/
       }
     }
 
-    await Album.findOneAndUpdate(
+    const album = await Album.findOneAndUpdate(
       { _id: albumId, username, deleted: false },
       { $set: { folderId: folderId || null, updatedBy: operator } },
       { new: true }
     )
+    if (!album) {
+      return ctx.json({ code: 1, message: '相册不存在' })
+    }
 
     return ctx.json({ code: 0 })
   })
@@ -155,12 +158,21 @@ export default function albumFolderRouter(router: Hono<BlankEnv, BlankSchema, "/
       }
     }
 
-    await Album.updateMany(
+    const result = await Album.updateMany(
       { _id: { $in: albumIds }, username, deleted: false },
       { $set: { folderId: folderId || null, updatedBy: operator } }
     )
+    if (result.matchedCount === 0) {
+      return ctx.json({ code: 1, message: '相册不存在' })
+    }
 
-    return ctx.json({ code: 0 })
+    return ctx.json({
+      code: 0,
+      data: {
+        matchedCount: result.matchedCount,
+        modifiedCount: result.modifiedCount,
+      }
+    })
   })
 
   return 'albumFolder'

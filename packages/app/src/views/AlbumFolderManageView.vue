@@ -162,6 +162,7 @@ watch(folderId, () => {
           <template #right-icon>
             <van-checkbox
               :model-value="album.folderId === folderId"
+              @click.stop
               @update:model-value="(v: boolean) => handleToggle(album, v)"
             />
           </template>
