@@ -2,6 +2,7 @@
 import { getAlbums } from '@/service';
 import { ref, reactive, onActivated, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import MemorialAlbumSection from '@/components/MemorialAlbumSection/MemorialAlbumSection.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
@@ -22,6 +23,7 @@ const route = useRoute()
 const { addRecent, getRecentIndex } = useRecentAlbums()
 const { tagStyles, setStyle, getStyle } = useTagStyles()
 const memorialStore = useMemorialStore()
+const { albumHomeMemorials } = storeToRefs(memorialStore)
 
 const refreshMemorials = () => {
   memorialStore.init().catch(e => {
@@ -311,6 +313,9 @@ preventBack(showAddModal)
   <div class="app-wrapper">
     <van-pull-refresh v-model="loading" @refresh="handleRefresh" ref="scrollContainer" class="pull-refresh-container" @scroll="handleScroll">
     <PageTitle title="相册" :info="false">
+      <template v-if="albumHomeMemorials.length" #center>
+        <MemorialAlbumSection />
+      </template>
       <template #action>
         <!-- 我喜欢入口 -->
         <van-icon name="like-o" size="18" color="#333" style="margin-right: 16px;" @click="router.push('/like')" />
@@ -322,7 +327,6 @@ preventBack(showAddModal)
         </van-popover>
       </template>
     </PageTitle>
-    <MemorialAlbumSection />
     <div class="album">
       <div v-if="loading && !displayAlbumList.large?.length && !displayAlbumList.allSmall?.length"
         class="skeleton-container">
