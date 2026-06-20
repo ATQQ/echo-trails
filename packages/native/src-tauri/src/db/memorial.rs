@@ -3,6 +3,38 @@ use tauri::State;
 
 use super::{merge_row, new_id, TursoDb};
 
+fn normalize_memorial(mut val: JsonValue) -> JsonValue {
+    if let Some(obj) = val.as_object_mut() {
+        let is_pinned = obj
+            .get("isPinned")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        obj.insert("isPinned".to_string(), json!(is_pinned));
+
+        let show_on_album_home = obj
+            .get("showOnAlbumHome")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        obj.insert("showOnAlbumHome".to_string(), json!(show_on_album_home));
+
+        let is_lunar = obj
+            .get("isLunar")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        obj.insert("isLunar".to_string(), json!(is_lunar));
+    }
+    val
+}
+
+fn merge_memorial_row(row: &JsonValue) -> JsonValue {
+    normalize_memorial(merge_row(row))
+}
+
+fn parse_memorial_payload(data: &str) -> Result<JsonValue, String> {
+    let parsed = serde_json::from_str::<JsonValue>(data).map_err(|e| e.to_string())?;
+    Ok(normalize_memorial(parsed))
+}
+
 #[tauri::command]
 pub async fn db_memorial_list(state: State<'_, TursoDb>) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
@@ -17,7 +49,7 @@ pub async fn db_memorial_list(state: State<'_, TursoDb>) -> Result<JsonValue, St
     let mut items = Vec::new();
     while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row_to_json(&row)?;
-        items.push(merge_row(&val));
+        items.push(merge_memorial_row(&val));
     }
 
     Ok(json!({ "data": items }))
@@ -31,10 +63,11 @@ pub async fn db_memorial_create(
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     let mid = id.unwrap_or_else(new_id);
+    let memorial_data = parse_memorial_payload(&data)?;
 
     conn.execute(
         "INSERT INTO memorials (id, data) VALUES (?1, ?2)",
-        (mid.clone(), data),
+        (mid.clone(), memorial_data.to_string()),
     )
     .await
     .map_err(|e| e.to_string())?;
@@ -45,7 +78,7 @@ pub async fn db_memorial_create(
         .map_err(|e| e.to_string())?;
     if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row_to_json(&row)?;
-        Ok(merge_row(&val))
+        Ok(merge_memorial_row(&val))
     } else {
         Err("Failed to create memorial".to_string())
     }
@@ -64,6 +97,7 @@ pub async fn db_memorial_update(
             .await
             .unwrap_or_else(|_| json!({}));
         if let Ok(incoming) = serde_json::from_str::<JsonValue>(&d) {
+            let incoming = normalize_memorial(incoming);
             if let (Some(existing_obj), Some(incoming_obj)) =
                 (merged_data.as_object_mut(), incoming.as_object())
             {
@@ -74,6 +108,7 @@ pub async fn db_memorial_update(
                 merged_data = incoming;
             }
         }
+        merged_data = normalize_memorial(merged_data);
         conn.execute(
             "UPDATE memorials SET data = ?1, updated_at = datetime('now') WHERE id = ?2",
             (merged_data.to_string(), id.clone()),
@@ -90,7 +125,7 @@ pub async fn db_memorial_update(
         .map_err(|e| e.to_string())?;
     if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row_to_json(&row)?;
-        Ok(merge_row(&val))
+        Ok(merge_memorial_row(&val))
     } else {
         Err("Memorial not found".to_string())
     }

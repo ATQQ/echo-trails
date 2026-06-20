@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
 import { MEMORIAL_PRESET_COVERS } from '@/constants/memorialCovers'
+import { normalizeMemorial } from '@/lib/memorial'
 import { buildCoverUrl, buildFileUrl, buildPreviewUrl } from './fileUrl'
 
 async function enrichPhotoUrls(row: any): Promise<any> {
@@ -481,14 +482,11 @@ export async function getMemorials() {
     const rawCoverImage = m.coverImage || ''
     const coverImage = rawCoverImage ? await buildPreviewUrl(rawCoverImage, true) : ''
     return {
-      ...m,
+      ...normalizeMemorial(m),
       id: m.id || m._id,
       _id: m.id || m._id,
-      isPinned: !!m.isPinned,
-      isLunar: !!m.isLunar,
       coverImage,
       rawCoverImage,
-      createdAt: Number.isFinite(m.createdAt) ? m.createdAt : new Date(m.createdAt || m.updated_at || Date.now()).getTime(),
     }
   }))
   return memorials.sort((a, b) => {
@@ -501,6 +499,9 @@ export async function createMemorial(data: any) {
   const now = Date.now()
   const memorialData = JSON.stringify({
     ...data,
+    isPinned: !!data.isPinned,
+    showOnAlbumHome: !!data.showOnAlbumHome,
+    isLunar: !!data.isLunar,
     createdAt: data.createdAt || now,
   })
   const result = await invoke<any>('db_memorial_create', {
@@ -514,6 +515,9 @@ export async function updateMemorial(id: string, data: any) {
   const updates = { ...data }
   delete updates.rawCoverImage
   delete updates._id
+  if ('isPinned' in updates) updates.isPinned = !!updates.isPinned
+  if ('showOnAlbumHome' in updates) updates.showOnAlbumHome = !!updates.showOnAlbumHome
+  if ('isLunar' in updates) updates.isLunar = !!updates.isLunar
   const memorialData = JSON.stringify(updates)
   return invoke('db_memorial_update', { id, data: memorialData })
 }

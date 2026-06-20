@@ -25,6 +25,7 @@ declare module 'vue' {
     InfoCard: typeof import('./src/components/InfoCard/InfoCard.vue')['default']
     LivePhotoPlayer: typeof import('./src/components/LivePhotoPlayer/LivePhotoPlayer.vue')['default']
     MainLayout: typeof import('./src/components/MainLayout.vue')['default']
+    MemorialAlbumSection: typeof import('./src/components/MemorialAlbumSection/MemorialAlbumSection.vue')['default']
     MemorialForm: typeof import('./src/components/MemorialForm/MemorialForm.vue')['default']
     NotificationBanner: typeof import('./src/components/NotificationBanner/NotificationBanner.vue')['default']
     PageTitle: typeof import('./src/components/PageTitle/PageTitle.vue')['default']

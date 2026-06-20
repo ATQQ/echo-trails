@@ -7,6 +7,7 @@ import { getBitifulConfigLocal } from "@/lib/bitifulConfig";
 import { showConfirmDialog } from "vant";
 import router from "@/router";
 import { isLocalMode } from "@/lib/serviceRouter";
+import { normalizeMemorial } from "@/lib/memorial";
 import * as local from "./local";
 
 export function checkServiceHealth(baseUrl: string) {
@@ -422,12 +423,14 @@ export function getUsageRecords(targetId: string, options?: { targetType?: strin
 // --- Memorial API ---
 export function getMemorials() {
     if (isLocalMode()) return local.getMemorials()
-    return api.get<ServerResponse<any[]>>('memorial/list').json().then(v => v.data);
+    return api.get<ServerResponse<any[]>>('memorial/list').json()
+        .then(v => (v.data || []).map(normalizeMemorial));
 }
 
 export function createMemorial(data: any) {
     if (isLocalMode()) return local.createMemorial(data)
-    return api.post<ServerResponse<any>>('memorial/create', { json: data }).json().then(v => v.data);
+    return api.post<ServerResponse<any>>('memorial/create', { json: data }).json()
+        .then(v => normalizeMemorial(v.data));
 }
 
 export function updateMemorial(id: string, data: any) {
@@ -435,7 +438,8 @@ export function updateMemorial(id: string, data: any) {
     const payload = { ...data }
     delete payload.rawCoverImage
     delete payload._id
-    return api.put<ServerResponse<any>>('memorial/update', { json: { id, ...payload } }).json();
+    return api.put<ServerResponse<any>>('memorial/update', { json: { id, ...payload } }).json()
+        .then(v => normalizeMemorial(v.data));
 }
 
 export function deleteMemorial(id: string) {

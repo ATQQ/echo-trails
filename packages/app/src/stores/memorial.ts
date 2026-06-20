@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { getMemorials, createMemorial, updateMemorial as apiUpdateMemorial, deleteMemorial as apiDeleteMemorial, getMemorialCovers } from '@/service';
+import { useMemorialCalc } from '@/composables/useMemorialCalc';
 
 export interface MemorialDay {
   id: string;
@@ -12,6 +13,7 @@ export interface MemorialDay {
   type: 'cumulative' | 'countdown';
   isLunar: boolean;
   isPinned: boolean;
+  showOnAlbumHome: boolean;
   coverImage?: string;
   rawCoverImage?: string;
   createdAt: number;
@@ -20,6 +22,7 @@ export interface MemorialDay {
 export const useMemorialStore = defineStore('memorial', () => {
   const memorials = ref<MemorialDay[]>([]);
   const presetCovers = ref<string[]>([]);
+  const { getDays } = useMemorialCalc();
 
   const init = async () => {
     try {
@@ -49,12 +52,18 @@ export const useMemorialStore = defineStore('memorial', () => {
 
   const pinnedMemorials = computed(() => memorials.value.filter(m => m.isPinned));
   const otherMemorials = computed(() => memorials.value.filter(m => !m.isPinned));
+  const albumHomeMemorials = computed(() =>
+    memorials.value
+      .filter(m => m.showOnAlbumHome)
+      .sort((a, b) => getDays(a) - getDays(b))
+  );
 
   return {
     memorials,
     presetCovers,
     pinnedMemorials,
     otherMemorials,
+    albumHomeMemorials,
     init,
     addMemorial,
     updateMemorial,
