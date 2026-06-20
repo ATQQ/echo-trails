@@ -98,6 +98,26 @@ const router = createRouter({
       }
     },
     {
+      path: '/album-folder/:folderId',
+      name: 'album-folder',
+      component: () => import('../views/AlbumFolderView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'AlbumFolderView',
+        nav: false
+      }
+    },
+    {
+      path: '/album-folder-manage/:folderId',
+      name: 'album-folder-manage',
+      component: () => import('../views/AlbumFolderManageView.vue'),
+      meta: {
+        keepAlive: false,
+        componentName: 'AlbumFolderManageView',
+        nav: false
+      }
+    },
+    {
       path: '/tool/s3-qr',
       name: 's3-qr',
       component: () => import('../views/tool/S3QrToolView.vue'),

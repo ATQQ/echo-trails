@@ -1,10 +1,22 @@
 <template>
-    <div class="add-btn" @click="handleClick">
-        <van-icon name="plus" size="16"/>
+    <div
+        class="add-btn"
+        :class="[`add-btn--${variant}`]"
+        @click="handleClick"
+    >
+        <van-icon :name="icon" size="16"/>
     </div>
 </template>
 
 <script setup lang="ts">
+withDefaults(defineProps<{
+    icon?: string
+    variant?: 'primary' | 'success'
+}>(), {
+    icon: 'plus',
+    variant: 'primary',
+})
+
 const emit = defineEmits<{
     (e: 'click'): void
 }>()
@@ -20,7 +32,6 @@ const handleClick = () => {
     right: 20px;
     bottom: var(--footer-area-height);
     z-index: 1;
-    background-color: var(--van-primary-color);
     color: #fff;
     border-radius: 50%;
     box-sizing: border-box;
@@ -29,5 +40,14 @@ const handleClick = () => {
     display: flex;
     justify-content: center;
     align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.add-btn--primary {
+    background-color: var(--van-primary-color);
+}
+
+.add-btn--success {
+    background-color: #07c160;
 }
 </style>

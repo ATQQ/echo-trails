@@ -51,6 +51,7 @@ pub fn run() {
             open_apk,
             check_update,
             get_file_info,
+            parse_live_photo,
             // Legacy KV cache
             db_set_cache,
             db_get_cache,
@@ -75,6 +76,14 @@ pub fn run() {
             db_album_create,
             db_album_update,
             db_album_update_cover,
+            db_album_set_folder,
+            db_albums_set_folder,
+            // Album Folder CRUD
+            db_album_folder_list,
+            db_album_folder_get,
+            db_album_folder_create,
+            db_album_folder_update,
+            db_album_folder_delete,
             // Asset Category CRUD
             db_asset_category_list,
             db_asset_category_create,

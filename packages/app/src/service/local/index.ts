@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
 import { MEMORIAL_PRESET_COVERS } from '@/constants/memorialCovers'
+import { normalizeMemorial } from '@/lib/memorial'
 import { buildCoverUrl, buildFileUrl, buildPreviewUrl } from './fileUrl'
 
 async function enrichPhotoUrls(row: any): Promise<any> {
@@ -13,6 +14,9 @@ async function enrichPhotoUrls(row: any): Promise<any> {
     if (!photo.preview) {
       photo.preview = await buildPreviewUrl(s3Key, isImage)
     }
+  }
+  if (photo.isLive && photo.liveVideoKey && !photo.liveVideoUrl) {
+    photo.liveVideoUrl = await buildFileUrl(photo.liveVideoKey)
   }
   return photo
 }
@@ -43,6 +47,10 @@ function mapPhoto(row: any): any {
     size: row.size ?? 0,
     width: row.width ?? 0,
     height: row.height ?? 0,
+    isLive: !!(row.isLive && row.liveVideoKey),
+    liveVideoKey: row.liveVideoKey || '',
+    liveContentId: row.liveContentId || '',
+    liveDuration: row.liveDuration ?? 0,
   }
 }
 
@@ -60,6 +68,19 @@ function mapAlbum(row: any): any {
     coverKey: row.coverKey || '',
     createdAt: row.createdAt || row.created_at || updatedAt,
     updatedAt,
+    folderId: row.folderId || null,
+  }
+}
+
+function mapAlbumFolder(row: any): any {
+  return {
+    ...row,
+    _id: row.id || row._id,
+    name: row.name || '',
+    description: row.description || '',
+    coverKey: row.coverKey || '',
+    createdAt: row.createdAt || row.updated_at || '',
+    updatedAt: row.updated_at || row.createdAt || '',
   }
 }
 
@@ -121,6 +142,10 @@ export async function addFileInfo(body: any) {
     bucket: body.bucket || '',
     username: 'local',
     uploadDate: new Date().toISOString(),
+    isLive: !!body.isLive,
+    liveVideoKey: body.liveVideoKey || '',
+    liveContentId: body.liveContentId || '',
+    liveDuration: body.liveDuration ?? 0,
   })
   const added = await invoke<any>('db_photo_add', {
     id: crypto.randomUUID(),
@@ -149,6 +174,10 @@ export async function updateFileInfo(body: any) {
     description: body.description || '',
     albumId: body.albumId || [],
     md5: body.md5 || '',
+    isLive: !!body.isLive,
+    liveVideoKey: body.liveVideoKey || '',
+    liveContentId: body.liveContentId || '',
+    liveDuration: body.liveDuration ?? 0,
   })
 
   return invoke<any>('db_photo_update', {
@@ -280,13 +309,14 @@ export async function getAlbums() {
   return { large, small }
 }
 
-export async function createAlbum(name: string, description: string, isLarge: boolean, tags: string[]) {
+export async function createAlbum(name: string, description: string, isLarge: boolean, tags: string[], folderId?: string | null) {
   const now = new Date().toISOString()
   const result = await invoke<any>('db_album_create', {
     name,
     description,
     style: isLarge ? 'large' : 'small',
     tags,
+    folderId: folderId || null,
     data: JSON.stringify({
       name,
       description,
@@ -294,6 +324,7 @@ export async function createAlbum(name: string, description: string, isLarge: bo
       tags,
       createdAt: now,
       updatedAt: now,
+      ...(folderId ? { folderId } : {}),
     }),
   })
   return mapAlbum(result)
@@ -304,12 +335,16 @@ export async function updateAlbum(id: string, options: {
   description: string,
   isLarge: boolean,
   tags: string[]
+  folderId?: string | null
 }) {
   const data = JSON.stringify({
     name: options.name,
     description: options.description,
     style: options.isLarge ? 'large' : 'small',
     tags: options.tags,
+    ...(options.folderId !== undefined
+      ? (options.folderId ? { folderId: options.folderId } : { folderId: null })
+      : {}),
   })
   const result = await invoke<any>('db_album_update', { id, data })
   return mapAlbum(result)
@@ -340,6 +375,76 @@ export async function getAlbumInfo(id: string) {
 export async function updateAlbumCover(id: string, key: string) {
   const result = await invoke<any>('db_album_update_cover', { id, key })
   return mapAlbum(result)
+}
+
+// ==================== Album Folders ====================
+
+export async function getAlbumFolders() {
+  const result = await invoke<any>('db_album_folder_list')
+  const data = result?.data || result
+  const list = Array.isArray(data) ? data : []
+  // 统计每个 folder 下的相册数量
+  const albums = await getAlbums()
+  const all = [...(albums.large || []), ...(albums.small || [])]
+  const countMap = new Map<string, number>()
+  all.forEach((a: any) => {
+    if (a.folderId) {
+      countMap.set(a.folderId, (countMap.get(a.folderId) || 0) + 1)
+    }
+  })
+  // 计算封面：取每个 folder 第一个关联相册的 cover
+  const coverMap = new Map<string, string>()
+  all.forEach((a: any) => {
+    if (a.folderId && a.cover && !coverMap.has(a.folderId)) {
+      coverMap.set(a.folderId, a.cover)
+    }
+  })
+  return list.map((row: any) => {
+    const f = mapAlbumFolder(row)
+    return {
+      ...f,
+      albumCount: countMap.get(f._id) || 0,
+      cover: coverMap.get(f._id) || '',
+    }
+  })
+}
+
+export async function createAlbumFolder(name: string, description: string) {
+  const result = await invoke<any>('db_album_folder_create', {
+    name,
+    description,
+    data: null,
+  })
+  const folder = mapAlbumFolder(result.data || result)
+  return { ...folder, albumCount: 0, cover: '' }
+}
+
+export async function updateAlbumFolder(id: string, options: { name?: string, description?: string }) {
+  const result = await invoke<any>('db_album_folder_update', {
+    id,
+    name: options.name,
+    description: options.description,
+  })
+  const folder = mapAlbumFolder(result.data || result)
+  return folder
+}
+
+export async function deleteAlbumFolder(id: string) {
+  return invoke<any>('db_album_folder_delete', { id })
+}
+
+export async function setAlbumFolder(albumId: string, folderId: string | null) {
+  return invoke<any>('db_album_set_folder', {
+    id: albumId,
+    folderId: folderId || null,
+  })
+}
+
+export async function setAlbumsFolder(albumIds: string[], folderId: string | null) {
+  return invoke<any>('db_albums_set_folder', {
+    albumIds,
+    folderId: folderId || null,
+  })
 }
 
 // ==================== Usage Records ====================
@@ -377,14 +482,11 @@ export async function getMemorials() {
     const rawCoverImage = m.coverImage || ''
     const coverImage = rawCoverImage ? await buildPreviewUrl(rawCoverImage, true) : ''
     return {
-      ...m,
+      ...normalizeMemorial(m),
       id: m.id || m._id,
       _id: m.id || m._id,
-      isPinned: !!m.isPinned,
-      isLunar: !!m.isLunar,
       coverImage,
       rawCoverImage,
-      createdAt: Number.isFinite(m.createdAt) ? m.createdAt : new Date(m.createdAt || m.updated_at || Date.now()).getTime(),
     }
   }))
   return memorials.sort((a, b) => {
@@ -397,6 +499,9 @@ export async function createMemorial(data: any) {
   const now = Date.now()
   const memorialData = JSON.stringify({
     ...data,
+    isPinned: !!data.isPinned,
+    showOnAlbumHome: !!data.showOnAlbumHome,
+    isLunar: !!data.isLunar,
     createdAt: data.createdAt || now,
   })
   const result = await invoke<any>('db_memorial_create', {
@@ -410,6 +515,9 @@ export async function updateMemorial(id: string, data: any) {
   const updates = { ...data }
   delete updates.rawCoverImage
   delete updates._id
+  if ('isPinned' in updates) updates.isPinned = !!updates.isPinned
+  if ('showOnAlbumHome' in updates) updates.showOnAlbumHome = !!updates.showOnAlbumHome
+  if ('isLunar' in updates) updates.isLunar = !!updates.isLunar
   const memorialData = JSON.stringify(updates)
   return invoke('db_memorial_update', { id, data: memorialData })
 }

@@ -68,6 +68,12 @@
             <van-switch v-model="form.isPinned" size="20" />
           </template>
         </van-cell>
+
+        <van-cell center title="在相册首页展示">
+          <template #right-icon>
+            <van-switch v-model="form.showOnAlbumHome" size="20" />
+          </template>
+        </van-cell>
       </van-cell-group>
 
       <div class="delete-btn-container" v-if="isEdit">
@@ -124,6 +130,7 @@ const form = reactive<Omit<MemorialDay, 'id' | 'createdAt'>>({
   type: 'cumulative',
   isLunar: false,
   isPinned: false,
+  showOnAlbumHome: false,
   coverImage: ''
 });
 

@@ -2,11 +2,14 @@
 import { getAlbums } from '@/service';
 import { ref, reactive, onActivated, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
+import MemorialAlbumSection from '@/components/MemorialAlbumSection/MemorialAlbumSection.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
 import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton/AddButton.vue';
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
+import { useMemorialStore } from '@/stores/memorial';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useTagStyles, type TagStyle } from '@/composables/useTagStyles';
@@ -19,6 +22,14 @@ const route = useRoute()
 
 const { addRecent, getRecentIndex } = useRecentAlbums()
 const { tagStyles, setStyle, getStyle } = useTagStyles()
+const memorialStore = useMemorialStore()
+const { albumHomeMemorials } = storeToRefs(memorialStore)
+
+const refreshMemorials = () => {
+  memorialStore.init().catch(e => {
+    console.warn('Refresh memorials failed:', e)
+  })
+}
 
 // 添加本地存储
 const { data: albumList, load: loadCache, save: saveCache } = useTTLStorage<{
@@ -151,6 +162,11 @@ const loadAlbum = async (_loading = false) => {
   }
 }
 
+const handleRefresh = async () => {
+  refreshMemorials()
+  await loadAlbum(true)
+}
+
 const albumChangeSource = 'album-view'
 const handleAlbumSaved = async () => {
   try {
@@ -161,6 +177,7 @@ const handleAlbumSaved = async () => {
 }
 
 onActivated(() => {
+  refreshMemorials()
   // 在这里如果有预请求数据直接回填，不用再发起请求
   if ((window as any).__PREFETCHED_ALBUMS__) {
     const data = (window as any).__PREFETCHED_ALBUMS__
@@ -294,8 +311,11 @@ preventBack(showAddModal)
 
 <template>
   <div class="app-wrapper">
-    <van-pull-refresh v-model="loading" @refresh="loadAlbum(true)" ref="scrollContainer" class="pull-refresh-container" @scroll="handleScroll">
+    <van-pull-refresh v-model="loading" @refresh="handleRefresh" ref="scrollContainer" class="pull-refresh-container" @scroll="handleScroll">
     <PageTitle title="相册" :info="false">
+      <template v-if="albumHomeMemorials.length" #center>
+        <MemorialAlbumSection />
+      </template>
       <template #action>
         <!-- 我喜欢入口 -->
         <van-icon name="like-o" size="18" color="#333" style="margin-right: 16px;" @click="router.push('/like')" />
@@ -608,6 +628,9 @@ preventBack(showAddModal)
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 
   :deep(.van-image) {
     border-radius: 12px;

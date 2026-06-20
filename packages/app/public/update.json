@@ -25,183 +25,211 @@
   ],
   "android": [
     {
+      "version": "0.8.0",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.0.apk",
+      "forceUpdate": false,
+      "description": "支持 live photo;多项优化",
+      "md5": "7371fe6f3c24de3b1fe5edd177f86b5b"
+    },
+    {
+      "version": "0.7.13",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.13.apk",
+      "forceUpdate": false,
+      "description": "Test build",
+      "md5": "7eea38ed11a04cde8872d1218144083a"
+    },
+    {
+      "version": "0.7.12",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.12.apk",
+      "forceUpdate": false,
+      "description": "Test build",
+      "md5": "ca24086cd246ae418307b5ca57007cc1"
+    },
+    {
+      "version": "0.7.11",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.11.apk",
+      "forceUpdate": false,
+      "description": "Test build",
+      "md5": "23ab3d39d3bbe2cc3615815a63f8aeb1"
+    },
+    {
       "version": "0.7.10",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.10.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.10.apk",
       "forceUpdate": false,
       "description": "包体积优化",
       "md5": "d8672270875a48132dcca3ece31d949d"
     },
     {
       "version": "0.7.9",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.9.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.9.apk",
       "forceUpdate": false,
       "description": "fix: 系列问题优化",
       "md5": "13ee025347b575bcbf75156a579890f0"
     },
     {
       "version": "0.7.8",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.8.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.8.apk",
       "forceUpdate": false,
       "description": "系列问题优化,增加新版的体重页面",
       "md5": "3dc90606517cc82b5eabe13fdde537c7"
     },
     {
       "version": "0.7.7",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.7.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.7.apk",
       "forceUpdate": false,
       "description": "一系列问题修复和功能优化",
       "md5": "ad837bb1a5fd82941716fdeeb3a3bfe0"
     },
     {
       "version": "0.7.6",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.6.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.6.apk",
       "forceUpdate": false,
       "description": "减小App 体积",
       "md5": "46b3f5a1957df0fdabdd09967af5ffce"
     },
     {
       "version": "0.7.5",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.5.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.5.apk",
       "forceUpdate": false,
       "description": "fix: 上传问题,本地模式初步支持",
       "md5": "74b0916d5c26a247ad11cc940e538b6e"
     },
     {
       "version": "0.7.4",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.4.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.4.apk",
       "forceUpdate": false,
       "description": "修复上传进度显示异常，时间获取异常，首次访问图片闪烁等问题",
       "md5": "7a7fc13e9dbe045cd214b8b4ef50c1ec"
     },
     {
       "version": "0.7.3",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.3.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.3.apk",
       "forceUpdate": false,
       "description": "优化版本检查逻辑,预览图片优化",
       "md5": "de90bce9d53f97e0e68339eb9d848cf3"
     },
     {
       "version": "0.7.2",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.2.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.2.apk",
       "forceUpdate": false,
       "description": "修复缓存失效问题,增加切换动画,图标更新,优化缓存",
       "md5": "e973978307efc0947a8f3d77332443c5"
     },
     {
       "version": "0.7.1",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.1.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.1.apk",
       "forceUpdate": false,
       "description": "性能优化,显示bug修复",
       "md5": "3cf0de8dd32c49a5f6dad986bd578d77"
     },
     {
       "version": "0.7.0",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.7.0.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.0.apk",
       "forceUpdate": false,
       "description": "性能优化",
       "md5": "d8780eae020cb022fa12ab71d043381b"
     },
     {
       "version": "0.6.5",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.5.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.6.5.apk",
       "forceUpdate": false,
       "description": "feat: 添加本地图片缓存,虚拟滚动",
       "md5": "64430128d21d1b3d7aa90ce11c574ccc"
     },
     {
       "version": "0.6.4",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.4.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.6.4.apk",
       "forceUpdate": false,
       "description": "修复人员切换问题",
       "md5": "7307b17ae4e8b8f0fc7bde9a4c81ca45"
     },
     {
       "version": "0.6.3",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.3.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.6.3.apk",
       "forceUpdate": false,
       "description": "上传优化",
       "md5": "3c3f52f8e798995a52bd14cd24d74a12"
     },
     {
       "version": "0.6.2",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.2.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.6.2.apk",
       "forceUpdate": false,
       "description": "优化相册上传与体重记录",
       "md5": "48fde136084348b92fa19362d0e3425f"
     },
     {
       "version": "0.6.1",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.1.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.6.1.apk",
       "forceUpdate": false,
       "description": "1. 预览图片时间样式展示异常修复 2. 修复体重删除无效 3. 血压记录中展示心率数据",
       "md5": "9d5e05377c950b39be37f91f10aaa8bb"
     },
     {
       "version": "0.6.0",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.6.0.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.6.0.apk",
       "forceUpdate": false,
       "description": "1. 优化数据加载和缓存逻辑 2. 底部导航支持自定义，移除固定的我喜欢入口 3. 血压中显示星期，同时支持数据编辑，默认展示自定义视图 4. 相册中支持展示农历 5. 修复空相册列表时顶部间距缺失问题 6. 修复已删除图片未正确移除的问题",
       "md5": "ffb40ef3dd682d0e7affd817d6c261ef"
     },
     {
       "version": "0.5.3",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.3.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.5.3.apk",
       "forceUpdate": false,
       "description": "新增纪念日功能支持",
       "md5": "4afa82a644463e846a676a45df7c6198"
     },
     {
       "version": "0.5.2",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.2.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.5.2.apk",
       "forceUpdate": false,
       "description": "1.血压录入支持添加描述 2.添加资产管理功能",
       "md5": "ecb5a83b13be30e5f918c4ca5ce1a153"
     },
     {
       "version": "0.5.1",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.1.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.5.1.apk",
       "forceUpdate": false,
       "description": "血压输入添加智能解析,方便快捷录入",
       "md5": "c94504135c3473130d2ae7a7eddf564b"
     },
     {
       "version": "0.5.0",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.5.0.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.5.0.apk",
       "forceUpdate": false,
       "description": "支持血压记录功能",
       "md5": "b38aa89e2f6cdb55928129e88a34978d"
     },
     {
       "version": "0.4.1",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.4.1.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.4.1.apk",
       "forceUpdate": false,
       "description": "上传功能优化",
       "md5": "666395536fff8082f51a79acff22bd43"
     },
     {
       "version": "0.4.0",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.4.0.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.4.0.apk",
       "forceUpdate": false,
       "description": "1. 上传功能优化 2. 缓存优化 3. 相册支持排序和标签功能",
       "md5": "57bb4f89619ccd9e4f0f537432aacf37"
     },
     {
       "version": "0.3.2",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.3.2.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.3.2.apk",
       "forceUpdate": false,
       "description": "支持上传视频",
       "md5": "d33c8bf7ae0a46f57cd9cf81f44c2d8f"
     },
     {
       "version": "0.3.1",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.3.1.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.3.1.apk",
       "forceUpdate": false,
       "description": "修复图片时间获取异常问题;优化版本升级逻辑",
       "md5": "7e27774e2ec8b73a97c4e45b40fe3768"
     },
     {
       "version": "0.3.0",
-      "downloadUrl": "https://three-source.s3.bitiful.net/echo-trails/release/echo-trails-release-0.3.0.apk",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.3.0.apk",
       "forceUpdate": false,
       "description": "迁移体重记录页面",
       "md5": "c26d5758b098eae84a436d72b523099d"

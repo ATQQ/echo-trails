@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onMounted, reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
 import { addFileInfo, updateFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
-import { filePath2Name, generateFileKey, parseNativeImageFileUploadInfo, ensureUploadInfo } from '../../lib/file';
+import { filePath2Name, generateFileKey, parseNativeImageFileUploadInfo, parseNativeVideoFileUploadInfo, ensureUploadInfo, ensureVideoUploadInfo, parseLivePhotoPair, detectLivePhotoPairs, detectMotionPhotoInFile, getFileMd5Hash } from '../../lib/file';
+import { isCompleteLivePhoto, livePhotoDebug } from '../../lib/livePhoto';
 import { isTauri, UploadStatus } from '../../constants/index'
 import { useEventListener, useThrottleFn, useWindowSize, useVirtualList, useElementSize } from '@vueuse/core'
 import PreviewImage from '@/components/PreviewImage/PreviewImage.vue';
@@ -329,7 +330,7 @@ const generateUploadInfo = (value: FileInfoItem) => {
   const { exif, lastModified, file } = value
   const key = generateFileKey(value)
   const name = file.name.replace(/\s+/g, '_') // 去除空格
-  const result = {
+  const result: UploadInfo = {
     key,
     name,
     lastModified,
@@ -342,7 +343,7 @@ const generateUploadInfo = (value: FileInfoItem) => {
     type: file.type,
     likedMode,
     md5: value.md5,
-    ...(album ? { albumId: [album._id] } : {})
+    ...(album ? { albumId: [album._id] } : {}),
   }
   uploadInfoMap.set(value, result)
   return result
@@ -420,6 +421,7 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
           path: fileInfo.filePath,
           url: uploadUrl
         })
+        wrapperItem.progress = fileInfo.isLive && fileInfo.liveVideo ? 50 : 100
       } else {
         // Web 方法
         await uploadFile(file, uploadUrl, (progress) => {
@@ -434,12 +436,76 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
     if (sourceKey) {
       uploadInfo.key = sourceKey
     }
+
+    // Live Photo: 同步上传动态视频部分，成功后才写入 isLive / liveVideoKey
+    if (fileInfo.isLive && fileInfo.liveVideo) {
+      const videoSize = fileInfo.liveVideo.size || 0
+      livePhotoDebug('upload.liveVideo.start', {
+        imageName: fileInfo.name,
+        videoPath: fileInfo.liveVideo.filePath,
+        videoName: fileInfo.liveVideo.name,
+        videoSize,
+        contentId: fileInfo.liveContentId,
+      })
+      if (videoSize <= 0 && isTauri && fileInfo.liveVideo.filePath) {
+        livePhotoDebug('upload.liveVideo.skipEmpty', {
+          imageName: fileInfo.name,
+          videoPath: fileInfo.liveVideo.filePath,
+        })
+        showNotify({
+          type: 'warning',
+          message: `Live Photo 动态视频无效，已保存为普通照片`,
+        })
+      } else {
+        try {
+        const liveType = fileInfo.liveVideo.type || ''
+        const livePath = fileInfo.liveVideo.filePath || ''
+        const isMp4 = liveType.includes('mp4') || /\.mp4$/i.test(fileInfo.liveVideo.name || '') || /\.mp4$/i.test(livePath)
+        const videoKey = `${uploadInfo.key}.live.${isMp4 ? 'mp4' : 'mov'}`
+        const videoUploadUrl = await getUploadUrl(videoKey)
+        if (fileInfo.liveVideo.filePath && isTauri) {
+          await invoke('upload_file', {
+            key: videoKey,
+            path: fileInfo.liveVideo.filePath,
+            url: videoUploadUrl
+          })
+          wrapperItem.progress = 100
+        } else if (fileInfo.liveVideo.file) {
+          await uploadFile(fileInfo.liveVideo.file, videoUploadUrl, (progress) => {
+            wrapperItem.progress = Math.round(((wrapperItem.progress ?? 0) + progress) / 2)
+          })
+        }
+        uploadInfo.isLive = true
+        uploadInfo.liveVideoKey = videoKey
+        uploadInfo.liveContentId = fileInfo.liveContentId || ''
+        uploadInfo.liveDuration = fileInfo.liveDuration || 0
+        livePhotoDebug('upload.liveVideo.success', {
+          imageKey: uploadInfo.key,
+          liveVideoKey: videoKey,
+        })
+        } catch (e) {
+          livePhotoDebug('upload.liveVideo.failed', { imageName: fileInfo.name, error: String(e) })
+          console.warn('[LivePhoto] 动态视频上传失败，将仅保留静态图：', e)
+          showNotify({
+            type: 'warning',
+            message: `Live Photo 动态视频上传失败，已保存为普通照片`,
+          })
+        }
+      }
+    }
+
     let result
     if (existingId) {
       result = await updateFileInfo({ ...uploadInfo, id: existingId })
     } else {
       result = await addFileInfo(uploadInfo)
     }
+    livePhotoDebug('upload.persisted', {
+      name: uploadInfo.name,
+      isLive: result?.isLive,
+      liveVideoKey: result?.liveVideoKey,
+      liveVideoUrl: result?.liveVideoUrl,
+    })
 
     // 空相册首次上传
     if (!photoList.length) {
@@ -486,7 +552,52 @@ const startUpload = async (values: FileInfoItem[]) => {
             return
           }
           Object.assign(value, uploadInfo)
+
+          // 探测 Live Photo 配对（仅 Tauri 端从文件系统选择时使用）
+          if (!value.liveVideo) {
+            livePhotoDebug('detect.tauri.start', { filePath: value.filePath, name: value.name })
+            const liveInfo = await parseLivePhotoPair(value.filePath)
+            livePhotoDebug('detect.tauri.result', {
+              filePath: value.filePath,
+              hit: !!(liveInfo?.video_path),
+              video_path: liveInfo?.video_path,
+              content_id: liveInfo?.content_id,
+              duration: liveInfo?.duration,
+              video_size: liveInfo?.video_size,
+            })
+            if (liveInfo && liveInfo.video_path) {
+              const isMotion = (liveInfo.content_id || '').startsWith('motion-photo:')
+              const inferMp4 = isMotion || /\.mp4$/i.test(liveInfo.video_path)
+              const videoSize = liveInfo.video_size || 0
+              if (isTauri && videoSize <= 0) {
+                livePhotoDebug('detect.invalidVideoSize', {
+                  name: value.name,
+                  videoPath: liveInfo.video_path,
+                })
+              } else {
+                value.isLive = true
+                value.liveContentId = liveInfo.content_id
+                value.liveDuration = liveInfo.duration
+                value.liveVideo = {
+                  filePath: liveInfo.video_path,
+                  name: filePath2Name(liveInfo.video_path) || (inferMp4 ? 'live.mp4' : 'live.mov'),
+                  size: videoSize,
+                  type: inferMp4 ? 'video/mp4' : 'video/quicktime',
+                  duration: liveInfo.duration,
+                }
+              }
+            }
+          }
         }
+
+        livePhotoDebug('detect.enqueue', {
+          name: value.name,
+          filePath: value.filePath,
+          isLive: !!value.isLive,
+          liveContentId: value.liveContentId,
+          liveVideoPath: value.liveVideo?.filePath,
+          liveVideoName: value.liveVideo?.name,
+        })
 
         // 通用处理逻辑 (Web & Tauri)：确保信息完整
         await ensureUploadInfo(value)
@@ -617,17 +728,100 @@ const previewDuplicate = (item: { url: string }) => {
   showImagePreview([item.url])
 }
 
-const afterRead = (files: any) => {
-  // 解析获取图片信息
-  const fileInfoList = [files].flat().map(value => {
+const afterRead = async (files: any) => {
+  const wrapped = [files].flat() as Array<{ file: File, objectUrl: string }>
+  const rawFiles = wrapped.map(v => v.file)
+
+  livePhotoDebug('detect.web.files', {
+    count: rawFiles.length,
+    files: rawFiles.map(f => ({ name: f.name, size: f.size, type: f.type })),
+  })
+
+  const { pairs } = detectLivePhotoPairs(rawFiles)
+  const pairedVideos = new Set(Array.from(pairs.values()))
+  livePhotoDebug('detect.web.applePairs', {
+    pairCount: pairs.size,
+    pairs: Array.from(pairs.entries()).map(([img, vid]) => ({
+      image: img.name,
+      video: vid.name,
+    })),
+  })
+
+  const fileInfoList: FileInfoItem[] = []
+  for (const value of wrapped) {
     const { file, objectUrl } = value
-    return {
+    if (pairedVideos.has(file)) {
+      livePhotoDebug('detect.web.skipPairedVideo', { name: file.name })
+      continue
+    }
+    const matchedVideo = pairs.get(file)
+    let liveExtra: Partial<FileInfoItem> | null = null
+    if (matchedVideo) {
+      livePhotoDebug('detect.web.appleHit', { image: file.name, video: matchedVideo.name })
+      liveExtra = {
+        isLive: true,
+        liveVideo: {
+          file: matchedVideo,
+          name: matchedVideo.name,
+          size: matchedVideo.size,
+          type: matchedVideo.type || 'video/quicktime',
+        }
+      }
+    } else if (/\.jpe?g$/i.test(file.name)) {
+      try {
+        livePhotoDebug('detect.web.motionStart', { name: file.name, size: file.size })
+        const motion = await detectMotionPhotoInFile(file)
+        if (motion) {
+          livePhotoDebug('detect.web.motionHit', {
+            name: file.name,
+            videoLength: motion.videoLength,
+            duration: motion.duration,
+          })
+          const baseName = file.name.replace(/\.[^.]+$/, '')
+          const videoFile = new File([motion.videoBlob], `${baseName}.live.mp4`, { type: 'video/mp4' })
+          liveExtra = {
+            isLive: true,
+            liveDuration: motion.duration,
+            liveContentId: `motion-photo:${baseName}`,
+            liveVideo: {
+              file: videoFile,
+              name: videoFile.name,
+              size: videoFile.size,
+              type: 'video/mp4',
+              duration: motion.duration,
+            }
+          }
+        } else {
+          livePhotoDebug('detect.web.motionMiss', { name: file.name })
+        }
+      } catch (e) {
+        livePhotoDebug('detect.web.motionError', { name: file.name, error: String(e) })
+        console.warn('[MotionPhoto] 检测异常', file.name, e)
+      }
+    } else {
+      livePhotoDebug('detect.web.skipMotion', {
+        name: file.name,
+        type: file.type,
+        reason: 'not-jpeg',
+      })
+    }
+
+    const item = {
       file,
       objectUrl,
       name: file.name,
       lastModified: file.lastModified,
-      date: file.lastModifiedDate,
+      date: (file as any).lastModifiedDate || new Date(file.lastModified),
+      exif: undefined as any,
+      ...(liveExtra || {})
     } as FileInfoItem
+
+    fileInfoList.push(item)
+  }
+
+  livePhotoDebug('detect.web.enqueue', {
+    total: fileInfoList.length,
+    liveCount: fileInfoList.filter(v => v.isLive).length,
   })
 
   startUpload(fileInfoList)
@@ -918,11 +1112,13 @@ const handleOpenFile = async () => {
     multiple: true,
     filters: [{
       name: 'Image',
-      extensions: ['png', 'jpeg', 'webp', 'gif']
+      extensions: ['png', 'jpeg', 'jpg', 'webp', 'gif', 'heic', 'heif']
     }]
   });
 
   if (!selected) return
+
+  livePhotoDebug('detect.tauri.picker', { paths: selected })
 
   const files = selected.map(filePath => {
     const name = filePath2Name(filePath)
@@ -1107,6 +1303,7 @@ watch(containerRef, (el) => {
                <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }" :data-index="subItem.idx">
                   <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
                     <ImageCell @click="(e: Event) => previewImage(subItem.idx, e)" :src="subItem.cover" :cache-key="subItem.key + '_cover'"
+                      :is-live="isCompleteLivePhoto(subItem)"
                       @longpress="handleLongPress(subItem.idx)" />
                     <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[subItem.idx] = el" :name="subItem._id"
                       class="editSelected" />
@@ -1143,7 +1340,8 @@ watch(containerRef, (el) => {
         </div>
       </van-button>
       <!-- 上传 -->
-      <van-uploader v-else class="upload-container" :after-read="afterRead" multiple>
+      <van-uploader v-else class="upload-container" :after-read="afterRead" multiple
+        accept="image/*,video/quicktime,video/mp4,.heic,.heif,.mov">
         <van-icon name="plus" size="16" />
         <div v-if="pendingCount > 0" class="upload-count-badge">
           {{ pendingCount }}

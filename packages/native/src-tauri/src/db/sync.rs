@@ -11,7 +11,7 @@ pub async fn db_get_pending_sync(
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     let tables = [
-        "photos", "albums", "asset_categories", "assets",
+        "photos", "albums", "album_folders", "asset_categories", "assets",
         "memorials", "families", "weights", "blood_pressures", "usage_records",
     ];
 
@@ -58,7 +58,7 @@ pub async fn db_mark_synced(
     let conn = state.0.connect().map_err(|e| e.to_string())?;
 
     let valid_tables = [
-        "photos", "albums", "asset_categories", "assets",
+        "photos", "albums", "album_folders", "asset_categories", "assets",
         "memorials", "families", "weights", "blood_pressures", "usage_records",
     ];
     if !valid_tables.contains(&entity_type.as_str()) {

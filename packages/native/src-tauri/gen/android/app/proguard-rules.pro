@@ -25,10 +25,7 @@
     public static void installApk(android.content.Context, java.lang.String);
 }
 
--keep class com.echo_trails.app.FileHelper {
-    public static com.echo_trails.app.FileInfo getFileInfo(java.lang.String);
-    public static com.echo_trails.app.FileInfo getFileInfoWithContext(android.content.Context, java.lang.String);
-}
+-keep class com.echo_trails.app.FileHelper { *; }
 
 # Keep FileInfo class and its fields for JNI calls
 -keep class com.echo_trails.app.FileInfo {

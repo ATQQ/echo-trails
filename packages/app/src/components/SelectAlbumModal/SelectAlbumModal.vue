@@ -9,7 +9,7 @@
     <div class="sheet-header">
       <button type="button" class="header-action" @click="closeSheet">取消</button>
       <div class="header-title">
-        <h2>选择相册</h2>
+        <h2>{{ title }}</h2>
         <span>{{ selectedAlbums.length ? `已选 ${selectedAlbums.length} 个` : `${albumList.length} 个相册` }}</span>
       </div>
       <button type="button" class="header-action clear-action" :disabled="!selectedAlbums.length" @click="clearSelection">清空</button>
@@ -20,11 +20,11 @@
       class="album-search"
       shape="round"
       clearable
-      placeholder="搜索相册"
+      :placeholder="searchPlaceholder"
     />
 
     <div v-if="!albumList.length" class="album-state">
-      <van-empty description="空空如也，快去创建吧" />
+      <van-empty :description="emptyDescription" />
     </div>
     <div v-else-if="!filteredAlbumList.length" class="album-state">
       <van-empty description="没有匹配的相册" />
@@ -70,7 +70,7 @@
         :disabled="!selectedAlbums.length"
         @click="handleSaveAlbumSelect"
       >
-        {{ selectedAlbums.length ? `完成 (${selectedAlbums.length})` : '选择相册' }}
+        {{ selectedAlbums.length ? `完成 (${selectedAlbums.length})` : confirmLabel }}
       </van-button>
     </div>
   </van-action-sheet>
@@ -80,10 +80,24 @@ import ImageCell from '../ImageCell/ImageCell.vue';
 import { getAlbums } from '@/service';
 import { computed, ref, watch } from 'vue';
 import { preventBack } from '@/lib/router';
+import { sortAlbums } from '@/lib/albumSort';
 
-const { currentAlbumId, selected } = defineProps<{
+const {
+  currentAlbumId,
+  selected,
+  albums,
+  title = '选择相册',
+  emptyDescription = '空空如也，快去创建吧',
+  confirmLabel = '选择相册',
+  searchPlaceholder = '搜索相册',
+} = defineProps<{
   currentAlbumId?: string
   selected?: string[]
+  albums?: Album[]
+  title?: string
+  emptyDescription?: string
+  confirmLabel?: string
+  searchPlaceholder?: string
 }>()
 
 watch(() => selected, () => {
@@ -108,12 +122,19 @@ const albumList = ref<Album[]>([])
 const searchKeyword = ref('')
 const filteredAlbumList = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
-  if (!keyword) return albumList.value
+  const list = keyword
+    ? albumList.value.filter(album => (album.name || '').toLowerCase().includes(keyword))
+    : albumList.value
 
-  return albumList.value.filter(album => (album.name || '').toLowerCase().includes(keyword))
+  return sortAlbums(list)
 })
 
 const loadAlbum = () => {
+  if (albums) {
+    albumList.value = sortAlbums([...albums])
+    return Promise.resolve()
+  }
+
   return getAlbums().then((res) => {
     const newValue: Album[] = []
     if (res.large) {
@@ -122,7 +143,7 @@ const loadAlbum = () => {
     if (res.small) {
       newValue.push(...res.small)
     }
-    albumList.value = newValue
+    albumList.value = sortAlbums(newValue)
   })
 }
 

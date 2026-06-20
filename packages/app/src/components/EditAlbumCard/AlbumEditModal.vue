@@ -1,6 +1,6 @@
 <template>
   <van-popup :show="visible" @update:show="emit('update:visible', $event)" round position="bottom"
-    class="safe-padding-top" :style="{ height: '100%' }" @closed="handleClosed">
+    class="safe-padding-top" :style="{ height: '100%' }" :close-on-popstate="false" @closed="handleClosed">
     <div class="popup-content">
       <h2 class="popup-title">{{ editId ? '编辑相册' : '添加相册' }}</h2>
       <EditAlbumCard @submit="onSubmit" @cancel="handleCancel" :data="formData" btn-type="primary" />
@@ -9,11 +9,10 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, watch, toRef } from 'vue';
+import { reactive, watch } from 'vue';
 import { createAlbum, updateAlbum } from '@/service';
 import { showToast } from 'vant';
 import EditAlbumCard from './EditAlbumCard.vue';
-import { preventBack } from '@/lib/router';
 
 interface Album {
   _id: string;
@@ -63,6 +62,7 @@ watch(
 );
 
 const handleClosed = () => {
+  emit('update:visible', false);
   formData.name = '';
   formData.description = '';
   formData.isLarge = false;
@@ -87,9 +87,6 @@ const onSubmit = () => {
 const handleCancel = () => {
   emit('update:visible', false);
 };
-
-const visibleRef = toRef(props, 'visible');
-preventBack(visibleRef);
 
 </script>
 

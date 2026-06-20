@@ -45,11 +45,6 @@ const showEditFamilyDialog = ref(false)
 const showStatsRangePicker = ref(false)
 const familyNameDraft = ref('')
 const editingFamilyId = ref('')
-const inputSelected = ref(false)
-const scaleDragging = ref(false)
-const scaleDragStartX = ref(0)
-const scaleDragStartValue = ref(0)
-const scaleDragOffset = ref(0)
 const homeChartScrollRef = ref<HTMLElement | null>(null)
 const homeChartFitPercent = ref(0)
 const homeChartScrollPercent = ref(0)
@@ -249,25 +244,6 @@ const statsRangeLabel = computed(() => {
   if (range.value === 'month') return dayjs().format('YYYY年M月')
   return dayjs().format('YYYY年')
 })
-
-const scaleDisplayValue = computed(() => {
-  const inputValue = Number(state.weightInput)
-  if (Number.isFinite(inputValue) && inputValue > 0) return inputValue
-  return displayWeight(latestWeight.value || 50)
-})
-
-const scaleLabels = computed(() => {
-  const step = isKG.value ? 0.5 : 1
-  const start = scaleDisplayValue.value - step * 3
-  return Array.from({ length: 7 }, (_, index) => {
-    const value = Math.max(start + step * index, 0)
-    return formatNumber(value, isKG.value ? 1 : 0)
-  })
-})
-
-const scaleTrackStyle = computed(() => ({
-  transform: `translateX(${scaleDragOffset.value}px)`
-}))
 
 const selectedRecordDateTime = computed(() => {
   if (!selectedRecord.value) return ''
@@ -551,7 +527,6 @@ function openRecord(record?: WeightRecord) {
   state.timeValue = [recordDate.format('HH'), recordDate.format('mm')]
   state.tips = record?.tips || ''
   state.weightInput = target ? formatNumber(displayWeight(target.weight), 1) : '50.0'
-  inputSelected.value = true
   showRecordPopup.value = true
   nextTick(() => {
     window.scrollTo({ top: 0 })
@@ -566,45 +541,15 @@ function normalizeInputText(value: string) {
 
 function handleKeypadTap(key: string) {
   if (key === 'back') {
-    state.weightInput = inputSelected.value ? '' : state.weightInput.slice(0, -1)
-    inputSelected.value = false
+    state.weightInput = state.weightInput.slice(0, -1)
     return
   }
 
-  const base = inputSelected.value ? '' : state.weightInput
+  const base = state.weightInput
   if (key === '.' && base.includes('.')) return
   const nextValue = normalizeInputText(`${base}${key}`)
   if (nextValue.length > 5) return
   state.weightInput = nextValue
-  inputSelected.value = false
-}
-
-function setWeightInputFromScale(value: number) {
-  const clamped = Math.min(Math.max(value, 1), isKG.value ? 300 : 600)
-  state.weightInput = formatNumber(clamped, 1)
-  inputSelected.value = false
-}
-
-function beginScaleDrag(clientX: number) {
-  scaleDragging.value = true
-  scaleDragStartX.value = clientX
-  scaleDragStartValue.value = scaleDisplayValue.value
-  scaleDragOffset.value = 0
-  inputSelected.value = false
-}
-
-function moveScaleDrag(clientX: number) {
-  if (!scaleDragging.value) return
-  const delta = clientX - scaleDragStartX.value
-  const unitStep = isKG.value ? 0.1 : 0.2
-  const value = scaleDragStartValue.value + Math.round(-delta / 12) * unitStep
-  scaleDragOffset.value = Math.max(Math.min(delta, 36), -36)
-  setWeightInputFromScale(value)
-}
-
-function endScaleDrag() {
-  scaleDragging.value = false
-  scaleDragOffset.value = 0
 }
 
 function handleCalendarConfirm(date: Date) {
@@ -1054,29 +999,8 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="record-value">
-            <strong :class="{ selected: inputSelected }">{{ state.weightInput || '0' }}</strong>
+            <strong>{{ state.weightInput || '0' }}</strong>
             <span>{{ isKG ? 'kg' : '斤' }}</span>
-          </div>
-
-          <div
-            :class="['weight-scale', { dragging: scaleDragging }]"
-            aria-label="滑动微调体重"
-            @touchstart.passive="beginScaleDrag($event.touches[0].clientX)"
-            @touchmove.passive="moveScaleDrag($event.touches[0].clientX)"
-            @touchend="endScaleDrag"
-            @mousedown="beginScaleDrag($event.clientX)"
-            @mousemove="moveScaleDrag($event.clientX)"
-            @mouseup="endScaleDrag"
-            @mouseleave="endScaleDrag"
-          >
-            <div class="scale-track" :style="scaleTrackStyle">
-              <span v-for="tick in 41" :key="tick" :class="{ major: tick % 5 === 1 }"></span>
-            </div>
-            <i class="scale-center"></i>
-          </div>
-          <p class="scale-hint">左右滑动微调体重</p>
-          <div class="scale-labels">
-            <span v-for="label in scaleLabels" :key="label">{{ label }}</span>
           </div>
 
           <div class="keypad">
@@ -1721,116 +1645,12 @@ button {
     font-size: clamp(48px, 15vh, 76px);
     line-height: 1;
     font-family: "DIN Alternate", sans-serif;
-
-    &.selected {
-      border-radius: 8px;
-      background: rgba(25, 118, 255, 0.1);
-      box-shadow: 0 0 0 8px rgba(25, 118, 255, 0.1);
-    }
   }
 
   span {
     color: #556070;
     font-size: 18px;
   }
-}
-
-.weight-scale {
-  position: relative;
-  height: 32px;
-  margin: 0 auto;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #f6faff, #eef5ff);
-  color: #b6c0cf;
-  cursor: ew-resize;
-  touch-action: pan-y;
-  user-select: none;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(25, 118, 255, 0.08);
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 42px;
-    z-index: 2;
-    pointer-events: none;
-  }
-
-  &::before {
-    left: 0;
-    background: linear-gradient(90deg, #eef5ff, rgba(238, 245, 255, 0));
-  }
-
-  &::after {
-    right: 0;
-    background: linear-gradient(270deg, #eef5ff, rgba(238, 245, 255, 0));
-  }
-
-  &.dragging {
-    box-shadow:
-      inset 0 0 0 1px rgba(25, 118, 255, 0.2),
-      0 8px 18px rgba(25, 118, 255, 0.12);
-  }
-
-  &.dragging .scale-track {
-    transition: none;
-  }
-
-  span {
-    width: 1px;
-    height: 10px;
-    background: currentColor;
-  }
-
-  .major {
-    height: 18px;
-    background: #1976ff;
-  }
-}
-
-.scale-track {
-  height: 100%;
-  min-width: 126%;
-  margin-left: -13%;
-  display: flex;
-  align-items: end;
-  justify-content: center;
-  gap: 7px;
-  padding-bottom: 7px;
-  box-sizing: border-box;
-  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.scale-center {
-  position: absolute;
-  left: 50%;
-  bottom: 6px;
-  width: 2px;
-  height: 22px;
-  border-radius: 999px;
-  background: #1976ff;
-  transform: translateX(-50%);
-  z-index: 3;
-  box-shadow: 0 0 0 4px rgba(25, 118, 255, 0.12);
-}
-
-.scale-hint {
-  margin: 4px 0 2px;
-  color: #7d8795;
-  font-size: 11px;
-  text-align: center;
-}
-
-.scale-labels {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  color: #556070;
-  font-size: 11px;
-  text-align: center;
-  margin: 2px 0 8px;
 }
 
 .keypad {

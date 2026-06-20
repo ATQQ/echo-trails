@@ -16,6 +16,7 @@ const albumSchema = new mongoose.Schema({
   createdBy: { type: String, required: false, default: '' },
   updatedBy: { type: String, required: false, default: '' },
   tags: { type: [String], required: false, default: [] },
+  folderId: { type: mongoose.Schema.Types.ObjectId, ref: 'AlbumFolder', required: false, default: null },
 });
 
 export type Album = mongoose.InferSchemaType<typeof albumSchema>;

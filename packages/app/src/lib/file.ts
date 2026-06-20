@@ -5,6 +5,7 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 // 检查是否为Android平台，因为Android需要特殊处理文件路径权限
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import SparkMD5 from 'spark-md5';
+import { livePhotoDebug } from '@/lib/livePhoto'
 import { PromiseWithResolver } from "./util";
 import ExifReader from "exifreader";
 import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
@@ -124,6 +125,84 @@ export function downloadFile(url: string | Blob, name: string, isImage: boolean 
     resolve(name)
   }
   return promise
+}
+
+function getLivePhotoBaseName(name: string) {
+  return name.replace(/\.[^.]+$/, '').replace(/\s+/g, '_')
+}
+
+function getImageExtension(photo: Photo) {
+  const name = photo.name.toLowerCase()
+  if (name.endsWith('.heic') || name.endsWith('.heif')) return 'heic'
+  if (name.endsWith('.png')) return 'png'
+  if (name.endsWith('.webp')) return 'webp'
+  return 'jpg'
+}
+
+function getVideoExtension(videoUrl: string, liveVideoKey?: string) {
+  const key = liveVideoKey || videoUrl
+  if (/\.mov/i.test(key)) return 'mov'
+  return 'mp4'
+}
+
+async function fetchAsUint8Array(url: string): Promise<Uint8Array> {
+  const response = isTauri ? await tauriFetch(url) : await fetch(url)
+  if (!response.ok) {
+    throw new Error(`下载失败: ${response.status}`)
+  }
+  const arrayBuffer = await response.arrayBuffer()
+  return new Uint8Array(arrayBuffer)
+}
+
+export async function downloadLivePhoto(photo: Photo, imageUrl?: string) {
+  const videoUrl = photo.liveVideoUrl
+  if (!videoUrl) {
+    showNotify?.({ type: 'warning', message: '未找到 Live Photo 动态视频' })
+    return
+  }
+
+  const baseName = getLivePhotoBaseName(photo.name)
+  const imageExt = getImageExtension(photo)
+  const videoExt = getVideoExtension(videoUrl, photo.liveVideoKey)
+  const stillUrl = imageUrl || photo.url || photo.preview
+
+  try {
+    if (isTauri) {
+      const [imageData, videoData] = await Promise.all([
+        fetchAsUint8Array(stillUrl),
+        fetchAsUint8Array(videoUrl),
+      ])
+      await invoke('save_to_pictures', {
+        fileName: `${baseName}.${imageExt}`,
+        data: Array.from(imageData),
+      })
+      await invoke('save_to_pictures', {
+        fileName: `${baseName}.${videoExt}`,
+        data: Array.from(videoData),
+      })
+      showNotify?.({ type: 'success', message: 'Live Photo 已保存到相册' })
+      return
+    }
+
+    const JSZip = (await import('jszip')).default
+    const zip = new JSZip()
+    const [imageData, videoData] = await Promise.all([
+      fetchAsUint8Array(stillUrl),
+      fetchAsUint8Array(videoUrl),
+    ])
+    zip.file(`${baseName}.${imageExt}`, imageData)
+    zip.file(`${baseName}.${videoExt}`, videoData)
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${baseName}-live-photo.zip`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  } catch (error) {
+    console.error('downloadLivePhoto failed:', error)
+    showNotify?.({ type: 'danger', message: 'Live Photo 下载失败' })
+    throw error
+  }
 }
 
 // 实现一个方法生成用于下载文件的文件名
@@ -545,4 +624,289 @@ export async function ensureVideoUploadInfo(value: Partial<FileInfoItem> & { fil
   }
 
   return value as FileInfoItem
+}
+
+/**
+ * Tauri / Desktop 端：调用 Rust 命令查找同名的 MOV/MP4 配对（Apple Live Photo）
+ */
+export function parseLivePhotoPair(filePath: string) {
+  livePhotoDebug('native.parse_live_photo.invoke', { filePath })
+  return invoke<{ video_path: string, content_id: string, duration: number, video_size?: number } | null>(
+    'parse_live_photo',
+    { filePath }
+  ).then((result) => {
+    livePhotoDebug('native.parse_live_photo.response', {
+      filePath,
+      hit: !!(result?.video_path),
+      video_path: result?.video_path,
+      content_id: result?.content_id,
+      duration: result?.duration,
+      video_size: result?.video_size,
+    })
+    return result
+  }).catch((e) => {
+    livePhotoDebug('native.parse_live_photo.error', { filePath, error: String(e) })
+    console.warn('parse_live_photo failed', e)
+    return null
+  })
+}
+
+/**
+ * Web 端：按「同名 + 时间临近」对一组用户选择的文件做 Live Photo 配对启发式匹配。
+ * 输入: 用户多选的原始 File 列表
+ * 输出: { images, pairs: Map<imageName, videoFile>, remainingVideos }
+ *
+ * 配对规则：
+ *  1. 图片（image 类型或 .heic）与视频（video 类型）的 baseName（去扩展名）一致
+ *  2. 或 lastModified 差值 < 3000ms 且同前缀 "IMG_xxxx"
+ *  3. 视频文件被识别为配对后，从主图片列表中排除
+ */
+export function detectLivePhotoPairs(files: File[]) {
+  const isImage = (f: File) => {
+    const n = f.name.toLowerCase()
+    return f.type.startsWith('image/') || n.endsWith('.heic') || n.endsWith('.heif')
+  }
+  const isVideo = (f: File) => {
+    const n = f.name.toLowerCase()
+    return f.type.startsWith('video/') || n.endsWith('.mov') || n.endsWith('.mp4')
+  }
+  const baseName = (f: File) => f.name.replace(/\.[^.]+$/, '')
+
+  const images = files.filter(isImage)
+  const videos = files.filter(isVideo)
+  const pairs = new Map<File, File>()
+  const usedVideos = new Set<File>()
+
+  for (const img of images) {
+    const imgBase = baseName(img).toLowerCase()
+    let matched: File | undefined
+    for (const v of videos) {
+      if (usedVideos.has(v)) continue
+      const vBase = baseName(v).toLowerCase()
+      if (vBase === imgBase) {
+        matched = v
+        break
+      }
+    }
+    // 启发式：同前缀 IMG_xxxx 且时间相近
+    if (!matched) {
+      for (const v of videos) {
+        if (usedVideos.has(v)) continue
+        const vBase = baseName(v).toLowerCase()
+        if (
+          imgBase.startsWith('img_') &&
+          vBase.startsWith('img_') &&
+          Math.abs(v.lastModified - img.lastModified) < 3000
+        ) {
+          matched = v
+          break
+        }
+      }
+    }
+    if (matched) {
+      pairs.set(img, matched)
+      usedVideos.add(matched)
+    }
+  }
+
+  // 未配对的视频按普通视频文件返回
+  const remainingVideos = videos.filter((v) => !usedVideos.has(v))
+
+  return { images, pairs, remainingVideos }
+}
+
+/**
+ * 从 XMP 头部文本解析 Motion Photo 候选切片。
+ *
+ * - 小米 / 旧版 Pixel MicroVideo：MicroVideoOffset = 尾部视频字节数，起点 = fileSize - value
+ * - Google Motion Photo v1+：MicroVideoOffset = 从文件头到视频起点的偏移
+ * - Container:Item Length = 尾部嵌入 MP4 的字节长度
+ */
+function parseMotionPhotoSlice(headerText: string, fileSize: number): Array<{ offset: number; length: number }> {
+  const candidates: Array<{ offset: number; length: number }> = []
+
+  const microOffsetMatch =
+    headerText.match(/(?:GCamera:)?(?:MicroVideoOffset|VideoOffset)\s*=\s*"(\d+)"/)
+  if (microOffsetMatch) {
+    const microValue = parseInt(microOffsetMatch[1], 10) || 0
+    if (microValue > 0 && microValue < fileSize) {
+      candidates.push({ offset: fileSize - microValue, length: microValue })
+
+      const microLenMatch = headerText.match(/(?:GCamera:)?MicroVideoLength\s*=\s*"(\d+)"/)
+      const lenFromStart = microLenMatch
+        ? parseInt(microLenMatch[1], 10) || 0
+        : fileSize - microValue
+      if (lenFromStart > 0 && microValue + lenFromStart <= fileSize) {
+        candidates.push({ offset: microValue, length: lenFromStart })
+      }
+    }
+  }
+
+  const itemMatch =
+    headerText.match(/Item[^>]*Mime\s*=\s*"video\/mp4"[^>]*Length\s*=\s*"(\d+)"/s) ||
+    headerText.match(/Item[^>]*Length\s*=\s*"(\d+)"[^>]*Mime\s*=\s*"video\/mp4"/s)
+  if (itemMatch) {
+    const length = parseInt(itemMatch[1], 10) || 0
+    if (length > 0 && length < fileSize) {
+      candidates.push({ offset: fileSize - length, length })
+    }
+  }
+
+  return candidates
+}
+
+/**
+ * Web 端：检测 JPEG 中是否嵌入 Motion Photo（Google / 小米 / 华为）
+ */
+export async function detectMotionPhotoInFile(file: File): Promise<{
+  videoBlob: Blob
+  videoLength: number
+  duration: number
+} | null> {
+  try {
+    const name = file.name.toLowerCase()
+    if (!/\.(jpe?g)$/i.test(name)) {
+      livePhotoDebug('motion.detect.skip', { name: file.name, reason: 'not-jpeg' })
+      return null
+    }
+    if (file.size < 64 * 1024) {
+      livePhotoDebug('motion.detect.skip', { name: file.name, size: file.size, reason: 'too-small' })
+      return null
+    }
+
+    const headerSize = Math.min(file.size, 512 * 1024)
+    const header = new Uint8Array(await file.slice(0, headerSize).arrayBuffer())
+    const headerText = new TextDecoder('latin1').decode(header)
+    const hasMotionPhotoFlag = /MotionPhoto\s*=\s*"1"/.test(headerText)
+    const hasMicroVideo = /MicroVideo/.test(headerText)
+    const hasContainerItem = /Item[^>]*Mime\s*=\s*"video\/mp4"/.test(headerText)
+
+    const slices = parseMotionPhotoSlice(headerText, file.size)
+    let videoOffset = 0
+    let videoLen = 0
+    let detectMethod = 'xmp'
+
+    for (const slice of slices) {
+      if (await hasFtypAtOffsetInFile(file, slice.offset)) {
+        videoOffset = slice.offset
+        videoLen = slice.length
+        break
+      }
+    }
+
+    if (videoOffset <= 0) {
+      detectMethod = 'ftyp-scan'
+      videoOffset = await scanFtypOffsetInFile(file)
+      if (videoOffset <= 0) {
+        livePhotoDebug('motion.detect.miss', {
+          name: file.name,
+          size: file.size,
+          hasMotionPhotoFlag,
+          hasMicroVideo,
+          hasContainerItem,
+          detectMethod,
+        })
+        return null
+      }
+      videoLen = file.size - videoOffset
+    }
+
+    if (videoLen <= 0 || videoOffset <= 0) {
+      livePhotoDebug('motion.detect.invalidSlice', {
+        name: file.name,
+        videoOffset,
+        videoLen,
+        fileSize: file.size,
+      })
+      return null
+    }
+
+    const videoBlob = file.slice(videoOffset, videoOffset + videoLen, 'video/mp4')
+    const duration = await probeVideoDuration(videoBlob)
+    livePhotoDebug('motion.detect.hit', {
+      name: file.name,
+      detectMethod,
+      videoOffset,
+      videoLen,
+      duration,
+      hasMotionPhotoFlag,
+      hasMicroVideo,
+      hasContainerItem,
+    })
+    return { videoBlob, videoLength: videoLen, duration }
+  } catch (e) {
+    livePhotoDebug('motion.detect.error', { name: file.name, error: String(e) })
+    console.warn('detectMotionPhotoInFile failed', e)
+    return null
+  }
+}
+
+/**
+ * 检查文件指定偏移处是否为 MP4 ftyp box
+ */
+async function hasFtypAtOffsetInFile(file: File, offset: number): Promise<boolean> {
+  if (offset < 0 || offset + 8 > file.size) return false
+  const buf = new Uint8Array(await file.slice(offset, offset + 8).arrayBuffer())
+  const isFtyp = (start: number) =>
+    buf[start] === 0x66 && buf[start + 1] === 0x74 && buf[start + 2] === 0x79 && buf[start + 3] === 0x70
+  return isFtyp(0) || isFtyp(4)
+}
+
+/**
+ * 从 512KB 处开始扫描 'ftyp' magic，返回 mp4 box 起始偏移（含 size 字段）
+ */
+async function scanFtypOffsetInFile(file: File): Promise<number> {
+  const start = 512 * 1024
+  const chunkSize = 256 * 1024
+  let offset = start
+  while (offset < file.size) {
+    const end = Math.min(offset + chunkSize, file.size)
+    const buf = new Uint8Array(await file.slice(offset, end).arrayBuffer())
+    for (let i = 0; i < buf.length - 4; i++) {
+      if (
+        buf[i] === 0x66 /* f */ &&
+        buf[i + 1] === 0x74 /* t */ &&
+        buf[i + 2] === 0x79 /* y */ &&
+        buf[i + 3] === 0x70 /* p */
+      ) {
+        const boxStart = offset + i - 4
+        if (boxStart > 0 && await hasFtypAtOffsetInFile(file, boxStart)) return boxStart
+      }
+    }
+    offset = end - 4
+    if (end >= file.size) break
+  }
+  return 0
+}
+
+/**
+ * 借助 HTMLVideoElement 探测视频时长（ms）。失败返回 0。
+ */
+function probeVideoDuration(blob: Blob): Promise<number> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob)
+    const v = document.createElement('video')
+    v.muted = true
+    v.preload = 'metadata'
+    v.src = url
+    const cleanup = () => {
+      URL.revokeObjectURL(url)
+      v.src = ''
+      v.removeAttribute('src')
+    }
+    v.onloadedmetadata = () => {
+      const d = Number.isFinite(v.duration) ? Math.round(v.duration * 1000) : 0
+      cleanup()
+      resolve(d)
+    }
+    v.onerror = () => {
+      cleanup()
+      resolve(0)
+    }
+    // 5s 兜底
+    setTimeout(() => {
+      cleanup()
+      resolve(0)
+    }, 5000)
+  })
 }

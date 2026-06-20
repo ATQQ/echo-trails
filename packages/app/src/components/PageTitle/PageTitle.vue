@@ -1,9 +1,14 @@
 <template>
   <header class="page-header safe-padding-top">
-    <h1 @click="handlePressTitle">
-      <van-icon v-if="back" name="arrow-left" @click.stop="handleBack" class="back-icon" />
-      {{ title }}
-    </h1>
+    <div class="title-row">
+      <h1 @click="handlePressTitle">
+        <van-icon v-if="back" name="arrow-left" @click.stop="handleBack" class="back-icon" />
+        {{ title }}
+      </h1>
+      <div v-if="$slots.center" class="center-area">
+        <slot name="center"></slot>
+      </div>
+    </div>
     <div class="actions">
       <slot name="action"></slot>
       <van-icon name="setting-o" v-if="setMode" size="26" @click="handleGoManagePage" />
@@ -96,6 +101,22 @@ preventBack(showInfoPanel)
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+
+  .title-row {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .center-area {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
 
   h1 {
     font-weight: 300;
@@ -103,6 +124,7 @@ preventBack(showInfoPanel)
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
 
     .back-icon {
       font-size: 24px;
@@ -114,6 +136,7 @@ preventBack(showInfoPanel)
     display: flex;
     align-items: center;
     gap: 16px;
+    flex-shrink: 0;
 
     .van-icon {
       margin-right: 16px;

@@ -45,7 +45,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   })
 
   router.post('add/info', async (ctx) => {
-    const { key, exif = {}, size, name, lastModified, type, albumId, likedMode, md5 } = await ctx.req.json()
+    const { key, exif = {}, size, name, lastModified, type, albumId, likedMode, md5, isLive, liveVideoKey, liveContentId, liveDuration } = await ctx.req.json()
     const fileType = exif['FileType']?.value
     const width = exif['Image Width']?.value || 0
     const height = exif['Image Height']?.value || 0
@@ -81,6 +81,10 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       updatedBy: operator,
       isLiked: !!likedMode,
       md5: md5 || '',
+      isLive: !!isLive,
+      liveVideoKey: liveVideoKey || '',
+      liveContentId: liveContentId || '',
+      liveDuration: Number(liveDuration) || 0,
       ...((albumId && Array.isArray(albumId)) ? { albumId } : {})
     }
 
@@ -95,7 +99,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   })
 
   router.put('update/info', async (ctx) => {
-    const { id, lastModified, albumId, likedMode, exif = {} } = await ctx.req.json()
+    const { id, lastModified, albumId, likedMode, exif = {}, isLive, liveVideoKey, liveContentId, liveDuration } = await ctx.req.json()
     const username = ctx.get('username')
     const operator = ctx.get('operator')
 
@@ -135,6 +139,11 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       if (width) photo.width = width
       if (height) photo.height = height
     }
+
+    if (typeof isLive === 'boolean') photo.isLive = isLive
+    if (typeof liveVideoKey === 'string') photo.liveVideoKey = liveVideoKey
+    if (typeof liveContentId === 'string') photo.liveContentId = liveContentId
+    if (liveDuration !== undefined) photo.liveDuration = Number(liveDuration) || 0
 
     await photo.save()
     const updatedData = await photoService.parsePhoto(photo)
@@ -183,7 +192,7 @@ export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
     const photos = await Photo.find(query).skip(skip)
       .limit(+pageSize)
-      .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId', 'md5'])
+      .select(['key', 'uploadDate', 'lastModified', 'name', 'size', 'width', 'height', 'fileType', 'description', 'type', 'isLiked', 'albumId', 'md5', 'isLive', 'liveVideoKey', 'liveContentId', 'liveDuration'])
       .sort({
         lastModified: -1
       })

@@ -7,7 +7,7 @@ import { createAlbumLink, createCoverLink } from "../lib/bitiful";
 
 export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.post('/create', async (ctx) => {
-    const { name, description, isLarge, tags } = await ctx.req.json()
+    const { name, description, isLarge, tags, folderId } = await ctx.req.json()
     const username = ctx.get('username')
     const operator = ctx.get('operator')
 
@@ -19,6 +19,7 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       updatedBy: operator,
       style: isLarge ? AlbumStyle.Large : AlbumStyle.Small,
       tags: Array.isArray(tags) ? tags : [],
+      folderId: folderId || null,
     })
     await album.save()
     const newAlbum = await albumService.parseAlbum(album)
@@ -63,7 +64,7 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       const idStr = album._id.toString()
       const stat = statsMap.get(idStr) || { count: 0, firstKey: null }
 
-      const { name, description, coverKey, style, createdAt, tags } = album
+      const { name, description, coverKey, style, createdAt, tags, folderId } = album
       const count = stat.count
 
       // 如果相册包含标签，则使用 createCoverLink 以保证显示更清晰，否则按原逻辑
@@ -90,7 +91,8 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         cover,
         coverKey,
         createdAt,
-        tags: tags || []
+        tags: tags || [],
+        folderId: folderId ? folderId.toString() : null,
       }
     })) || []
 
@@ -130,7 +132,7 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   })
 
   router.put('/update', async (ctx) => {
-    const { id, isLarge, tags, ...ops } = await ctx.req.json()
+    const { id, isLarge, tags, folderId, ...ops } = await ctx.req.json()
     const username = ctx.get('username')
     const operator = ctx.get('operator')
 
@@ -141,6 +143,9 @@ export default function albumRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     }
     if (tags && Array.isArray(tags)) {
       updateData.tags = tags
+    }
+    if (typeof folderId !== 'undefined') {
+      updateData.folderId = folderId || null
     }
 
     const album = await Album.findOneAndUpdate({

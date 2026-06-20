@@ -24,6 +24,10 @@ const photoSchema = new mongoose.Schema({
   md5: { type: String, required: false, default: '' },
   createdBy: { type: String, required: false, default: '' },
   updatedBy: { type: String, required: false, default: '' },
+  isLive: { type: Boolean, required: false, default: false },
+  liveVideoKey: { type: String, required: false, default: '' },
+  liveContentId: { type: String, required: false, default: '' },
+  liveDuration: { type: Number, required: false, default: 0 },
 });
 
 // Add compound index for common list queries

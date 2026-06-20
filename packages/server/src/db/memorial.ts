@@ -14,6 +14,7 @@ const memorialSchema = new mongoose.Schema({
   },
   isLunar: { type: Boolean, default: false },
   isPinned: { type: Boolean, default: false },
+  showOnAlbumHome: { type: Boolean, default: false },
   coverImage: { type: String, default: '' },
   deleted: { type: Boolean, default: false },
   createdBy: { type: String, required: false },

@@ -16,6 +16,14 @@ pub struct FileInfo {
     md5: Option<String>,
 }
 
+#[derive(Serialize, Default)]
+pub struct LivePhotoInfo {
+    pub video_path: String,
+    pub content_id: String,
+    pub duration: i64,
+    pub video_size: i64,
+}
+
 #[tauri::command]
 pub async fn save_to_pictures(file_name: String, data: Vec<u8>) -> Result<String, String> {
     // 系统图片目录 /storage/emulated/0/Pictures
@@ -183,4 +191,113 @@ pub async fn get_file_info(file_path: String) -> Result<FileInfo, String> {
             md5
         })
     }
+}
+
+/// 解析 Apple Live Photo 配对信息
+/// 给定一张静态图路径，返回同目录的 MOV/MP4 动态部分（若存在），以及 ContentIdentifier
+#[tauri::command]
+pub async fn parse_live_photo(file_path: String) -> Result<Option<LivePhotoInfo>, String> {
+    #[cfg(target_os = "android")]
+    {
+        let ctx = ndk_context::android_context();
+        let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.map_err(|e| e.to_string())?;
+        let mut env = vm.attach_current_thread().map_err(|e| e.to_string())?;
+        let context = unsafe { jni::objects::JObject::from_raw(ctx.context().cast()) };
+
+        let class_loader = env.call_method(&context, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])
+            .map_err(|e| e.to_string())?
+            .l()
+            .map_err(|e| e.to_string())?;
+        let class_name = env.new_string("com/echo_trails/app/FileHelper").map_err(|e| e.to_string())?;
+        let class_obj = env.call_method(
+            class_loader,
+            "loadClass",
+            "(Ljava/lang/String;)Ljava/lang/Class;",
+            &[JValue::Object(&class_name)],
+        ).map_err(|e| e.to_string())?.l().map_err(|e| e.to_string())?;
+        let class: jni::objects::JClass = class_obj.into();
+
+        let path_jstr = env.new_string(&file_path).map_err(|e| e.to_string())?;
+        let result = env.call_static_method(
+            class,
+            "findLivePhotoVideo",
+            "(Landroid/content/Context;Ljava/lang/String;)Ljava/lang/String;",
+            &[JValue::Object(&context), JValue::Object(&path_jstr)],
+        ).map_err(|e| e.to_string())?;
+
+        let json_obj = result.l().map_err(|e| e.to_string())?;
+        if json_obj.is_null() {
+            println!("[LivePhoto:DEBUG] parse_live_photo null path={}", file_path);
+            return Ok(None);
+        }
+        let json_str: String = env.get_string(&json_obj.into()).map_err(|e| e.to_string())?.into();
+        println!("[LivePhoto:DEBUG] parse_live_photo path={} json={}", file_path, json_str);
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).map_err(|e| e.to_string())?;
+        let video_path = parsed.get("videoPath").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        if video_path.is_empty() {
+            println!("[LivePhoto:DEBUG] parse_live_photo miss path={}", file_path);
+            return Ok(None);
+        }
+        println!("[LivePhoto:DEBUG] parse_live_photo hit path={} video={}", file_path, video_path);
+        Ok(Some(LivePhotoInfo {
+            video_path,
+            content_id: parsed.get("contentId").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            duration: parsed.get("duration").and_then(|v| v.as_i64()).unwrap_or(0),
+            video_size: parsed.get("videoSize").and_then(|v| v.as_i64()).unwrap_or(0),
+        }))
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        // 桌面平台：同目录寻找同名 .mov/.mp4 文件
+        let path = std::path::Path::new(&file_path);
+        let stem = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+        let parent = match path.parent() {
+            Some(p) => p,
+            None => return Ok(None),
+        };
+        for ext in ["MOV", "mov", "MP4", "mp4"].iter() {
+            let candidate = parent.join(format!("{}.{}", stem, ext));
+            if candidate.exists() {
+                let content_id = extract_quicktime_content_id(&candidate).unwrap_or_default();
+                return Ok(Some(LivePhotoInfo {
+                    video_path: candidate.to_string_lossy().to_string(),
+                    content_id,
+                    duration: 0,
+                    video_size: std::fs::metadata(&candidate).map(|m| m.len() as i64).unwrap_or(0),
+                }));
+            }
+        }
+        Ok(None)
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn extract_quicktime_content_id(path: &std::path::Path) -> Option<String> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut buf = vec![0u8; 2 * 1024 * 1024];
+    let n = file.read(&mut buf).ok()?;
+    let key = b"com.apple.quicktime.content.identifier";
+    let mut i = 0usize;
+    let end = n.saturating_sub(key.len());
+    while i <= end {
+        if &buf[i..i + key.len()] == key {
+            let mut p = i + key.len();
+            while p < n && (buf[p] < 0x20 || buf[p] > 0x7E) { p += 1; }
+            let start = p;
+            while p < n && buf[p] >= 0x20 && buf[p] <= 0x7E { p += 1; }
+            if p - start >= 8 {
+                if let Ok(s) = std::str::from_utf8(&buf[start..p]) {
+                    return Some(s.trim().to_string());
+                }
+            }
+            return None;
+        }
+        i += 1;
+    }
+    None
 }
