@@ -11,8 +11,10 @@
           :key="activeImage.key"
           :video-url="liveVideoPlayUrl"
           :playing="livePlaying"
+          :active="liveVideoActive"
+          :from-start="livePlayFromStart"
           :wrap-style="liveVideoWrapStyle"
-          @ended="stopLivePlay"
+          @ended="endLiveSession"
         />
         <!-- 顶部操作栏 -->
         <transition :name="show ? 'van-slide-down' : ''">
@@ -72,7 +74,12 @@
 
         <!-- Live Photo 标签 -->
         <transition :name="show ? 'van-fade' : ''">
-          <div v-show="showMoreOperate && isLivePhoto" class="live-photo-label safe-padding-bottom">
+          <div
+            v-show="showMoreOperate && isLivePhoto"
+            class="live-photo-label safe-padding-bottom"
+            :class="{ 'is-playing': livePlaying }"
+            @click.stop="handleLivePhotoLabelClick"
+          >
             <img class="live-photo-label-icon" src="/assets/images/live-photo.svg" alt="" />
             <span>动态照片</span>
           </div>
@@ -218,6 +225,8 @@ const touchStart = ref<Touch>()
 const touchTimes = ref(0)
 
 const livePlaying = ref(false)
+const liveVideoActive = ref(false)
+const livePlayFromStart = ref(false)
 const liveVideoWrapStyle = ref<Record<string, string>>({})
 let livePressTimer: ReturnType<typeof setTimeout> | null = null
 let liveVideoSyncRaf: number | null = null
@@ -258,7 +267,7 @@ const stopLiveVideoSyncLoop = () => {
 const startLiveVideoSyncLoop = () => {
   stopLiveVideoSyncLoop()
   const loop = () => {
-    if (!livePlaying.value) return
+    if (!liveVideoActive.value) return
     syncLiveVideoTransform()
     liveVideoSyncRaf = requestAnimationFrame(loop)
   }
@@ -272,6 +281,42 @@ const cancelLivePress = () => {
   }
 }
 
+const beginLivePlay = (fromStart: boolean) => {
+  syncLiveVideoTransform()
+  liveVideoActive.value = true
+  livePlayFromStart.value = fromStart
+  livePlaying.value = true
+  startLiveVideoSyncLoop()
+}
+
+const pauseLivePlay = () => {
+  cancelLivePress()
+  livePlaying.value = false
+}
+
+const endLiveSession = () => {
+  cancelLivePress()
+  livePlaying.value = false
+  liveVideoActive.value = false
+  livePlayFromStart.value = false
+  stopLiveVideoSyncLoop()
+  liveVideoWrapStyle.value = {}
+}
+
+const handleLivePhotoLabelClick = () => {
+  if (!isLivePhoto.value) return
+  if (liveVideoActive.value) {
+    if (livePlaying.value) {
+      pauseLivePlay()
+    } else {
+      livePlayFromStart.value = false
+      livePlaying.value = true
+    }
+    return
+  }
+  beginLivePlay(true)
+}
+
 const startLivePress = () => {
   if (!isLivePhoto.value || livePlaying.value) return
   if (livePressTimer !== null) return
@@ -279,9 +324,13 @@ const startLivePress = () => {
   livePressTimer = setTimeout(() => {
     livePressTimer = null
     if (liveTouchCount !== 1) return
-    syncLiveVideoTransform()
-    livePlaying.value = true
-    startLiveVideoSyncLoop()
+    if (liveVideoActive.value) {
+      livePlayFromStart.value = false
+      livePlaying.value = true
+      startLiveVideoSyncLoop()
+    } else {
+      beginLivePlay(true)
+    }
     livePhotoDebug('preview.longPress.play', {
       name: activeImage.value?.name,
       videoUrl: liveVideoPlayUrl.value?.slice(0, 80),
@@ -289,16 +338,9 @@ const startLivePress = () => {
   }, LIVE_PRESS_DELAY)
 }
 
-const stopLivePlay = () => {
-  cancelLivePress()
-  livePlaying.value = false
-  stopLiveVideoSyncLoop()
-  liveVideoWrapStyle.value = {}
-}
-
 const handlePreviewScale = () => {
   cancelLivePress()
-  if (livePlaying.value) syncLiveVideoTransform()
+  if (liveVideoActive.value) syncLiveVideoTransform()
 }
 
 // 监听预览组件显示状态，确保关闭时立刻隐藏工具栏
@@ -309,7 +351,7 @@ watch(() => show.value, (newVal) => {
     showMoreOperate.value = false;
     showInfoDetail.value = false;
     editMode.value = false;
-    stopLivePlay();
+    endLiveSession();
   }
 })
 
@@ -353,7 +395,7 @@ useEventListener(previewWrapper, 'touchmove', (e: TouchEvent) => {
   liveTouchCount = e.touches.length
   if (isLivePhoto.value && liveTouchCount > 1) {
     cancelLivePress()
-    if (livePlaying.value) stopLivePlay()
+    if (livePlaying.value) pauseLivePlay()
     return
   }
   cancelLivePress()
@@ -361,7 +403,7 @@ useEventListener(previewWrapper, 'touchmove', (e: TouchEvent) => {
 useEventListener(previewWrapper, 'touchend', (e: TouchEvent) => {
   liveTouchCount = e.touches.length
   if (isLivePhoto.value && livePlaying.value) {
-    stopLivePlay()
+    pauseLivePlay()
     return
   }
   if (isLivePhoto.value) cancelLivePress()
@@ -370,7 +412,7 @@ useEventListener(previewWrapper, 'touchend', (e: TouchEvent) => {
 useEventListener(previewWrapper, 'touchcancel', (e: TouchEvent) => {
   liveTouchCount = e.touches.length
   if (isLivePhoto.value && livePlaying.value) {
-    stopLivePlay()
+    pauseLivePlay()
     return
   }
   if (isLivePhoto.value) cancelLivePress()
@@ -382,14 +424,14 @@ useEventListener(previewWrapper, 'mousedown', () => {
 })
 useEventListener(previewWrapper, 'mouseup', () => {
   if (isLivePhoto.value && livePlaying.value) {
-    stopLivePlay()
+    pauseLivePlay()
     return
   }
   if (isLivePhoto.value) cancelLivePress()
 })
 useEventListener(previewWrapper, 'mouseleave', () => {
   cancelLivePress()
-  if (livePlaying.value) stopLivePlay()
+  if (livePlaying.value) pauseLivePlay()
 })
 
 useEventListener(previewWrapper, 'error', (e: Event) => {
@@ -408,7 +450,7 @@ onUnmounted(() => {
 })
 
 const handleChange = (index: number) => {
-  stopLivePlay()
+  endLiveSession()
   currentIdx.value = index
   editMode.value = false
 
@@ -435,7 +477,7 @@ const isLivePhoto = computed(() => isCompleteLivePhoto(activeImage.value))
 const liveVideoPlayUrl = computed(() => activeImage.value?.liveVideoUrl || '')
 
 watch([isLivePhoto, () => activeImage.value?.key], () => {
-  stopLivePlay()
+  endLiveSession()
   const photo = activeImage.value
   livePhotoDebug('preview.active', {
     name: photo?.name,
@@ -891,10 +933,17 @@ const menus = computed(() => {
   border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   z-index: 100;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
   font-size: 13px;
   color: #333;
   font-weight: 500;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  &.is-playing {
+    background: rgba(255, 255, 255, 0.88);
+  }
 
   .live-photo-label-icon {
     width: 18px;

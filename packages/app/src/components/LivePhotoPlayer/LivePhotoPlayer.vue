@@ -4,7 +4,7 @@
       <video
         ref="videoRef"
         class="live-photo-video"
-        :class="{ 'is-playing': playing && isFrameReady }"
+        :class="{ 'is-visible': active && isFrameReady }"
         :src="videoUrl"
         playsinline
         webkit-playsinline
@@ -27,8 +27,11 @@ import { livePhotoDebug } from '@/lib/livePhoto';
 const props = withDefaults(defineProps<{
   videoUrl: string
   playing: boolean
+  active: boolean
+  fromStart?: boolean
   wrapStyle?: Record<string, string>
 }>(), {
+  fromStart: false,
   wrapStyle: () => ({}),
 })
 
@@ -39,7 +42,17 @@ const emit = defineEmits<{
 const videoRef = ref<HTMLVideoElement>()
 const isFrameReady = ref(false)
 
-const stopVideo = () => {
+const pauseVideo = () => {
+  const video = videoRef.value
+  if (!video) return
+  try {
+    video.pause()
+  } catch {
+    // ignore
+  }
+}
+
+const resetVideo = () => {
   const video = videoRef.value
   if (!video) return
   isFrameReady.value = false
@@ -94,31 +107,42 @@ const waitForCanPlay = (video: HTMLVideoElement) => {
   })
 }
 
+const playVideo = async () => {
+  const video = videoRef.value
+  if (!video || !props.videoUrl) return
+  try {
+    if (props.fromStart) {
+      video.currentTime = 0
+    }
+    await waitForCanPlay(video)
+    await video.play()
+  } catch (e) {
+    isFrameReady.value = false
+    livePhotoDebug('preview.player.playFailed', {
+      error: String(e),
+      videoUrl: props.videoUrl?.slice(0, 80),
+      readyState: video.readyState,
+    })
+    emit('ended')
+  }
+}
+
 watch(() => props.videoUrl, () => {
   isFrameReady.value = false
   preloadVideo()
 })
 
-watch(() => props.playing, async (val) => {
-  const video = videoRef.value
-  if (!video || !props.videoUrl) return
+watch(() => props.active, (val) => {
+  if (!val) resetVideo()
+})
+
+watch(() => props.playing, (val) => {
   if (val) {
-    try {
-      isFrameReady.value = false
-      await waitForCanPlay(video)
-      video.currentTime = 0
-      await video.play()
-    } catch (e) {
-      isFrameReady.value = false
-      livePhotoDebug('preview.player.playFailed', {
-        error: String(e),
-        videoUrl: props.videoUrl?.slice(0, 80),
-        readyState: video.readyState,
-      })
-      emit('ended')
-    }
+    playVideo()
+  } else if (props.active) {
+    pauseVideo()
   } else {
-    stopVideo()
+    resetVideo()
   }
 })
 
@@ -127,13 +151,13 @@ const handlePlaying = () => {
 }
 
 const handleLoadedData = () => {
-  if (props.playing) {
+  if (props.active) {
     isFrameReady.value = true
   }
 }
 
 const handleEnded = () => {
-  stopVideo()
+  resetVideo()
   emit('ended')
 }
 
@@ -162,7 +186,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  stopVideo()
+  resetVideo()
 })
 </script>
 
@@ -188,7 +212,7 @@ onBeforeUnmount(() => {
   visibility: hidden;
   background: transparent;
 
-  &.is-playing {
+  &.is-visible {
     opacity: 1;
     visibility: visible;
   }
