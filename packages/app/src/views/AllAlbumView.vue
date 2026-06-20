@@ -12,6 +12,7 @@ import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useScrollRestore } from '@/composables/useScrollRestore';
 import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
+import { sortAlbums as sortAlbumList, type AlbumSortType } from '@/lib/albumSort';
 import { showToast, showConfirmDialog } from 'vant';
 
 defineOptions({
@@ -50,7 +51,7 @@ const { data: folderList, load: loadFolderCache, save: saveFolderCache } = useTT
 })
 
 // 全部相册 tab 的数据和逻辑
-type SortType = 'time' | 'time_asc' | 'tag'
+type SortType = AlbumSortType
 const sortType = ref<SortType>((localStorage.getItem('all_album_sort_type') as SortType) || 'tag')
 const showSortPopover = ref(false)
 const searchKeyword = ref('')
@@ -64,47 +65,6 @@ const sortActions = computed(() => [
 const onSelectSort = (action: { value: SortType }) => {
   sortType.value = action.value
   localStorage.setItem('all_album_sort_type', action.value)
-}
-
-const sortAlbums = (albums: Album[]) => {
-  if (!albums) return []
-
-  const list = [...albums]
-
-  return list.sort((a, b) => {
-    // 规则1: 空相册置底
-    if (a.count === 0 && b.count !== 0) return 1
-    if (a.count !== 0 && b.count === 0) return -1
-    // 如果都是空相册，按时间排序
-    if (a.count === 0 && b.count === 0) {
-      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-    }
-
-    // 规则2: 标签排序
-    if (sortType.value === 'tag') {
-      const tagA = a.tags?.[0] || ''
-      const tagB = b.tags?.[0] || ''
-
-      // 有标签的排前面
-      if (tagA && !tagB) return -1
-      if (!tagA && tagB) return 1
-
-      // 按标签名聚类 (相同标签名在一起)
-      const tagCompare = tagA.localeCompare(tagB, 'zh-CN')
-      if (tagCompare !== 0) return tagCompare
-    }
-
-    const timeA = new Date(a.createdAt || 0).getTime()
-    const timeB = new Date(b.createdAt || 0).getTime()
-
-    // 规则4: 时间正序 (逆序)
-    if (sortType.value === 'time_asc') {
-      return timeA - timeB
-    }
-
-    // 规则3 (默认): 时间倒序
-    return timeB - timeA
-  })
 }
 
 const displayAlbumList = computed(() => {
@@ -125,7 +85,7 @@ const displayAlbumList = computed(() => {
     return matchKeyword && matchTag
   })
 
-  return sortAlbums(filtered)
+  return sortAlbumList(filtered, sortType.value)
 })
 
 const albumTags = computed(() => {

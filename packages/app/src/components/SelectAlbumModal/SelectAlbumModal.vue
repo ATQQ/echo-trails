@@ -80,6 +80,7 @@ import ImageCell from '../ImageCell/ImageCell.vue';
 import { getAlbums } from '@/service';
 import { computed, ref, watch } from 'vue';
 import { preventBack } from '@/lib/router';
+import { sortAlbums } from '@/lib/albumSort';
 
 const {
   currentAlbumId,
@@ -121,14 +122,16 @@ const albumList = ref<Album[]>([])
 const searchKeyword = ref('')
 const filteredAlbumList = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
-  if (!keyword) return albumList.value
+  const list = keyword
+    ? albumList.value.filter(album => (album.name || '').toLowerCase().includes(keyword))
+    : albumList.value
 
-  return albumList.value.filter(album => (album.name || '').toLowerCase().includes(keyword))
+  return sortAlbums(list)
 })
 
 const loadAlbum = () => {
   if (albums) {
-    albumList.value = [...albums]
+    albumList.value = sortAlbums([...albums])
     return Promise.resolve()
   }
 
@@ -140,7 +143,7 @@ const loadAlbum = () => {
     if (res.small) {
       newValue.push(...res.small)
     }
-    albumList.value = newValue
+    albumList.value = sortAlbums(newValue)
   })
 }
 

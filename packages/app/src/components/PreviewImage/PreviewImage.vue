@@ -11,7 +11,6 @@
           :key="activeImage.key"
           :video-url="liveVideoPlayUrl"
           :playing="livePlaying"
-          :show-badge="true"
           @ended="stopLivePlay"
         />
         <!-- 顶部操作栏 -->
@@ -70,6 +69,14 @@
           </div>
         </transition>
 
+        <!-- Live Photo 标签 -->
+        <transition :name="show ? 'van-fade' : ''">
+          <div v-show="showMoreOperate && isLivePhoto" class="live-photo-label safe-padding-bottom">
+            <img class="live-photo-label-icon" src="/assets/images/live-photo.svg" alt="" />
+            <span>动态照片</span>
+          </div>
+        </transition>
+
         <!-- 底部操作栏 -->
         <transition :name="show ? 'van-slide-up' : ''">
           <BottomActions v-show="showMoreOperate" class="preview-bottom-actions safe-padding-bottom" :menus="menus" />
@@ -80,6 +87,16 @@
     <!-- 选择相册 -->
     <SelectAlbumModal v-model:show="showAlbumSelect" @save="handleSaveAlbumSelect" :current-album-id="album?._id"
       :selected="selectedAlbums" />
+    <van-action-sheet
+      v-model:show="showDownloadModeSheet"
+      class="safe-padding-bottom"
+      :actions="downloadModeActions"
+      cancel-text="取消"
+      close-on-click-action
+      :close-on-popstate="false"
+      description="请选择下载格式"
+      @select="handleSelectDownloadMode"
+    />
     <van-action-sheet
       v-model:show="showDeleteModeSheet"
       class="safe-padding-bottom"
@@ -278,6 +295,7 @@ useEventListener(previewWrapper, 'touchend', (e: TouchEvent) => {
     stopLivePlay()
     return
   }
+  if (isLivePhoto.value) cancelLivePress()
   checkImageDetail(e)
 })
 
@@ -286,7 +304,11 @@ useEventListener(previewWrapper, 'mousedown', () => {
   if (isLivePhoto.value) startLivePress()
 })
 useEventListener(previewWrapper, 'mouseup', () => {
-  if (isLivePhoto.value && livePlaying.value) stopLivePlay()
+  if (isLivePhoto.value && livePlaying.value) {
+    stopLivePlay()
+    return
+  }
+  if (isLivePhoto.value) cancelLivePress()
 })
 useEventListener(previewWrapper, 'mouseleave', () => {
   cancelLivePress()
@@ -410,6 +432,7 @@ const handleUpdateLike = () => {
 
 const showAlbumSelect = ref(false)
 const showDeleteModeSheet = ref(false)
+const showDownloadModeSheet = ref(false)
 const selectedAlbums = ref<string[]>([])
 
 const handleAddAlbum = async () => {
@@ -525,6 +548,7 @@ const executeDeleteImage = async (mode: DeleteMode) => {
 preventBack(show)
 preventBack(showAlbumSelect)
 preventBack(showDeleteModeSheet)
+preventBack(showDownloadModeSheet)
 
 const restorePhotos = () => {
   photoListStore?.restorePhotos?.([activeImage.value._id])
@@ -559,13 +583,43 @@ const downloadLivePhotoFile = () => {
     })
 }
 
-const menus = computed(() => {
-  const liveMenus = isLivePhoto.value ? [{
-    icon: 'video-o',
-    text: '下载 Live Photo',
-    handleClick: downloadLivePhotoFile,
-  }] : []
+type DownloadMode = 'still' | 'live'
 
+const downloadModeActions: {
+  name: string
+  subname: string
+  mode: DownloadMode
+}[] = [
+  {
+    name: '下载静态照片',
+    subname: '仅保存封面图片',
+    mode: 'still',
+  },
+  {
+    name: '下载 Live Photo',
+    subname: '同时保存图片和动态视频',
+    mode: 'live',
+  },
+]
+
+const handleDownload = () => {
+  if (isLivePhoto.value) {
+    showDownloadModeSheet.value = true
+    return
+  }
+  downloadImage()
+}
+
+const handleSelectDownloadMode = (action: { mode: DownloadMode }) => {
+  showDownloadModeSheet.value = false
+  if (action.mode === 'live') {
+    downloadLivePhotoFile()
+  } else {
+    downloadImage()
+  }
+}
+
+const menus = computed(() => {
   if (isDelete) {
     return [
       {
@@ -573,11 +627,10 @@ const menus = computed(() => {
         text: '恢复',
         handleClick: restorePhotos
       },
-      ...liveMenus,
       {
         icon: 'down',
         text: '下载',
-        handleClick: downloadImage
+        handleClick: handleDownload
       }
     ]
   }
@@ -599,11 +652,10 @@ const menus = computed(() => {
       text: '添加相册',
       handleClick: handleAddAlbum
     },
-    ...liveMenus,
     {
       icon: 'down',
       text: '下载',
-      handleClick: downloadImage
+      handleClick: handleDownload
     }
   ]
 })
@@ -740,6 +792,34 @@ const menus = computed(() => {
   -webkit-backdrop-filter: blur(2px);
   border: 1px solid rgba(255, 255, 255, 0.15);
   font-weight: 300;
+}
+
+.live-photo-label {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom) + 100px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  pointer-events: none;
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+
+  .live-photo-label-icon {
+    width: 18px;
+    height: 18px;
+    filter: brightness(0) saturate(100%) invert(20%) sepia(5%) saturate(500%) hue-rotate(180deg);
+  }
 }
 
 .edit-btn {

@@ -17,7 +17,7 @@
       <van-icon name="delete-o" /> 缓存
     </div>
 
-    <div v-if="isLive" class="live-photo-badge">LIVE</div>
+    <img v-if="isLive" class="live-photo-icon" src="/assets/images/live-photo.svg" alt="" />
   </van-image>
 </template>
 
@@ -124,19 +124,14 @@ const cancel = () => {
   cursor: pointer;
 }
 
-.live-photo-badge {
+.live-photo-icon {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  padding: 2px 6px;
-  border-radius: 10px;
+  left: 6px;
+  bottom: 6px;
+  width: 16px;
+  height: 16px;
   z-index: 10;
   pointer-events: none;
-  backdrop-filter: blur(4px);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 </style>
