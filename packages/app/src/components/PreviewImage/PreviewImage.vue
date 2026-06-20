@@ -2,7 +2,7 @@
   <div class="preview-image" ref="previewWrapper" :class="{
     'show-detail': showMoreOperate
   }">
-    <van-image-preview :close-on-popstate="false" @change="handleChange" v-model:show="show" :images="urls"
+    <van-image-preview :close-on-popstate="false" @change="handleChange" @scale="handlePreviewScale" v-model:show="show" :images="urls"
       :start-position="start" swipeDuration="100" :showIndex="false" :onClose="handleOnClose" :closeOnClickImage="false"
       transition="zoom">
       <template #cover>
@@ -11,6 +11,7 @@
           :key="activeImage.key"
           :video-url="liveVideoPlayUrl"
           :playing="livePlaying"
+          :wrap-style="liveVideoWrapStyle"
           @ended="stopLivePlay"
         />
         <!-- 顶部操作栏 -->
@@ -118,7 +119,7 @@ import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePho
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import { showConfirmDialog, showNotify, showLoadingToast, closeToast } from 'vant';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import BottomActions from '../BottomActions/BottomActions.vue';
@@ -217,8 +218,52 @@ const touchStart = ref<Touch>()
 const touchTimes = ref(0)
 
 const livePlaying = ref(false)
+const liveVideoWrapStyle = ref<Record<string, string>>({})
 let livePressTimer: ReturnType<typeof setTimeout> | null = null
+let liveVideoSyncRaf: number | null = null
+let liveTouchCount = 0
 const LIVE_PRESS_DELAY = 200
+
+const getActivePreviewImageEl = () => {
+  const wrapper = previewWrapper.value
+  if (!wrapper) return null
+  const items = wrapper.querySelectorAll('.van-image-preview__swipe-item')
+  const item = items[currentIdx.value]
+  return item?.querySelector('.van-image-preview__image') as HTMLElement | null
+}
+
+const syncLiveVideoTransform = () => {
+  const el = getActivePreviewImageEl()
+  if (!el) {
+    liveVideoWrapStyle.value = {}
+    return
+  }
+  const rect = el.getBoundingClientRect()
+  liveVideoWrapStyle.value = {
+    position: 'fixed',
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+  }
+}
+
+const stopLiveVideoSyncLoop = () => {
+  if (liveVideoSyncRaf !== null) {
+    cancelAnimationFrame(liveVideoSyncRaf)
+    liveVideoSyncRaf = null
+  }
+}
+
+const startLiveVideoSyncLoop = () => {
+  stopLiveVideoSyncLoop()
+  const loop = () => {
+    if (!livePlaying.value) return
+    syncLiveVideoTransform()
+    liveVideoSyncRaf = requestAnimationFrame(loop)
+  }
+  liveVideoSyncRaf = requestAnimationFrame(loop)
+}
 
 const cancelLivePress = () => {
   if (livePressTimer !== null) {
@@ -230,9 +275,13 @@ const cancelLivePress = () => {
 const startLivePress = () => {
   if (!isLivePhoto.value || livePlaying.value) return
   if (livePressTimer !== null) return
+  if (liveTouchCount !== 1) return
   livePressTimer = setTimeout(() => {
     livePressTimer = null
+    if (liveTouchCount !== 1) return
+    syncLiveVideoTransform()
     livePlaying.value = true
+    startLiveVideoSyncLoop()
     livePhotoDebug('preview.longPress.play', {
       name: activeImage.value?.name,
       videoUrl: liveVideoPlayUrl.value?.slice(0, 80),
@@ -243,6 +292,13 @@ const startLivePress = () => {
 const stopLivePlay = () => {
   cancelLivePress()
   livePlaying.value = false
+  stopLiveVideoSyncLoop()
+  liveVideoWrapStyle.value = {}
+}
+
+const handlePreviewScale = () => {
+  cancelLivePress()
+  if (livePlaying.value) syncLiveVideoTransform()
 }
 
 // 监听预览组件显示状态，确保关闭时立刻隐藏工具栏
@@ -284,19 +340,40 @@ const checkImageDetail = (e: TouchEvent) => {
   }
 }
 useEventListener(previewWrapper, 'touchstart', (e: TouchEvent) => {
+  liveTouchCount = e.touches.length
   touchStart.value = e.touches[0]
-  if (isLivePhoto.value) startLivePress()
+  if (!isLivePhoto.value) return
+  if (liveTouchCount !== 1) {
+    cancelLivePress()
+    return
+  }
+  startLivePress()
 }, { passive: true })
-useEventListener(previewWrapper, 'touchmove', () => {
+useEventListener(previewWrapper, 'touchmove', (e: TouchEvent) => {
+  liveTouchCount = e.touches.length
+  if (isLivePhoto.value && liveTouchCount > 1) {
+    cancelLivePress()
+    if (livePlaying.value) stopLivePlay()
+    return
+  }
   cancelLivePress()
 }, { passive: true })
 useEventListener(previewWrapper, 'touchend', (e: TouchEvent) => {
+  liveTouchCount = e.touches.length
   if (isLivePhoto.value && livePlaying.value) {
     stopLivePlay()
     return
   }
   if (isLivePhoto.value) cancelLivePress()
   checkImageDetail(e)
+})
+useEventListener(previewWrapper, 'touchcancel', (e: TouchEvent) => {
+  liveTouchCount = e.touches.length
+  if (isLivePhoto.value && livePlaying.value) {
+    stopLivePlay()
+    return
+  }
+  if (isLivePhoto.value) cancelLivePress()
 })
 
 // 桌面端长按支持
@@ -325,6 +402,10 @@ useEventListener(previewWrapper, 'error', (e: Event) => {
     }
   }
 }, { capture: true })
+
+onUnmounted(() => {
+  stopLiveVideoSyncLoop()
+})
 
 const handleChange = (index: number) => {
   stopLivePlay()
