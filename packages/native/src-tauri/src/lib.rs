@@ -51,6 +51,7 @@ pub fn run() {
             open_apk,
             check_update,
             get_file_info,
+            parse_live_photo,
             // Legacy KV cache
             db_set_cache,
             db_get_cache,

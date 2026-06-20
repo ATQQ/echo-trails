@@ -17,6 +17,7 @@
     "@zumer/snapdom": "^2.0.2",
     "dayjs": "^1.11.13",
     "exifreader": "^4.33.1",
+    "jszip": "^3.10.1",
     "ky": "^1.7.2",
     "lightweight-charts": "^5.1.0",
     "lunar-javascript": "^1.7.7",

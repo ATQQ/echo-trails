@@ -6,6 +6,49 @@ use turso::Value as TursoValue;
 
 use super::{merge_row, new_id, TursoDb};
 
+fn apply_live_photo_normalization(obj: &mut serde_json::Map<String, JsonValue>) {
+    let is_live = obj
+        .get("isLive")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let live_video_key = obj
+        .get("liveVideoKey")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
+
+    // 与远程 parsePhoto 对齐：isLive=true 但缺少 liveVideoKey 视为脏数据
+    if is_live && live_video_key.is_empty() {
+        obj.insert("isLive".to_string(), json!(false));
+        obj.insert("liveVideoKey".to_string(), json!(""));
+        obj.insert("liveContentId".to_string(), json!(""));
+        obj.insert("liveDuration".to_string(), json!(0));
+    }
+}
+
+fn normalize_photo(item: JsonValue) -> JsonValue {
+    let mut result = item;
+    if let Some(obj) = result.as_object_mut() {
+        apply_live_photo_normalization(obj);
+    }
+    result
+}
+
+fn sanitize_photo_data(data: JsonValue) -> JsonValue {
+    normalize_photo(data)
+}
+
+fn sanitize_photo_data_str(data: &str) -> String {
+    match serde_json::from_str::<JsonValue>(data) {
+        Ok(value) => sanitize_photo_data(value).to_string(),
+        Err(_) => data.to_string(),
+    }
+}
+
+fn merge_photo_row(row: &JsonValue) -> JsonValue {
+    normalize_photo(merge_row(row))
+}
+
 #[tauri::command]
 pub async fn db_photo_list(
     state: State<'_, TursoDb>,
@@ -70,7 +113,7 @@ pub async fn db_photo_list(
         let mut matched = Vec::new();
         while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
             let val = row_to_json(&row)?;
-            let item = merge_row(&val);
+            let item = merge_photo_row(&val);
             if photo_matches_album(&item, &aid, &related_photo_ids) {
                 matched.push(item);
             }
@@ -113,7 +156,7 @@ pub async fn db_photo_list(
     let mut items = Vec::new();
     while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row_to_json(&row)?;
-        items.push(merge_row(&val));
+        items.push(merge_photo_row(&val));
     }
 
     Ok(json!({ "data": items, "total": total }))
@@ -175,6 +218,7 @@ pub async fn db_photo_add(
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     let photo_id = id.unwrap_or_else(new_id);
+    let sanitized_data = sanitize_photo_data_str(&data);
 
     conn.execute(
         "INSERT INTO photos (id, is_liked, type, last_modified, md5, data) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -184,7 +228,7 @@ pub async fn db_photo_add(
             type_.unwrap_or_default(),
             last_modified.unwrap_or_default(),
             md5.unwrap_or_default(),
-            data,
+            sanitized_data,
         ),
     )
     .await
@@ -197,7 +241,7 @@ pub async fn db_photo_add(
         .map_err(|e| e.to_string())?;
     if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row_to_json(&row)?;
-        Ok(merge_row(&val))
+        Ok(merge_photo_row(&val))
     } else {
         Err("Failed to retrieve created photo".to_string())
     }
@@ -255,8 +299,9 @@ pub async fn db_photo_update(
                 merged_data = incoming;
             }
         }
+        let sanitized_data = sanitize_photo_data(merged_data).to_string();
         sets.push(format!("data = ?{}", param_idx));
-        params.push(TursoValue::Text(merged_data.to_string()));
+        params.push(TursoValue::Text(sanitized_data));
         param_idx += 1;
     }
 
@@ -276,7 +321,7 @@ pub async fn db_photo_update(
         .map_err(|e| e.to_string())?;
     if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row_to_json(&row)?;
-        Ok(merge_row(&val))
+        Ok(merge_photo_row(&val))
     } else {
         Err("Photo not found".to_string())
     }
@@ -316,7 +361,7 @@ pub async fn db_photo_toggle_like(
         .map_err(|e| e.to_string())?;
     if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row_to_json(&row)?;
-        Ok(merge_row(&val))
+        Ok(merge_photo_row(&val))
     } else {
         Err("Photo not found".to_string())
     }
@@ -366,7 +411,7 @@ pub async fn db_photo_check_duplicate(
 
     if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row_to_json(&row)?;
-        let merged = merge_row(&val);
+        let merged = merge_photo_row(&val);
         Ok(json!({ "isDuplicate": true, "existingPhoto": merged }))
     } else {
         Ok(json!({ "isDuplicate": false, "existingPhoto": null }))

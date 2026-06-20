@@ -6,6 +6,14 @@
       :start-position="start" swipeDuration="100" :showIndex="false" :onClose="handleOnClose" :closeOnClickImage="false"
       transition="zoom">
       <template #cover>
+        <LivePhotoPlayer
+          v-if="isLivePhoto && liveVideoPlayUrl"
+          :key="activeImage.key"
+          :video-url="liveVideoPlayUrl"
+          :playing="livePlaying"
+          :show-badge="true"
+          @ended="stopLivePlay"
+        />
         <!-- 顶部操作栏 -->
         <transition :name="show ? 'van-slide-down' : ''">
           <div v-show="showMoreOperate" class="cover-wrapper safe-padding-top">
@@ -88,7 +96,7 @@
 <script lang="ts" setup>
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { usePhotoListStore } from '@/composables/photoList';
-import { downloadFile, formatSize, generateDownloadFileName } from '@/lib/file';
+import { downloadFile, downloadLivePhoto, formatSize, generateDownloadFileName } from '@/lib/file';
 import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
@@ -97,6 +105,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import BottomActions from '../BottomActions/BottomActions.vue';
+import LivePhotoPlayer from '../LivePhotoPlayer/LivePhotoPlayer.vue';
 import { cacheImage, isCacheDebugMode, deleteSingleImageCache } from '@/composables/useCachedImage';
 import { isTauri } from '@/constants';
 import { notifyAlbumsChanged } from '@/lib/albumEvents';
@@ -190,6 +199,35 @@ const showMoreOperate = ref(true)
 const touchStart = ref<Touch>()
 const touchTimes = ref(0)
 
+const livePlaying = ref(false)
+let livePressTimer: ReturnType<typeof setTimeout> | null = null
+const LIVE_PRESS_DELAY = 200
+
+const cancelLivePress = () => {
+  if (livePressTimer !== null) {
+    clearTimeout(livePressTimer)
+    livePressTimer = null
+  }
+}
+
+const startLivePress = () => {
+  if (!isLivePhoto.value || livePlaying.value) return
+  if (livePressTimer !== null) return
+  livePressTimer = setTimeout(() => {
+    livePressTimer = null
+    livePlaying.value = true
+    livePhotoDebug('preview.longPress.play', {
+      name: activeImage.value?.name,
+      videoUrl: liveVideoPlayUrl.value?.slice(0, 80),
+    })
+  }, LIVE_PRESS_DELAY)
+}
+
+const stopLivePlay = () => {
+  cancelLivePress()
+  livePlaying.value = false
+}
+
 // 监听预览组件显示状态，确保关闭时立刻隐藏工具栏
 watch(() => show.value, (newVal) => {
   if (newVal) {
@@ -198,8 +236,15 @@ watch(() => show.value, (newVal) => {
     showMoreOperate.value = false;
     showInfoDetail.value = false;
     editMode.value = false;
+    stopLivePlay();
   }
 })
+
+const isTapTarget = (target: Element) => {
+  if (target.classList.contains('van-image__img')) return true
+  if (isLivePhoto.value && target.closest('.van-image-preview__swipe-item')) return true
+  return false
+}
 
 // 查看预览图片细节
 const checkImageDetail = (e: TouchEvent) => {
@@ -208,8 +253,8 @@ const checkImageDetail = (e: TouchEvent) => {
   if (touchStart.value?.clientX !== clientX || touchStart.value?.clientY !== clientY) {
     return
   }
-  const target = e.target as HTMLImageElement
-  if (target.classList.contains('van-image__img')) {
+  const target = e.target as Element
+  if (isTapTarget(target)) {
     // 非常快速的双击过滤
     // https://github.com/youzan/vant/blob/eca18a1dad5908eb8a6e989bb45094f7d2e5414f/packages/vant/src/image-preview/ImagePreviewItem.tsx#L278
     touchTimes.value += 1
@@ -223,8 +268,30 @@ const checkImageDetail = (e: TouchEvent) => {
 }
 useEventListener(previewWrapper, 'touchstart', (e: TouchEvent) => {
   touchStart.value = e.touches[0]
+  if (isLivePhoto.value) startLivePress()
+}, { passive: true })
+useEventListener(previewWrapper, 'touchmove', () => {
+  cancelLivePress()
+}, { passive: true })
+useEventListener(previewWrapper, 'touchend', (e: TouchEvent) => {
+  if (isLivePhoto.value && livePlaying.value) {
+    stopLivePlay()
+    return
+  }
+  checkImageDetail(e)
 })
-useEventListener(previewWrapper, 'touchend', checkImageDetail)
+
+// 桌面端长按支持
+useEventListener(previewWrapper, 'mousedown', () => {
+  if (isLivePhoto.value) startLivePress()
+})
+useEventListener(previewWrapper, 'mouseup', () => {
+  if (isLivePhoto.value && livePlaying.value) stopLivePlay()
+})
+useEventListener(previewWrapper, 'mouseleave', () => {
+  cancelLivePress()
+  if (livePlaying.value) stopLivePlay()
+})
 
 useEventListener(previewWrapper, 'error', (e: Event) => {
   const target = e.target as HTMLImageElement;
@@ -238,6 +305,7 @@ useEventListener(previewWrapper, 'error', (e: Event) => {
 }, { capture: true })
 
 const handleChange = (index: number) => {
+  stopLivePlay()
   currentIdx.value = index
   editMode.value = false
 
@@ -256,9 +324,25 @@ const handleChange = (index: number) => {
 }
 
 import { getLunarDate } from '@/lib/lunar';
+import { isCompleteLivePhoto, livePhotoDebug } from '@/lib/livePhoto';
 import { preventBack } from '@/lib/router';
 
 const activeImage = computed(() => images[currentIdx.value] || {})
+const isLivePhoto = computed(() => isCompleteLivePhoto(activeImage.value))
+const liveVideoPlayUrl = computed(() => activeImage.value?.liveVideoUrl || '')
+
+watch([isLivePhoto, () => activeImage.value?.key], () => {
+  stopLivePlay()
+  const photo = activeImage.value
+  livePhotoDebug('preview.active', {
+    name: photo?.name,
+    isLive: photo?.isLive,
+    liveVideoKey: photo?.liveVideoKey,
+    liveVideoUrl: photo?.liveVideoUrl,
+    isComplete: isCompleteLivePhoto(photo),
+  })
+}, { immediate: true })
+
 const coverDate = computed(() => dayjs(activeImage.value.lastModified).format('YYYY年MM月DD日'))
 const coverTime = computed(() => dayjs(activeImage.value.lastModified).format('HH:mm'))
 const weekDay = computed(() => {
@@ -460,7 +544,28 @@ const downloadImage = () => {
       closeToast();
     })
 }
+
+const downloadLivePhotoFile = () => {
+  const toast = showLoadingToast({
+    message: '下载 Live Photo 中...',
+    forbidClick: true,
+    duration: 0,
+  });
+
+  const imageUrl = isUsingOriginal.value ? activeImage.value.url : activeImage.value.preview;
+  downloadLivePhoto(activeImage.value, imageUrl)
+    .finally(() => {
+      closeToast();
+    })
+}
+
 const menus = computed(() => {
+  const liveMenus = isLivePhoto.value ? [{
+    icon: 'video-o',
+    text: '下载 Live Photo',
+    handleClick: downloadLivePhotoFile,
+  }] : []
+
   if (isDelete) {
     return [
       {
@@ -468,6 +573,7 @@ const menus = computed(() => {
         text: '恢复',
         handleClick: restorePhotos
       },
+      ...liveMenus,
       {
         icon: 'down',
         text: '下载',
@@ -493,6 +599,7 @@ const menus = computed(() => {
       text: '添加相册',
       handleClick: handleAddAlbum
     },
+    ...liveMenus,
     {
       icon: 'down',
       text: '下载',

@@ -17,6 +17,11 @@ interface Photo {
   isLiked: boolean
   albumId?: string[]
   description?: string
+  isLive?: boolean
+  liveVideoUrl?: string
+  liveVideoKey?: string
+  liveContentId?: string
+  liveDuration?: number
 }
 
 type ServerResponse<T = any> = {
@@ -68,6 +73,18 @@ interface FileInfoItem {
   height?: number
   cover?: string
   filePath?: string
+  isLive?: boolean
+  liveContentId?: string
+  liveDuration?: number
+  liveVideo?: {
+    file?: File
+    filePath?: string
+    name: string
+    size: number
+    md5?: string
+    type?: string
+    duration?: number
+  }
 }
 
 interface UploadInfo {
@@ -81,4 +98,8 @@ interface UploadInfo {
   md5?: string
   albumId?: string[]
   filePath?: string
+  isLive?: boolean
+  liveVideoKey?: string
+  liveContentId?: string
+  liveDuration?: number
 }

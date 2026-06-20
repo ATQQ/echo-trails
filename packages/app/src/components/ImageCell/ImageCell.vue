@@ -16,6 +16,8 @@
     <div v-if="isCacheDebugMode && isUsingCache" class="cache-debug-badge" @click.stop="handleDeleteCache">
       <van-icon name="delete-o" /> 缓存
     </div>
+
+    <div v-if="isLive" class="live-photo-badge">LIVE</div>
   </van-image>
 </template>
 
@@ -26,6 +28,7 @@ import { toRef, computed } from 'vue';
 const props = defineProps<{
   src: string
   cacheKey?: string
+  isLive?: boolean
 }>()
 
 const { cachedSrc, handleLoadError } = useCachedImage(toRef(props, 'src'), toRef(props, 'cacheKey'))
@@ -54,7 +57,7 @@ const handleError = () => {
   emit('error');
 }
 
-let pressTimer: any = null;
+let pressTimer: ReturnType<typeof setTimeout> | null = null;
 
 const start = () => {
   if (pressTimer === null) {
@@ -119,5 +122,21 @@ const cancel = () => {
   gap: 2px;
   z-index: 10;
   cursor: pointer;
+}
+
+.live-photo-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  z-index: 10;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
 }
 </style>

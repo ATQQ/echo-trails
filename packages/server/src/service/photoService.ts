@@ -22,13 +22,21 @@ async function parsePhoto(photo: Document<unknown, any, Photo>) {
 
   // console.log('isRepeat', isRepeat)
   const isImage = parseData.type.startsWith('image/')
+  const hasLiveVideo = !!parseData.liveVideoKey
+  const isLive = !!parseData.isLive && hasLiveVideo
+  const liveVideoUrl = isLive
+    ? await createFileLink(parseData.liveVideoKey)
+    : ''
   return {
     ...parseData,
+    isLive,
+    liveVideoKey: hasLiveVideo ? parseData.liveVideoKey : '',
     // 生成链接
     url: await createFileLink(parseData.key),
     cover: await createCoverLink(parseData.key, isImage),
     preview: await createPreviewLink(parseData.key, isImage),
     category: formatDateTitle(parseData.lastModified),
+    liveVideoUrl,
     // isRepeat,
   }
 }

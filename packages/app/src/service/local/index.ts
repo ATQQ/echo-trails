@@ -14,6 +14,9 @@ async function enrichPhotoUrls(row: any): Promise<any> {
       photo.preview = await buildPreviewUrl(s3Key, isImage)
     }
   }
+  if (photo.isLive && photo.liveVideoKey && !photo.liveVideoUrl) {
+    photo.liveVideoUrl = await buildFileUrl(photo.liveVideoKey)
+  }
   return photo
 }
 
@@ -43,6 +46,10 @@ function mapPhoto(row: any): any {
     size: row.size ?? 0,
     width: row.width ?? 0,
     height: row.height ?? 0,
+    isLive: !!(row.isLive && row.liveVideoKey),
+    liveVideoKey: row.liveVideoKey || '',
+    liveContentId: row.liveContentId || '',
+    liveDuration: row.liveDuration ?? 0,
   }
 }
 
@@ -134,6 +141,10 @@ export async function addFileInfo(body: any) {
     bucket: body.bucket || '',
     username: 'local',
     uploadDate: new Date().toISOString(),
+    isLive: !!body.isLive,
+    liveVideoKey: body.liveVideoKey || '',
+    liveContentId: body.liveContentId || '',
+    liveDuration: body.liveDuration ?? 0,
   })
   const added = await invoke<any>('db_photo_add', {
     id: crypto.randomUUID(),
@@ -162,6 +173,10 @@ export async function updateFileInfo(body: any) {
     description: body.description || '',
     albumId: body.albumId || [],
     md5: body.md5 || '',
+    isLive: !!body.isLive,
+    liveVideoKey: body.liveVideoKey || '',
+    liveContentId: body.liveContentId || '',
+    liveDuration: body.liveDuration ?? 0,
   })
 
   return invoke<any>('db_photo_update', {
