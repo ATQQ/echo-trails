@@ -5,7 +5,9 @@
     position="bottom"
     class="safe-padding-top"
     :style="{ height: '100%' }"
+    :close-on-popstate="false"
     @update:show="handleUpdateShow"
+    @opened="handleOpened"
     @closed="handleClosed"
   >
     <div class="popup-content">
@@ -23,11 +25,10 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, watch, toRef, ref, nextTick } from 'vue';
+import { reactive, watch, ref, nextTick } from 'vue';
 import { createAlbumFolder, updateAlbumFolder, deleteAlbumFolder } from '@/service';
 import { showToast, showConfirmDialog } from 'vant';
 import FolderEditCard from './FolderEditCard.vue';
-import { preventBack } from '@/lib/router';
 
 const props = defineProps<{
   visible: boolean
@@ -49,7 +50,7 @@ const editCardRef = ref<InstanceType<typeof FolderEditCard> | null>(null)
 
 watch(
   () => props.visible,
-  async (newVal) => {
+  (newVal) => {
     if (newVal) {
       if (props.editId && props.initialData) {
         formData.name = props.initialData.name || '';
@@ -57,12 +58,18 @@ watch(
       } else {
         formData.name = '';
         formData.description = '';
-        await nextTick()
-        editCardRef.value?.focusName()
       }
     }
   }
 );
+
+const handleOpened = async () => {
+  if (props.editId) return
+  await nextTick()
+  setTimeout(() => {
+    editCardRef.value?.focusName()
+  }, 500)
+}
 
 const handleUpdateShow = (value: boolean) => {
   emit('update:visible', value)
@@ -117,9 +124,6 @@ const handleDelete = () => {
     }
   }).catch(() => {});
 }
-
-const visibleRef = toRef(props, 'visible');
-preventBack(visibleRef);
 </script>
 
 <style scoped>

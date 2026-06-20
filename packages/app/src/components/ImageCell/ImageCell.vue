@@ -82,6 +82,9 @@ const cancel = () => {
   height: 100%;
   transform: translateZ(0);
   will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   
   :deep(.van-image__img) {
     transition: opacity 0.5s ease-out;

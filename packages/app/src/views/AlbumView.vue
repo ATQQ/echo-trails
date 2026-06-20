@@ -628,6 +628,9 @@ preventBack(showAddModal)
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 
   :deep(.van-image) {
     border-radius: 12px;

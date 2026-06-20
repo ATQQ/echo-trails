@@ -468,6 +468,9 @@ preventBack(albumSelectMode)
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 
   &.is-select-mode.is-selected .cover-wrap {
     box-shadow: 0 0 0 2px #1989fa inset;

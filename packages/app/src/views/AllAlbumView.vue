@@ -743,6 +743,9 @@ preventBack(folderSelectMode)
   width: 100%;
   display: flex;
   flex-direction: column;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   overflow: hidden;
   position: relative;
 
@@ -859,6 +862,9 @@ preventBack(folderSelectMode)
   display: flex;
   align-items: center;
   gap: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   padding: 12px;
   background: #f8f8f8;
   border-radius: 12px;
