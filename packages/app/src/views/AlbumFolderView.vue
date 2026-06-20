@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { getAlbums, getAlbumFolders, setAlbumsFolder, setAlbumFolder } from '@/service';
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { getAlbums, getAlbumFolders, setAlbumsFolder } from '@/service';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import FolderEditModal from '@/components/FolderEditCard/FolderEditModal.vue';
@@ -148,8 +148,35 @@ const showEditModal = ref(false)
 const currentEditId = ref('')
 const currentEditData = ref<AlbumFolder | undefined>(undefined)
 const showAlbumSelect = ref(false)
-const showAlbumAction = ref(false)
-const selectedAlbumForAction = ref<Album | null>(null)
+const albumSelectMode = ref(false)
+const selectedAlbumIds = ref<string[]>([])
+
+const isAlbumSelected = (albumId: string) => selectedAlbumIds.value.includes(albumId)
+
+const toggleAlbumSelection = (albumId: string) => {
+  const index = selectedAlbumIds.value.indexOf(albumId)
+  if (index === -1) {
+    selectedAlbumIds.value = [...selectedAlbumIds.value, albumId]
+  } else {
+    selectedAlbumIds.value = selectedAlbumIds.value.filter(id => id !== albumId)
+  }
+}
+
+const exitAlbumSelectMode = () => {
+  albumSelectMode.value = false
+  selectedAlbumIds.value = []
+}
+
+const enterAlbumSelectMode = (albumId: string) => {
+  albumSelectMode.value = true
+  selectedAlbumIds.value = [albumId]
+}
+
+watch(albumSelectMode, (val) => {
+  if (!val) {
+    selectedAlbumIds.value = []
+  }
+})
 
 const handleEditClick = () => {
   if (!folder.value) return
@@ -159,7 +186,37 @@ const handleEditClick = () => {
 }
 
 const handleAddAlbumsClick = () => {
+  if (albumSelectMode.value) {
+    handleBatchRemoveFromFolder()
+    return
+  }
   showAlbumSelect.value = true
+}
+
+const handleBatchRemoveFromFolder = async () => {
+  if (!selectedAlbumIds.value.length) {
+    showToast('请先选择相册')
+    return
+  }
+
+  try {
+    await showConfirmDialog({
+      title: '移出分类',
+      message: `确定将选中的 ${selectedAlbumIds.value.length} 个相册移出当前分类吗？相册本身不会被删除。`,
+    })
+  } catch {
+    return
+  }
+
+  try {
+    await setAlbumsFolder(selectedAlbumIds.value, null)
+    showToast('已移出分类')
+    exitAlbumSelectMode()
+    await loadData(false)
+    notifyAlbumsChanged(folderChangeSource)
+  } catch (e: any) {
+    showToast(e?.message || '操作失败')
+  }
 }
 
 const handleSaveAlbumSelect = async (albumIds: string[]) => {
@@ -180,8 +237,7 @@ let touchTimer: ReturnType<typeof setTimeout> | null = null
 let isLongPressTriggered = false
 
 const handleAlbumLongPress = (album: Album) => {
-  selectedAlbumForAction.value = album
-  showAlbumAction.value = true
+  enterAlbumSelectMode(album._id)
 }
 
 const handleAlbumTouchStart = (album: Album) => {
@@ -200,39 +256,20 @@ const handleAlbumTouchEnd = () => {
   }
 }
 
-const handleRemoveFromFolder = async () => {
-  const album = selectedAlbumForAction.value
-  if (!album) return
-
-  showAlbumAction.value = false
-  try {
-    await showConfirmDialog({
-      title: '移出分类',
-      message: `确定将「${album.name}」移出当前分类吗？相册本身不会被删除。`,
-    })
-  } catch {
-    selectedAlbumForAction.value = null
-    return
-  }
-
-  try {
-    await setAlbumFolder(album._id, null)
-    showToast('已移出分类')
-    await loadData(false)
-    notifyAlbumsChanged(folderChangeSource)
-  } catch (e: any) {
-    showToast(e?.message || '操作失败')
-  } finally {
-    selectedAlbumForAction.value = null
-  }
-}
-
-const { addRecent } = useRecentAlbums()
-const goToDetail = (albumId: string) => {
+const handleAlbumClick = (album: Album) => {
   if (isLongPressTriggered) {
     isLongPressTriggered = false
     return
   }
+  if (albumSelectMode.value) {
+    toggleAlbumSelection(album._id)
+    return
+  }
+  goToDetail(album._id)
+}
+
+const { addRecent } = useRecentAlbums()
+const goToDetail = (albumId: string) => {
   addRecent(albumId)
   router.push({ name: 'album-photo', params: { albumId } })
 }
@@ -247,7 +284,7 @@ const handleScroll = (e: Event) => {
 
 preventBack(showEditModal)
 preventBack(showAlbumSelect)
-preventBack(showAlbumAction)
+preventBack(albumSelectMode)
 </script>
 
 <template>
@@ -261,6 +298,9 @@ preventBack(showAlbumAction)
       </PageTitle>
       <div class="folder-content">
         <p v-if="folder?.description" class="folder-desc">{{ folder.description }}</p>
+        <div v-if="albumSelectMode" class="album-select-tip">
+          已选 {{ selectedAlbumIds.length }} 项，点击右下角确认移出
+        </div>
         <van-search
           v-model="searchKeyword"
           class="album-search"
@@ -286,13 +326,23 @@ preventBack(showAlbumAction)
             <van-grid-item v-for="album in displayAlbumList" :key="album._id">
               <div
                 class="small-card"
-                @click.stop.prevent="goToDetail(album._id)"
+                :class="{
+                  'is-select-mode': albumSelectMode,
+                  'is-selected': isAlbumSelected(album._id),
+                }"
+                @click.stop.prevent="handleAlbumClick(album)"
                 @touchstart="handleAlbumTouchStart(album)"
                 @touchend="handleAlbumTouchEnd"
                 @touchcancel="handleAlbumTouchEnd"
                 @touchmove="handleAlbumTouchEnd"
               >
-                <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
+                <div class="cover-wrap">
+                  <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
+                  <div v-if="albumSelectMode" class="album-select-indicator" :class="{ checked: isAlbumSelected(album._id) }">
+                    <van-icon v-if="isAlbumSelected(album._id)" name="success" size="12" />
+                  </div>
+                  <div v-if="albumSelectMode && isAlbumSelected(album._id)" class="selected-mask"></div>
+                </div>
                 <div class="title-desc">
                   <h2>{{ album.name }}</h2>
                   <p>{{ album.count }}</p>
@@ -312,7 +362,9 @@ preventBack(showAlbumAction)
     }" />
     <AddButton
       class="add-position"
-      v-show="!showEditModal && !showAlbumSelect && !showAlbumAction"
+      :icon="albumSelectMode ? 'success' : 'plus'"
+      :variant="albumSelectMode ? 'success' : 'primary'"
+      v-show="!showEditModal && !showAlbumSelect"
       @click="handleAddAlbumsClick"
     />
     <FolderEditModal
@@ -329,13 +381,6 @@ preventBack(showAlbumAction)
       confirm-label="添加相册"
       search-placeholder="搜索未归类相册"
       @save="handleSaveAlbumSelect"
-    />
-    <van-action-sheet
-      v-model:show="showAlbumAction"
-      :actions="[{ name: '移出分类', color: '#ee0a24' }]"
-      cancel-text="取消"
-      close-on-click-action
-      @select="handleRemoveFromFolder"
     />
   </div>
 </template>
@@ -391,6 +436,15 @@ preventBack(showAlbumAction)
   font-size: 12px;
   color: #b0b4ba;
 }
+.album-select-tip {
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #ecf9f1;
+  color: #07c160;
+  font-size: 13px;
+  text-align: center;
+}
 .add-position {
   z-index: 2;
 }
@@ -414,13 +468,58 @@ preventBack(showAlbumAction)
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
+  &.is-select-mode.is-selected .cover-wrap {
+    box-shadow: 0 0 0 2px #1989fa inset;
+    border-radius: 12px;
+  }
+
+  .cover-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
   :deep(.van-image) {
     border-radius: 12px;
     width: 100% !important;
-    aspect-ratio: 1 / 1;
-    height: auto !important;
+    height: 100% !important;
     overflow: hidden;
   }
+
+  .album-select-indicator {
+    position: absolute;
+    right: 6px;
+    top: 6px;
+    z-index: 2;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.76);
+    box-shadow: 0 1px 4px rgba(31, 41, 51, 0.18);
+
+    &.checked {
+      border-color: #07c160;
+      background: #07c160;
+    }
+  }
+
+  .selected-mask {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: 12px;
+    background: rgba(25, 137, 250, 0.12);
+    pointer-events: none;
+  }
+
   .title-desc {
     margin-top: 6px;
     width: 100%;

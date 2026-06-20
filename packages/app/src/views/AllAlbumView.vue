@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { getAlbums, getAlbumFolders } from '@/service';
-import { ref, computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted } from 'vue'
+import { getAlbums, getAlbumFolders, deleteAlbumFolder } from '@/service';
+import { ref, computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import AlbumEditModal from '@/components/EditAlbumCard/AlbumEditModal.vue';
@@ -8,11 +8,11 @@ import FolderEditModal from '@/components/FolderEditCard/FolderEditModal.vue';
 import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton/AddButton.vue';
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
-import AutoScrollText from '@/components/AutoScrollText/AutoScrollText.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useScrollRestore } from '@/composables/useScrollRestore';
 import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
+import { showToast, showConfirmDialog } from 'vant';
 
 defineOptions({
   name: 'AllAlbumView'
@@ -166,9 +166,6 @@ const displayFolderList = computed(() => {
 })
 
 const router = useRouter()
-const goToFolderDetail = (folderId: string) => {
-  router.push({ name: 'album-folder', params: { folderId } })
-}
 
 // 公共逻辑
 const showEmpty = ref(false)
@@ -281,6 +278,41 @@ const currentEditData = ref<Album | undefined>(undefined)
 const showFolderModal = ref(false)
 const currentFolderEditId = ref('')
 const currentFolderEditData = ref<AlbumFolder | undefined>(undefined)
+const folderSelectMode = ref(false)
+const selectedFolderIds = ref<string[]>([])
+
+const isFolderSelected = (folderId: string) => selectedFolderIds.value.includes(folderId)
+
+const toggleFolderSelection = (folderId: string) => {
+  const index = selectedFolderIds.value.indexOf(folderId)
+  if (index === -1) {
+    selectedFolderIds.value = [...selectedFolderIds.value, folderId]
+  } else {
+    selectedFolderIds.value = selectedFolderIds.value.filter(id => id !== folderId)
+  }
+}
+
+const exitFolderSelectMode = () => {
+  folderSelectMode.value = false
+  selectedFolderIds.value = []
+}
+
+const enterFolderSelectMode = (folderId: string) => {
+  folderSelectMode.value = true
+  selectedFolderIds.value = [folderId]
+}
+
+watch(activeTab, (tab) => {
+  if (tab !== 'folders') {
+    exitFolderSelectMode()
+  }
+})
+
+watch(folderSelectMode, (val) => {
+  if (!val) {
+    selectedFolderIds.value = []
+  }
+})
 
 const isScrolled = ref(false)
 
@@ -331,6 +363,10 @@ const handleContextMenu = (e: Event, album: Album) => {
 
 const handleAddClick = () => {
   if (activeTab.value === 'folders') {
+    if (folderSelectMode.value) {
+      handleBatchDeleteFolders()
+      return
+    }
     handleAddFolderClick()
     return
   }
@@ -340,10 +376,69 @@ const handleAddClick = () => {
   showAddModal.value = true
 }
 
+const handleBatchDeleteFolders = async () => {
+  if (!selectedFolderIds.value.length) {
+    showToast('请先选择分类')
+    return
+  }
+
+  try {
+    await showConfirmDialog({
+      title: '删除分类',
+      message: `确定删除选中的 ${selectedFolderIds.value.length} 个分类吗？分类内的相册将变为未归类。`,
+    })
+  } catch {
+    return
+  }
+
+  try {
+    for (const id of selectedFolderIds.value) {
+      await deleteAlbumFolder(id)
+    }
+    showToast('删除成功')
+    exitFolderSelectMode()
+    await handleFolderChanged()
+    notifyAlbumsChanged('all-album-view')
+  } catch (e: any) {
+    showToast(e?.message || '删除失败')
+  }
+}
+
 const handleAddFolderClick = () => {
   currentFolderEditId.value = ''
   currentFolderEditData.value = undefined
   showFolderModal.value = true
+}
+
+const goToFolderDetail = (folderId: string) => {
+  if (folderLongPressTriggered) {
+    folderLongPressTriggered = false
+    return
+  }
+  if (folderSelectMode.value) {
+    toggleFolderSelection(folderId)
+    return
+  }
+  router.push({ name: 'album-folder', params: { folderId } })
+}
+
+let folderTouchTimer: ReturnType<typeof setTimeout> | null = null
+let folderLongPressTriggered = false
+
+const handleFolderTouchStart = (folder: AlbumFolder) => {
+  folderLongPressTriggered = false
+  if (folderTouchTimer) clearTimeout(folderTouchTimer)
+  folderTouchTimer = setTimeout(() => {
+    folderLongPressTriggered = true
+    enterFolderSelectMode(folder._id)
+  }, 500)
+}
+
+const handleFolderTouchEnd = () => {
+  if (folderTouchTimer) {
+    clearTimeout(folderTouchTimer)
+    folderTouchTimer = null
+  }
 }
 
 const goToDetail = (albumId: string) => {
@@ -375,6 +470,7 @@ const handleTouchEnd = () => {
 
 preventBack(showAddModal)
 preventBack(showFolderModal)
+preventBack(folderSelectMode)
 </script>
 
 <template>
@@ -462,6 +558,9 @@ preventBack(showFolderModal)
         <van-tab title="相册分类" name="folders">
           <!-- 相册分类内容 -->
           <div class="album-folders">
+            <div v-if="folderSelectMode" class="folder-select-tip">
+              已选 {{ selectedFolderIds.length }} 项，点击右下角确认删除
+            </div>
             <!-- 文件夹列表 -->
             <div class="folders-section">
               <div v-if="displayFolderList.length === 0" class="empty-folders">
@@ -472,22 +571,36 @@ preventBack(showFolderModal)
                   v-for="folder in displayFolderList"
                   :key="folder._id"
                   class="folder-item"
+                  :class="{
+                    'is-select-mode': folderSelectMode,
+                    'is-selected': isFolderSelected(folder._id),
+                    'has-desc': !!folder.description,
+                  }"
                   @click="goToFolderDetail(folder._id)"
+                  @touchstart="handleFolderTouchStart(folder)"
+                  @touchend="handleFolderTouchEnd"
+                  @touchcancel="handleFolderTouchEnd"
+                  @touchmove="handleFolderTouchEnd"
                 >
-                  <div class="folder-cover">
-                    <ImageCell v-if="folder.cover" :src="folder.cover" />
-                    <div v-else class="folder-cover-empty">
-                      <van-icon name="folder-o" size="32" color="#ccc" />
+                  <div class="folder-left">
+                    <div class="folder-cover">
+                      <ImageCell v-if="folder.cover" :src="folder.cover" />
+                      <div v-else class="folder-cover-empty">
+                        <van-icon name="folder-o" size="32" color="#ccc" />
+                      </div>
+                      <div v-if="folderSelectMode" class="folder-select-indicator" :class="{ checked: isFolderSelected(folder._id) }">
+                        <van-icon v-if="isFolderSelected(folder._id)" name="success" size="12" />
+                      </div>
+                    </div>
+                    <div class="folder-main">
+                      <div class="folder-name">{{ folder.name }}</div>
+                      <div class="folder-count">{{ folder.albumCount || 0 }} 个相册</div>
                     </div>
                   </div>
-                  <div class="folder-main">
-                    <div class="folder-name">{{ folder.name }}</div>
-                    <div class="folder-count">{{ folder.albumCount || 0 }} 个相册</div>
+                  <div v-if="folder.description" class="folder-right">
+                    <p class="folder-description">{{ folder.description }}</p>
                   </div>
-                  <div v-if="folder.description" class="folder-desc-side">
-                    <AutoScrollText :text="folder.description" />
-                  </div>
-                  <van-icon class="folder-arrow" name="arrow" size="16" color="#ccc" />
+                  <van-icon v-if="!folderSelectMode" class="folder-arrow" name="arrow" size="16" color="#ccc" />
                 </div>
               </div>
             </div>
@@ -502,7 +615,13 @@ preventBack(showFolderModal)
       '--van-back-top-size': '36px',
     }" />
     <!-- 添加相册 -->
-    <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal && !showFolderModal" />
+    <AddButton
+      class="add-position"
+      :icon="activeTab === 'folders' && folderSelectMode ? 'success' : 'plus'"
+      :variant="activeTab === 'folders' && folderSelectMode ? 'success' : 'primary'"
+      @click="handleAddClick"
+      v-show="!showAddModal && !showFolderModal"
+    />
     <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="handleAlbumSaved" />
     <FolderEditModal v-model:visible="showFolderModal" :edit-id="currentFolderEditId" :initial-data="currentFolderEditData" @success="handleFolderChanged" />
   </div>
@@ -779,14 +898,42 @@ preventBack(showFolderModal)
 .folder-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 12px;
   background: #f8f8f8;
   border-radius: 12px;
   cursor: pointer;
+  transition: box-shadow 0.2s ease;
+
+  &.is-select-mode.is-selected {
+    box-shadow: 0 0 0 2px #1989fa inset;
+  }
+}
+
+.folder-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.folder-item.has-desc .folder-left {
+  flex: 0 0 46%;
+}
+
+.folder-right {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 2px 0 10px;
+  border-left: 1px solid #ececec;
 }
 
 .folder-cover {
+  position: relative;
   width: 56px;
   height: 56px;
   border-radius: 10px;
@@ -796,6 +943,28 @@ preventBack(showFolderModal)
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.folder-select-indicator {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 1px 4px rgba(31, 41, 51, 0.18);
+
+  &.checked {
+    border-color: #07c160;
+    background: #07c160;
+  }
 }
 
 .folder-cover-empty {
@@ -820,14 +989,17 @@ preventBack(showFolderModal)
   white-space: nowrap;
 }
 
-.folder-desc-side {
-  flex: 0 1 38%;
-  max-width: 132px;
-  min-width: 72px;
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+.folder-description {
+  margin: 0;
+  width: 100%;
+  color: #888;
+  font-size: 12px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .folder-count {
@@ -838,6 +1010,17 @@ preventBack(showFolderModal)
 
 .folder-arrow {
   flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.folder-select-tip {
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #ecf9f1;
+  color: #07c160;
+  font-size: 13px;
+  text-align: center;
 }
 
 </style>
