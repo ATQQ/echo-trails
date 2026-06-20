@@ -79,6 +79,10 @@
             class="live-photo-label safe-padding-bottom"
             :class="{ 'is-playing': livePlaying }"
             @click.stop="handleLivePhotoLabelClick"
+            @touchstart.stop
+            @touchend.stop
+            @mousedown.stop
+            @mouseup.stop
           >
             <img class="live-photo-label-icon" src="/assets/images/live-photo.svg" alt="" />
             <span>动态照片</span>
