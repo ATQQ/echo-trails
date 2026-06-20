@@ -15,6 +15,7 @@ declare module 'vue' {
     AlbumEditModal: typeof import('./src/components/EditAlbumCard/AlbumEditModal.vue')['default']
     AssetForm: typeof import('./src/components/AssetForm/AssetForm.vue')['default']
     AssetItem: typeof import('./src/components/AssetItem/AssetItem.vue')['default']
+    AutoScrollText: typeof import('./src/components/AutoScrollText/AutoScrollText.vue')['default']
     BottomActions: typeof import('./src/components/BottomActions/BottomActions.vue')['default']
     EditAlbumCard: typeof import('./src/components/EditAlbumCard/EditAlbumCard.vue')['default']
     FamilySelector: typeof import('./src/components/FamilySelector/FamilySelector.vue')['default']

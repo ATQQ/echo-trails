@@ -8,6 +8,7 @@ import FolderEditModal from '@/components/FolderEditCard/FolderEditModal.vue';
 import { preventBack } from '@/lib/router'
 import AddButton from '@/components/AddButton/AddButton.vue';
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
+import AutoScrollText from '@/components/AutoScrollText/AutoScrollText.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useScrollRestore } from '@/composables/useScrollRestore';
@@ -479,12 +480,14 @@ preventBack(showFolderModal)
                       <van-icon name="folder-o" size="32" color="#ccc" />
                     </div>
                   </div>
-                  <div class="folder-info">
+                  <div class="folder-main">
                     <div class="folder-name">{{ folder.name }}</div>
-                    <div v-if="folder.description" class="folder-description">{{ folder.description }}</div>
                     <div class="folder-count">{{ folder.albumCount || 0 }} 个相册</div>
                   </div>
-                  <van-icon name="arrow" size="16" color="#ccc" />
+                  <div v-if="folder.description" class="folder-desc-side">
+                    <AutoScrollText :text="folder.description" />
+                  </div>
+                  <van-icon class="folder-arrow" name="arrow" size="16" color="#ccc" />
                 </div>
               </div>
             </div>
@@ -499,7 +502,7 @@ preventBack(showFolderModal)
       '--van-back-top-size': '36px',
     }" />
     <!-- 添加相册 -->
-    <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal" />
+    <AddButton class="add-position" @click="handleAddClick" v-show="!showAddModal && !showFolderModal" />
     <AlbumEditModal v-model:visible="showAddModal" :edit-id="currentEditId" :initial-data="currentEditData" @success="handleAlbumSaved" />
     <FolderEditModal v-model:visible="showFolderModal" :edit-id="currentFolderEditId" :initial-data="currentFolderEditData" @success="handleFolderChanged" />
   </div>
@@ -784,9 +787,9 @@ preventBack(showFolderModal)
 }
 
 .folder-cover {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
   overflow: hidden;
   flex-shrink: 0;
   background: #f0f0f0;
@@ -803,34 +806,38 @@ preventBack(showFolderModal)
   justify-content: center;
 }
 
-.folder-info {
+.folder-main {
   flex: 1;
-  overflow: hidden;
+  min-width: 0;
 }
 
 .folder-name {
   font-size: 15px;
   font-weight: 500;
   color: #333;
-  margin-bottom: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.folder-description {
-  margin-bottom: 4px;
-  color: #666;
-  font-size: 13px;
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.folder-desc-side {
+  flex: 0 1 38%;
+  max-width: 132px;
+  min-width: 72px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .folder-count {
-  font-size: 13px;
+  margin-top: 4px;
+  font-size: 12px;
   color: #999;
+}
+
+.folder-arrow {
+  flex-shrink: 0;
 }
 
 </style>

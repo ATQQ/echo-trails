@@ -3,8 +3,15 @@
     <van-form @submit="() => emit('submit')">
       <div class="form-section">
         <div class="section-label">基本信息</div>
-        <van-field required v-model="formData.name" name="名称" label="名称" placeholder="请输入文件夹名称"
-          :rules="[{ required: true, message: '请填写文件夹名称' }]" />
+        <van-field
+          ref="nameFieldRef"
+          required
+          v-model="formData.name"
+          name="名称"
+          label="名称"
+          placeholder="请输入分类名称"
+          :rules="[{ required: true, message: '请填写分类名称' }]"
+        />
         <van-field v-model="formData.description" autosize show-word-limit rows="3" maxlength="100" type="textarea"
           name="描述" label="描述" placeholder="请输入描述信息（可选）" />
       </div>
@@ -29,7 +36,7 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive } from 'vue';
+import { ref, nextTick } from 'vue';
 
 const props = defineProps<{
   showDelete?: boolean
@@ -48,6 +55,17 @@ const emit = defineEmits<{
   (e: 'cancel'): void
   (e: 'delete'): void
 }>()
+
+const nameFieldRef = ref<{ focus?: () => void } | null>(null)
+
+const focusName = async () => {
+  await nextTick()
+  nameFieldRef.value?.focus?.()
+}
+
+defineExpose({
+  focusName,
+})
 </script>
 
 <style scoped>

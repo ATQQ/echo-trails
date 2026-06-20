@@ -1,17 +1,18 @@
 <script lang="ts" setup>
-import { getAlbums, getAlbumFolders, setAlbumsFolder } from '@/service';
+import { getAlbums, getAlbumFolders, setAlbumsFolder, setAlbumFolder } from '@/service';
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import FolderEditModal from '@/components/FolderEditCard/FolderEditModal.vue';
 import SelectAlbumModal from '@/components/SelectAlbumModal/SelectAlbumModal.vue';
+import AddButton from '@/components/AddButton/AddButton.vue';
 import { preventBack } from '@/lib/router'
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useScrollRestore } from '@/composables/useScrollRestore';
 import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
-import { showToast } from 'vant';
+import { showToast, showConfirmDialog } from 'vant';
 
 defineOptions({
   name: 'AlbumFolderView'
@@ -147,6 +148,8 @@ const showEditModal = ref(false)
 const currentEditId = ref('')
 const currentEditData = ref<AlbumFolder | undefined>(undefined)
 const showAlbumSelect = ref(false)
+const showAlbumAction = ref(false)
+const selectedAlbumForAction = ref<Album | null>(null)
 
 const handleEditClick = () => {
   if (!folder.value) return
@@ -173,8 +176,63 @@ const handleSaveAlbumSelect = async (albumIds: string[]) => {
   }
 }
 
+let touchTimer: ReturnType<typeof setTimeout> | null = null
+let isLongPressTriggered = false
+
+const handleAlbumLongPress = (album: Album) => {
+  selectedAlbumForAction.value = album
+  showAlbumAction.value = true
+}
+
+const handleAlbumTouchStart = (album: Album) => {
+  isLongPressTriggered = false
+  if (touchTimer) clearTimeout(touchTimer)
+  touchTimer = setTimeout(() => {
+    isLongPressTriggered = true
+    handleAlbumLongPress(album)
+  }, 500)
+}
+
+const handleAlbumTouchEnd = () => {
+  if (touchTimer) {
+    clearTimeout(touchTimer)
+    touchTimer = null
+  }
+}
+
+const handleRemoveFromFolder = async () => {
+  const album = selectedAlbumForAction.value
+  if (!album) return
+
+  showAlbumAction.value = false
+  try {
+    await showConfirmDialog({
+      title: '移出分类',
+      message: `确定将「${album.name}」移出当前分类吗？相册本身不会被删除。`,
+    })
+  } catch {
+    selectedAlbumForAction.value = null
+    return
+  }
+
+  try {
+    await setAlbumFolder(album._id, null)
+    showToast('已移出分类')
+    await loadData(false)
+    notifyAlbumsChanged(folderChangeSource)
+  } catch (e: any) {
+    showToast(e?.message || '操作失败')
+  } finally {
+    selectedAlbumForAction.value = null
+  }
+}
+
 const { addRecent } = useRecentAlbums()
 const goToDetail = (albumId: string) => {
+  if (isLongPressTriggered) {
+    isLongPressTriggered = false
+    return
+  }
   addRecent(albumId)
   router.push({ name: 'album-photo', params: { albumId } })
 }
@@ -188,28 +246,21 @@ const handleScroll = (e: Event) => {
 }
 
 preventBack(showEditModal)
+preventBack(showAlbumSelect)
+preventBack(showAlbumAction)
 </script>
 
 <template>
   <div class="app-wrapper">
     <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div>
     <van-pull-refresh v-model="loading" @refresh="loadData(true)" class="pull-refresh-container" ref="scrollContainer" @scroll="handleScroll">
-      <PageTitle :title="folder?.name || '文件夹'" :info="false" back>
+      <PageTitle :title="folder?.name || '分类'" :info="false" back>
         <template #action>
           <van-icon v-if="folder" style="margin-right: 16px;" name="edit" size="18" color="#333" @click="handleEditClick" />
         </template>
       </PageTitle>
       <div class="folder-content">
-        <div v-if="folder" class="folder-header">
-          <h2 class="folder-name">{{ folder.name }}</h2>
-          <p v-if="folder.description" class="folder-desc">{{ folder.description }}</p>
-          <p class="folder-stats">共 {{ folderAlbums.length }} 个相册</p>
-        </div>
-        <div v-if="folder" class="folder-actions-bar">
-          <van-button size="small" type="primary" plain icon="plus" @click="handleAddAlbumsClick">
-            添加相册
-          </van-button>
-        </div>
+        <p v-if="folder?.description" class="folder-desc">{{ folder.description }}</p>
         <van-search
           v-model="searchKeyword"
           class="album-search"
@@ -229,11 +280,18 @@ preventBack(showEditModal)
         <template v-else>
           <van-empty
             v-if="showEmpty || !displayAlbumList.length"
-            :description="searchKeyword ? '没有匹配的相册' : '文件夹内还没有相册'"
+            :description="searchKeyword ? '没有匹配的相册' : '分类内还没有相册，点击右下角添加'"
           />
           <van-grid v-else :gutter="10" :column-num="3" :border="false" class="small-card-grid">
             <van-grid-item v-for="album in displayAlbumList" :key="album._id">
-              <div class="small-card" @click.stop.prevent="goToDetail(album._id)">
+              <div
+                class="small-card"
+                @click.stop.prevent="goToDetail(album._id)"
+                @touchstart="handleAlbumTouchStart(album)"
+                @touchend="handleAlbumTouchEnd"
+                @touchcancel="handleAlbumTouchEnd"
+                @touchmove="handleAlbumTouchEnd"
+              >
                 <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
                 <div class="title-desc">
                   <h2>{{ album.name }}</h2>
@@ -243,12 +301,20 @@ preventBack(showEditModal)
             </van-grid-item>
           </van-grid>
         </template>
+        <div v-if="folder" class="folder-footer">
+          共 {{ folderAlbums.length }} 个相册
+        </div>
       </div>
     </van-pull-refresh>
     <van-back-top :bottom="'calc(var(--footer-area-height) + 48px)'" :right="20" :style="{
       '--van-back-top-icon-size': '16px',
       '--van-back-top-size': '36px',
     }" />
+    <AddButton
+      class="add-position"
+      v-show="!showEditModal && !showAlbumSelect && !showAlbumAction"
+      @click="handleAddAlbumsClick"
+    />
     <FolderEditModal
       v-model:visible="showEditModal"
       :edit-id="currentEditId"
@@ -263,6 +329,13 @@ preventBack(showEditModal)
       confirm-label="添加相册"
       search-placeholder="搜索未归类相册"
       @save="handleSaveAlbumSelect"
+    />
+    <van-action-sheet
+      v-model:show="showAlbumAction"
+      :actions="[{ name: '移出分类', color: '#ee0a24' }]"
+      cancel-text="取消"
+      close-on-click-action
+      @select="handleRemoveFromFolder"
     />
   </div>
 </template>
@@ -298,32 +371,28 @@ preventBack(showEditModal)
   opacity: 1;
 }
 .folder-content {
-  padding-bottom: var(--footer-area-height);
-}
-.folder-header {
-  padding: 12px 16px 4px;
-}
-.folder-name {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: #333;
+  padding-bottom: calc(var(--footer-area-height) + 56px);
 }
 .folder-desc {
-  margin: 6px 0 0;
-  font-size: 14px;
+  margin: 0;
+  padding: 8px 28px 4px;
+  font-family: 'PingFang SC', 'Helvetica Neue', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
   color: #666;
-  line-height: 1.5;
+  line-height: 1.65;
+  text-align: center;
+  letter-spacing: 0.02em;
 }
-.folder-stats {
-  margin: 8px 0 0;
+.folder-footer {
+  margin-top: 24px;
+  padding: 20px 16px 8px;
+  text-align: center;
   font-size: 12px;
-  color: #969799;
+  color: #b0b4ba;
 }
-.folder-actions-bar {
-  margin: 12px 16px 0;
-  display: flex;
-  align-items: center;
+.add-position {
+  z-index: 2;
 }
 .album-search {
   padding: 12px 12px 8px;

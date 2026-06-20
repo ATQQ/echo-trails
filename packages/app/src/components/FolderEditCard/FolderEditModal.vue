@@ -1,9 +1,17 @@
 <template>
-  <van-popup :show="visible" @update:show="emit('update:visible', $event)" round position="bottom"
-    class="safe-padding-top" :style="{ height: '100%' }">
+  <van-popup
+    :show="visible"
+    round
+    position="bottom"
+    class="safe-padding-top"
+    :style="{ height: '100%' }"
+    @update:show="handleUpdateShow"
+    @closed="handleClosed"
+  >
     <div class="popup-content">
-      <h2 class="popup-title">{{ editId ? '编辑文件夹' : '新建文件夹' }}</h2>
+      <h2 class="popup-title">{{ editId ? '编辑分类信息' : '新增分类信息' }}</h2>
       <FolderEditCard
+        ref="editCardRef"
         @submit="onSubmit"
         @cancel="handleCancel"
         @delete="handleDelete"
@@ -15,7 +23,7 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, watch, toRef } from 'vue';
+import { reactive, watch, toRef, ref, nextTick } from 'vue';
 import { createAlbumFolder, updateAlbumFolder, deleteAlbumFolder } from '@/service';
 import { showToast, showConfirmDialog } from 'vant';
 import FolderEditCard from './FolderEditCard.vue';
@@ -37,9 +45,11 @@ const formData = reactive({
   description: '',
 });
 
+const editCardRef = ref<InstanceType<typeof FolderEditCard> | null>(null)
+
 watch(
   () => props.visible,
-  (newVal) => {
+  async (newVal) => {
     if (newVal) {
       if (props.editId && props.initialData) {
         formData.name = props.initialData.name || '';
@@ -47,10 +57,22 @@ watch(
       } else {
         formData.name = '';
         formData.description = '';
+        await nextTick()
+        editCardRef.value?.focusName()
       }
     }
   }
 );
+
+const handleUpdateShow = (value: boolean) => {
+  emit('update:visible', value)
+}
+
+const handleClosed = () => {
+  emit('update:visible', false)
+  formData.name = ''
+  formData.description = ''
+}
 
 const onSubmit = async () => {
   if (!formData.name.trim()) {
