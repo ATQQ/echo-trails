@@ -25,6 +25,34 @@
   ],
   "android": [
     {
+      "version": "0.8.0",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.0.apk",
+      "forceUpdate": false,
+      "description": "支持 live photo;多项优化",
+      "md5": "7371fe6f3c24de3b1fe5edd177f86b5b"
+    },
+    {
+      "version": "0.7.13",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.13.apk",
+      "forceUpdate": false,
+      "description": "Test build",
+      "md5": "7eea38ed11a04cde8872d1218144083a"
+    },
+    {
+      "version": "0.7.12",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.12.apk",
+      "forceUpdate": false,
+      "description": "Test build",
+      "md5": "ca24086cd246ae418307b5ca57007cc1"
+    },
+    {
+      "version": "0.7.11",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.11.apk",
+      "forceUpdate": false,
+      "description": "Test build",
+      "md5": "23ab3d39d3bbe2cc3615815a63f8aeb1"
+    },
+    {
       "version": "0.7.10",
       "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.10.apk",
       "forceUpdate": false,

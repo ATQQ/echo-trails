@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.7.10",
-    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.7.10.apk",
+    "version": "0.8.0",
+    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.0.apk",
     "forceUpdate": false,
-    "description": "包体积优化",
-    "md5": "d8672270875a48132dcca3ece31d949d"
+    "description": "支持 live photo;多项优化",
+    "md5": "7371fe6f3c24de3b1fe5edd177f86b5b"
   },
   "ios": {
     "version": "0.1.2",
