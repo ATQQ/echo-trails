@@ -105,6 +105,40 @@ jobs:
       - name: Install dependencies (bun)
         run: bun install --frozen-lockfile
 
+      - name: Configure Gradle repositories (CI uses Google/MavenCentral)
+        run: |
+          set -e
+          mkdir -p "$HOME/.gradle/init.d"
+          cat > "$HOME/.gradle/init.d/ci-repos.gradle" <<'EOF'
+          allprojects {
+              buildscript {
+                  repositories {
+                      clear()
+                      google()
+                      mavenCentral()
+                      gradlePluginPortal()
+                  }
+              }
+              repositories {
+                  clear()
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          settingsEvaluated { settings ->
+              settings.pluginManagement {
+                  repositories {
+                      clear()
+                      gradlePluginPortal()
+                      google()
+                      mavenCentral()
+                  }
+              }
+          }
+          EOF
+          echo "Gradle init script written to $HOME/.gradle/init.d/ci-repos.gradle"
+
       - name: Configure Android signing
         if: env.ANDROID_KEYSTORE_BASE64 != ''
         run: |
