@@ -18,11 +18,11 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.8.0",
-    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.0.apk",
+    "version": "0.8.1",
+    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.1.apk",
     "forceUpdate": false,
-    "description": "支持 live photo;多项优化",
-    "md5": "7371fe6f3c24de3b1fe5edd177f86b5b"
+    "description": "Maintenance update",
+    "md5": "43fafb2af8857c49b444147f980c1350"
   },
   "ios": {
     "version": "0.1.2",

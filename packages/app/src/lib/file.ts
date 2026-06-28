@@ -333,6 +333,28 @@ export function getImageExif(file: any): any {
   }
 }
 
+const ESSENTIAL_EXIF_TAGS = [
+  'FileType',
+  'Image Width',
+  'Image Height',
+]
+
+export function pickEssentialExif(exif: any): Record<string, { description?: any; value?: any }> {
+  const result: Record<string, { description?: any; value?: any }> = {}
+  if (!exif || typeof exif !== 'object') return result
+  for (const tag of ESSENTIAL_EXIF_TAGS) {
+    const item = exif[tag]
+    if (item == null) continue
+    const slim: { description?: any; value?: any } = {}
+    if (item.description !== undefined) slim.description = item.description
+    if (item.value !== undefined) slim.value = item.value
+    if (slim.description !== undefined || slim.value !== undefined) {
+      result[tag] = slim
+    }
+  }
+  return result
+}
+
 export function filePath2Name(filePath: string) {
   return decodeURIComponent(filePath).split('/').pop()
 }
