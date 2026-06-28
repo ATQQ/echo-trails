@@ -586,7 +586,15 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
       photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
     }
     saveCache()
-    wrapperItem.status = UploadStatus.SUCCESS
+
+    // 上传成功后从待上传列表移除，避免残留影响后续同 key 上传
+    const successIndex = waitUploadList.findIndex(v => v.key === key)
+    if (successIndex !== -1) {
+      const [removed] = waitUploadList.splice(successIndex, 1)
+      if (removed?.url) {
+        URL.revokeObjectURL(removed.url)
+      }
+    }
 
     // 移除map中的数据
     uploadInfoMap.delete(fileInfo)
@@ -1297,6 +1305,11 @@ const virtualListSource = computed(() => {
   return items
 })
 
+const virtualItems = ref<any[]>([])
+watch(virtualListSource, (items) => {
+  virtualItems.value = items
+}, { immediate: true })
+
 const getItemHeight = (item: any) => {
   if (item.type === 'slot-header') return headerHeight.value || 100 // Fallback
   if (item.type === 'upload-header') return 44 // Padding + Font size
@@ -1307,9 +1320,9 @@ const getItemHeight = (item: any) => {
   return 50
 }
 
-const { list, containerProps, wrapperProps } = useVirtualList(virtualListSource, {
+const { list, containerProps, wrapperProps } = useVirtualList(virtualItems, {
   itemHeight: (index) => {
-    const item = virtualListSource.value[index]
+    const item = virtualItems.value[index]
     return getItemHeight(item)
   },
   overscan: 10
