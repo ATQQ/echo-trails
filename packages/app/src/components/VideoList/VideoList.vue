@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted, onMounted } from 'vue'
 import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
-import { generateFileKey, ensureVideoUploadInfo, parseNativeVideoFileUploadInfo, filePath2Name } from '../../lib/file';
+import { generateFileKey, ensureVideoUploadInfo, parseNativeVideoFileUploadInfo, filePath2Name, pickEssentialExif } from '../../lib/file';
 import { isTauri, UploadStatus } from '../../constants/index'
 import { useEventListener } from '@vueuse/core'
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
@@ -370,11 +370,7 @@ const generateUploadInfo = (value: FileInfoItem) => {
     key,
     name,
     lastModified,
-    exif: {
-      'FileType': exif['FileType'],
-      'Image Width': exif['Image Width'],
-      'Image Height': exif['Image Height'],
-    },
+    exif: pickEssentialExif(exif),
     size: file.size,
     type: file.type,
     likedMode,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted } from 'vue'
 import { addFileInfo, updateFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
-import { filePath2Name, generateFileKey, parseNativeImageFileUploadInfo, parseNativeVideoFileUploadInfo, ensureUploadInfo, ensureVideoUploadInfo, parseLivePhotoPair, detectLivePhotoPairs, detectMotionPhotoInFile, getFileMd5Hash } from '../../lib/file';
+import { filePath2Name, generateFileKey, parseNativeImageFileUploadInfo, parseNativeVideoFileUploadInfo, ensureUploadInfo, ensureVideoUploadInfo, parseLivePhotoPair, detectLivePhotoPairs, detectMotionPhotoInFile, getFileMd5Hash, pickEssentialExif } from '../../lib/file';
 import { isCompleteLivePhoto, livePhotoDebug } from '../../lib/livePhoto';
 import { isTauri, UploadStatus } from '../../constants/index'
 import { useEventListener, useThrottleFn, useWindowSize, useVirtualList, useElementSize } from '@vueuse/core'
@@ -29,9 +29,27 @@ const startListen = async () => {
   if (isTauri && !unlistenProgress) {
     unlistenProgress = await listen<{ key: string, progress: number, total: number }>('upload://progress', (event) => {
       const { key, progress, total } = event.payload
-      const item = waitUploadList.find(v => v.key === key)
-      if (item) {
-        item.progress = Math.floor((progress / total) * 100)
+      // 既可能是图片 key，也可能是 Live Photo 的视频 key（.live.mp4/.mov）
+      const item = waitUploadList.find(v => v.key === key || v.liveVideoKey === key)
+      if (!item) return
+      if (total <= 0) return
+
+      const imageSize = item.imageSize || 0
+      const videoSize = item.videoSize || 0
+      const totalSize = imageSize + videoSize
+      const isVideoEvent = item.liveVideoKey === key && key !== item.key
+      let overall: number
+      if (totalSize > 0 && (imageSize > 0 || videoSize > 0)) {
+        const uploaded = isVideoEvent
+          ? imageSize + Math.min(videoSize, Math.floor((progress / total) * videoSize))
+          : Math.min(imageSize, Math.floor((progress / total) * imageSize))
+        overall = Math.min(100, Math.floor((uploaded / totalSize) * 100))
+      } else {
+        overall = Math.min(100, Math.floor((progress / total) * 100))
+      }
+      // 单调递增，避免视觉回退
+      if ((item.progress ?? 0) < overall) {
+        item.progress = overall
       }
     })
   }
@@ -73,7 +91,7 @@ const { likedMode = false, album, isDelete = false, startDate, endDate } = defin
 }>()
 
 
-const waitUploadList = reactive<{ key: string, url: string, status: UploadStatus, progress?: number }[]>([])
+const waitUploadList = reactive<{ key: string, url: string, status: UploadStatus, progress?: number, liveVideoKey?: string, imageSize?: number, videoSize?: number }[]>([])
 
 const showUploadList = computed(() => waitUploadList.filter(v => v.status !== UploadStatus.SUCCESS))
 const hasErrorUploads = computed(() => showUploadList.value.some(v => v.status === UploadStatus.ERROR || v.status === UploadStatus.DUPLICATE))
@@ -334,11 +352,7 @@ const generateUploadInfo = (value: FileInfoItem) => {
     key,
     name,
     lastModified,
-    exif: {
-      'FileType': exif['FileType'],
-      'Image Width': exif['Image Width'],
-      'Image Height': exif['Image Height'],
-    },
+    exif: pickEssentialExif(exif),
     size: file.size,
     type: file.type,
     likedMode,
@@ -408,6 +422,26 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
 
   // 准备上传
   wrapperItem.status = UploadStatus.UPLOADING
+  wrapperItem.progress = 0
+
+  // 进度按字节加权：overall = floor((imageUploaded + videoUploaded) / totalSize * 100)
+  const imageSize = Math.max(0, file?.size || uploadInfo.size || 0)
+  const liveVideoSize = (fileInfo.isLive && fileInfo.liveVideo) ? Math.max(0, fileInfo.liveVideo.size || 0) : 0
+  const hasWeights = imageSize > 0 && (!fileInfo.isLive || !fileInfo.liveVideo || liveVideoSize > 0)
+  const totalSize = hasWeights ? imageSize + liveVideoSize : 0
+  // 写入 wrapperItem，供 upload://progress 事件回调做按字节加权
+  wrapperItem.imageSize = imageSize
+  wrapperItem.videoSize = liveVideoSize
+  let imageUploaded = 0
+  let videoUploaded = 0
+  const applyProgress = () => {
+    if (totalSize <= 0) return
+    const overall = Math.min(100, Math.floor(((imageUploaded + videoUploaded) / totalSize) * 100))
+    // 单调递增：仅当新值不小于当前值时更新，避免视觉回退
+    if ((wrapperItem.progress ?? 0) < overall) {
+      wrapperItem.progress = overall
+    }
+  }
 
   // 触发上传
   try {
@@ -421,15 +455,34 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
           path: fileInfo.filePath,
           url: uploadUrl
         })
-        wrapperItem.progress = fileInfo.isLive && fileInfo.liveVideo ? 50 : 100
+        // Tauri 无中间进度，图片完成后按比例跳到对应百分比
+        imageUploaded = imageSize
+        if (totalSize > 0) {
+          applyProgress()
+        } else {
+          wrapperItem.progress = fileInfo.isLive && fileInfo.liveVideo ? 50 : 100
+        }
       } else {
-        // Web 方法
+        // Web 方法：progress 是 0~100，按 size 折算成已传字节
         await uploadFile(file, uploadUrl, (progress) => {
-          wrapperItem.progress = progress
+          if (imageSize > 0) {
+            imageUploaded = Math.min(imageSize, Math.floor((progress / 100) * imageSize))
+            applyProgress()
+          } else if ((wrapperItem.progress ?? 0) < progress) {
+            wrapperItem.progress = progress
+          }
         })
+        imageUploaded = imageSize
+        applyProgress()
       }
     } else {
-      wrapperItem.progress = 100
+      // 秒传：图片视为已上传
+      imageUploaded = imageSize
+      if (totalSize > 0) {
+        applyProgress()
+      } else {
+        wrapperItem.progress = fileInfo.isLive && fileInfo.liveVideo ? 50 : 100
+      }
     }
 
     // 数据落库
@@ -462,6 +515,7 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
         const livePath = fileInfo.liveVideo.filePath || ''
         const isMp4 = liveType.includes('mp4') || /\.mp4$/i.test(fileInfo.liveVideo.name || '') || /\.mp4$/i.test(livePath)
         const videoKey = `${uploadInfo.key}.live.${isMp4 ? 'mp4' : 'mov'}`
+        wrapperItem.liveVideoKey = videoKey
         const videoUploadUrl = await getUploadUrl(videoKey)
         if (fileInfo.liveVideo.filePath && isTauri) {
           await invoke('upload_file', {
@@ -469,11 +523,26 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
             path: fileInfo.liveVideo.filePath,
             url: videoUploadUrl
           })
-          wrapperItem.progress = 100
+          videoUploaded = liveVideoSize
+          if (totalSize > 0) {
+            applyProgress()
+          } else if ((wrapperItem.progress ?? 0) < 100) {
+            wrapperItem.progress = 100
+          }
         } else if (fileInfo.liveVideo.file) {
+          const vSize = fileInfo.liveVideo.file.size || liveVideoSize
           await uploadFile(fileInfo.liveVideo.file, videoUploadUrl, (progress) => {
-            wrapperItem.progress = Math.round(((wrapperItem.progress ?? 0) + progress) / 2)
+            if (vSize > 0) {
+              videoUploaded = Math.min(vSize, Math.floor((progress / 100) * vSize))
+              applyProgress()
+            }
           })
+          videoUploaded = vSize
+          applyProgress()
+        }
+        // 保底：视频阶段结束确保不低于 100
+        if (totalSize <= 0 && (wrapperItem.progress ?? 0) < 100) {
+          wrapperItem.progress = 100
         }
         uploadInfo.isLive = true
         uploadInfo.liveVideoKey = videoKey
@@ -536,9 +605,27 @@ const uloadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, forc
 const uploadValueMap = new Map<string, FileInfoItem>()
 const limit = pLimit(3);
 const pendingCount = ref(0)
+
+let placeholderSeq = 0
+const makePlaceholderKey = (value: FileInfoItem) => {
+  placeholderSeq += 1
+  const base = value.filePath || value.name || value.file?.name || 'file'
+  return `__pending__:${placeholderSeq}:${base}`
+}
+
 const startUpload = async (values: FileInfoItem[]) => {
   pendingCount.value += values.length
   for (const value of values) {
+    // 选中即入列：先以「解析中」占位项呈现，避免长时间空白
+    const placeholderKey = makePlaceholderKey(value)
+    const placeholder: { key: string, url: string, status: UploadStatus, progress?: number } = {
+      key: placeholderKey,
+      url: value.objectUrl || '',
+      status: UploadStatus.PARSING,
+      progress: 0,
+    }
+    waitUploadList.push(placeholder)
+
     limit(async () => {
       try {
         // Tauri 环境下，如果有 filePath 且没有实际文件内容
@@ -549,9 +636,15 @@ const startUpload = async (values: FileInfoItem[]) => {
               type: 'danger',
               message: `解析文件 ${value.filePath} 失败`
             })
+            // 解析失败：占位项标记 ERROR，便于用户重试或删除
+            placeholder.status = UploadStatus.ERROR
             return
           }
           Object.assign(value, uploadInfo)
+          // 解析得到的 objectUrl 立刻回填占位项缩略图
+          if (value.objectUrl && !placeholder.url) {
+            placeholder.url = value.objectUrl
+          }
 
           // 探测 Live Photo 配对（仅 Tauri 端从文件系统选择时使用）
           if (!value.liveVideo) {
@@ -601,6 +694,9 @@ const startUpload = async (values: FileInfoItem[]) => {
 
         // 通用处理逻辑 (Web & Tauri)：确保信息完整
         await ensureUploadInfo(value)
+        if (value.objectUrl && !placeholder.url) {
+          placeholder.url = value.objectUrl
+        }
 
         // 5. 本地MD5重复检测
         const existingUploadInfo = Array.from(uploadInfoMap.values()).find(info => info.md5 === value.md5)
@@ -612,11 +708,20 @@ const startUpload = async (values: FileInfoItem[]) => {
           })
         }
 
-        // 加入待上传列表，同时支持列表里展示
-        addWaitUploadList(value)
-
-        // 生成上传信息
+        // 生成上传信息（含真实 S3 key）
         const info = generateUploadInfo(value)
+
+        // 把占位项的 key 替换为真实 S3 key，并初始化为 PENDING / DUPLICATE
+        // 若已存在同 key（极少数并发场景），移除占位项避免重复并跳过本次上传
+        const dupIndex = waitUploadList.findIndex(v => v.key === info.key)
+        if (dupIndex !== -1) {
+          const phIndex = waitUploadList.indexOf(placeholder)
+          if (phIndex !== -1) waitUploadList.splice(phIndex, 1)
+          return
+        }
+        placeholder.key = info.key
+        placeholder.status = value.repeat ? UploadStatus.DUPLICATE : UploadStatus.PENDING
+        placeholder.progress = 0
 
         // 记录开始上传的文件原始信息，重传使用
         uploadValueMap.set(info.key, value)
@@ -624,6 +729,7 @@ const startUpload = async (values: FileInfoItem[]) => {
         await uloadOneFile(value, info)
       } catch (error) {
         console.error('Error processing file:', value, error)
+        placeholder.status = UploadStatus.ERROR
       } finally {
         pendingCount.value--
       }
@@ -1259,10 +1365,12 @@ watch(containerRef, (el) => {
                <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }">
                   <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
                     <ImageCell :src="subItem.url">
+                      <!-- 解析中 -->
+                      <div v-if="subItem.status === UploadStatus.PARSING" class="upload-mask">解析中…</div>
                       <!-- 等待中 -->
-                      <div v-if="subItem.status === UploadStatus.PENDING" class="upload-mask">等待上传</div>
+                      <div v-else-if="subItem.status === UploadStatus.PENDING" class="upload-mask">等待上传</div>
                       <!-- 上传中 -->
-                      <div v-if="subItem.status === UploadStatus.UPLOADING" class="upload-mask">
+                      <div v-else-if="subItem.status === UploadStatus.UPLOADING" class="upload-mask">
                         上传中 {{ subItem.progress || 0 }}%
                       </div>
                       <!-- 重复 -->
