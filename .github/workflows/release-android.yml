@@ -185,4 +185,3 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             release/echo-trails-release-*.apk
-            release/echo-trails-release-*.aab
