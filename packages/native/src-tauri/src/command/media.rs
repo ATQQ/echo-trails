@@ -25,20 +25,32 @@ pub struct LivePhotoInfo {
 }
 
 #[tauri::command]
-pub async fn save_to_pictures(file_name: String, data: Vec<u8>) -> Result<String, String> {
-    // 系统图片目录 /storage/emulated/0/Pictures
-    let pictures_dir = "/storage/emulated/0/Pictures";
+pub async fn save_to_pictures(app_handle: tauri::AppHandle, file_name: String, data: Vec<u8>) -> Result<String, String> {
+    #[cfg(target_os = "android")]
+    let pictures_dir = std::path::PathBuf::from("/storage/emulated/0/Pictures");
 
-    // 构建完整的文件路径
-    let file_path = format!("{}/{}", pictures_dir, file_name);
+    #[cfg(not(target_os = "android"))]
+    let pictures_dir = {
+        use tauri::Manager;
+        app_handle
+            .path()
+            .picture_dir()
+            .map_err(|e| format!("获取图片目录失败: {}", e))?
+    };
 
-    // 写入文件
+    if !pictures_dir.exists() {
+        fs::create_dir_all(&pictures_dir).map_err(|e| format!("创建图片目录失败: {}", e))?;
+    }
+
+    let file_path = pictures_dir.join(&file_name);
+    let file_path_str = file_path.to_string_lossy().to_string();
+
     let mut file = fs::File::create(&file_path).map_err(|e| format!("创建文件失败: {}", e))?;
     file.write_all(&data)
         .map_err(|e| format!("写入文件失败: {}", e))?;
 
-    // 返回保存的文件路径
-    Ok(file_path)
+    let _ = &app_handle;
+    Ok(file_path_str)
 }
 
 #[tauri::command]

@@ -10,6 +10,27 @@ import { PromiseWithResolver } from "./util";
 import ExifReader from "exifreader";
 import { readFile, BaseDirectory, lstat } from '@tauri-apps/plugin-fs';
 
+function isAbsoluteNativePath(p: string): boolean {
+  if (!p) return false;
+  if (p.startsWith('/')) return true;
+  if (/^[A-Za-z]:[\\/]/.test(p)) return true;
+  return false;
+}
+
+async function readNativeFile(filePath: string) {
+  if (isAbsoluteNativePath(filePath)) {
+    return await readFile(filePath);
+  }
+  return await readFile(filePath, { baseDir: BaseDirectory.Resource });
+}
+
+async function lstatNative(filePath: string) {
+  if (isAbsoluteNativePath(filePath)) {
+    return await lstat(filePath);
+  }
+  return await lstat(filePath, { baseDir: BaseDirectory.Resource });
+}
+
 export function generateFileKey(fileInfo: FileInfoItem) {
   // 年-月-日/时分/上传时间-文件名
   const year = fileInfo.date.getFullYear();
@@ -397,7 +418,7 @@ async function getNativeFileInfo(filePath: string) {
     console.error('Failed to get file info via Rust:', e)
     // Fallback to lstat if bridge fails
     try {
-      const fileInfo = await lstat(filePath, { baseDir: BaseDirectory.Resource })
+      const fileInfo = await lstatNative(filePath)
       if (fileInfo.mtime) {
         result.lastModified = +fileInfo.mtime
       }
@@ -451,7 +472,7 @@ export async function parseNativeImageFileUploadInfo(filePath: string) {
     const nativeInfo = await getNativeFileInfo(filePath)
 
     // 2. 读取文件内容
-    const _file = await readFile(filePath, { baseDir: BaseDirectory.Resource })
+    const _file = await readNativeFile(filePath)
     const buffer = _file.buffer
     const fileType = nativeInfo.fileType || 'image/jpeg'
 

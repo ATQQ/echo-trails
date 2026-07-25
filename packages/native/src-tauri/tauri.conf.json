@@ -4,8 +4,8 @@
   "version": "0.8.1",
   "identifier": "com.echo-trails.app",
   "build": {
-    "beforeDevCommand": "cd ../app && VITE_BASE_ORIGIN=http://192.168.31.173:1420 VITE_VERSION_URL=https://photo.sugarat.top/version.json TAURI=true bun run dev",
-    "devUrl": "http://192.168.31.173:1420",
+    "beforeDevCommand": "cd ../app && VITE_BASE_ORIGIN=http://192.168.31.176:1420 VITE_VERSION_URL=https://photo.sugarat.top/version.json TAURI=true bun run dev",
+    "devUrl": "http://192.168.31.176:1420",
     "beforeBuildCommand": "cd ../app && VITE_VERSION_URL=https://photo.sugarat.top/version.json VITE_BASE_ORIGIN=https://photo.sugarat.top TAURI=true bun run build",
     "frontendDist": "../../app/dist"
   },
@@ -32,12 +32,18 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "app",
+      "dmg",
+      "msi",
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/192x192.png",
-      "icons/icon.ico"
+      "icons/icon.ico",
+      "icons/icon.icns"
     ]
   }
 }

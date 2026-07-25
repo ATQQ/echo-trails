@@ -12,7 +12,7 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "http://192.168.31.173:1420/**",
+          "url": "http://192.168.31.176:1420/**",
           "all": true,
           "request": true
         },
@@ -60,7 +60,12 @@
       "allow": [
         "$APPDATA/**",
         "$APPCACHE/**",
-        "$APPLOCALDATA/**"
+        "$APPLOCALDATA/**",
+        "$HOME/**",
+        "$PICTURE/**",
+        "$DOWNLOAD/**",
+        "$DESKTOP/**",
+        "$DOCUMENT/**"
       ]
     },
     {
@@ -84,7 +89,12 @@
       "allow": [
         "$APPDATA/**",
         "$APPCACHE/**",
-        "$APPLOCALDATA/**"
+        "$APPLOCALDATA/**",
+        "$HOME/**",
+        "$PICTURE/**",
+        "$DOWNLOAD/**",
+        "$DESKTOP/**",
+        "$DOCUMENT/**"
       ]
     },
     {
@@ -103,7 +113,12 @@
         "$APPCACHE",
         "$APPCACHE/*",
         "$APPLOCALDATA",
-        "$APPLOCALDATA/*"
+        "$APPLOCALDATA/*",
+        "$HOME/**",
+        "$PICTURE/**",
+        "$DOWNLOAD/**",
+        "$DESKTOP/**",
+        "$DOCUMENT/**"
       ]
     },
     "log:default",
