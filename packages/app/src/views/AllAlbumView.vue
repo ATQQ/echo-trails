@@ -434,7 +434,7 @@ preventBack(folderSelectMode)
 </script>
 
 <template>
-  <div class="app-wrapper">
+  <div class="all-album-view-wrapper">
     <!-- <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div> -->
     <van-pull-refresh v-model="loading" @refresh="loadAll(true)" class="pull-refresh-container" ref="scrollContainer" @scroll="handleScroll">
       <PageTitle title="全部相册" :info="false" back>
@@ -602,8 +602,8 @@ preventBack(folderSelectMode)
   color: #333;
 }
 
-.app-wrapper {
-  height: 100vh;
+.all-album-view-wrapper {
+  height: 100%;
   display: flex;
   flex-direction: column;
   position: relative;

@@ -288,7 +288,7 @@ preventBack(albumSelectMode)
 </script>
 
 <template>
-  <div class="app-wrapper">
+  <div class="album-folder-view-wrapper">
     <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div>
     <van-pull-refresh v-model="loading" @refresh="loadData(true)" class="pull-refresh-container" ref="scrollContainer" @scroll="handleScroll">
       <PageTitle :title="folder?.name || '分类'" :info="false" back>
@@ -386,8 +386,8 @@ preventBack(albumSelectMode)
 </template>
 
 <style scoped lang="scss">
-.app-wrapper {
-  height: 100vh;
+.album-folder-view-wrapper {
+  height: 100%;
   display: flex;
   flex-direction: column;
   position: relative;

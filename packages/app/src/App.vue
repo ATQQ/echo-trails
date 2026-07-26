@@ -31,6 +31,10 @@ const getRouteViewKey = (viewRoute: RouteLocationNormalizedLoaded) => {
     return 'asset-layout'
   }
 
+  if (isDesktop.value) {
+    return viewRoute.fullPath
+  }
+
   return ['/home', '/'].includes(viewRoute.path) ? 'main-layout' : viewRoute.fullPath
 }
 
@@ -173,7 +177,10 @@ onBeforeUnmount(() => {
     <SideNav v-if="showSideNav" />
     <div class="app-main">
       <router-view v-slot="{ Component, route }">
-        <transition :name="showNav ? '' : 'van-fade'" mode="out-in">
+        <KeepAlive v-if="isDesktop" :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
+          <component :is="Component" :key="getRouteViewKey(route)"></component>
+        </KeepAlive>
+        <transition v-else :name="showNav ? '' : 'van-fade'" mode="out-in">
           <KeepAlive :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
             <component :is="isSwipePage ? MainLayout : Component" :key="getRouteViewKey(route)"></component>
           </KeepAlive>

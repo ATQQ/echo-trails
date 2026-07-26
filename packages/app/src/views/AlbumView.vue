@@ -16,6 +16,8 @@ import { useTagStyles, type TagStyle } from '@/composables/useTagStyles';
 import { useScrollRestore } from '@/composables/useScrollRestore';
 import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
 
+defineOptions({ name: 'AlbumView' })
+
 const scrollContainer = ref<any>(null)
 useScrollRestore(scrollContainer)
 const route = useRoute()
@@ -310,7 +312,7 @@ preventBack(showAddModal)
 </script>
 
 <template>
-  <div class="app-wrapper">
+  <div class="album-view-wrapper">
     <van-pull-refresh v-model="loading" @refresh="handleRefresh" ref="scrollContainer" class="pull-refresh-container" @scroll="handleScroll">
     <PageTitle title="相册" :info="false">
       <template v-if="albumHomeMemorials.length" #center>
@@ -423,8 +425,8 @@ preventBack(showAddModal)
 <style scoped lang="scss">
 @use '@/styles/breakpoints.scss' as *;
 
-.app-wrapper {
-  height: 100vh;
+.album-view-wrapper {
+  height: 100%;
   display: flex;
   flex-direction: column;
 }

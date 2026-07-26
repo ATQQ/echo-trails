@@ -4,6 +4,8 @@ import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import { useRouter } from 'vue-router';
 import { ref } from 'vue';
 
+defineOptions({ name: 'HomeView' })
+
 // 连续点击5次标题，跳转到删除页面
 const clickCount = ref(0)
 const router = useRouter()
