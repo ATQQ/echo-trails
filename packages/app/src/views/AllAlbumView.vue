@@ -588,6 +588,8 @@ preventBack(folderSelectMode)
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .popup-content {
   padding: 16px;
   padding-bottom: env(safe-area-inset-bottom);

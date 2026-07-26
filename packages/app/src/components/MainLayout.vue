@@ -1,7 +1,10 @@
 <template>
-  <div class="custom-swiper-container" ref="containerRef">
-    <div class="custom-swiper-track" ref="trackRef" @touchstart="onTouchStart" @touchmove="onTouchMove"
-      @touchend="onTouchEnd" @touchcancel="onTouchEnd">
+  <div class="custom-swiper-container" ref="containerRef" :class="{ 'is-desktop': isDesktop }">
+    <div class="custom-swiper-track" ref="trackRef"
+      @touchstart="isDesktop ? undefined : onTouchStart($event)"
+      @touchmove="isDesktop ? undefined : onTouchMove($event)"
+      @touchend="isDesktop ? undefined : onTouchEnd()"
+      @touchcancel="isDesktop ? undefined : onTouchEnd()">
       <div class="custom-swiper-item" v-for="item in swipeItems" :key="item.path">
         <KeepAlive>
           <component :is="getComponentForPath(item.path)" v-if="activeTabs.has(item.path)" />
@@ -18,9 +21,11 @@ export default { name: 'MainLayout' }
 <script setup lang="ts">
 import { ref, watch, defineAsyncComponent, markRaw, onMounted, onBeforeUnmount, onActivated, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useResponsive } from '@/composables/useResponsive';
 
 const router = useRouter();
 const route = useRoute();
+const { isDesktop } = useResponsive();
 
 const swipeItems = [
   { path: '/home' },
@@ -175,7 +180,7 @@ const preventDefaultSwipe = (e: TouchEvent) => {
 };
 
 onMounted(() => {
-  if (containerRef.value) {
+  if (containerRef.value && !isDesktop.value) {
     // 必须使用 passive: false 才能真正 preventDefault
     containerRef.value.addEventListener('touchmove', preventDefaultSwipe, { passive: false });
   }

@@ -95,6 +95,8 @@ preventBack(showInfoPanel)
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.scss' as *;
+
 .page-header {
   margin-bottom: 0;
   padding-left: 10px;
@@ -102,6 +104,11 @@ preventBack(showInfoPanel)
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+
+  @include desktop {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
 
   .title-row {
     flex: 1;
@@ -126,9 +133,19 @@ preventBack(showInfoPanel)
     gap: 8px;
     flex-shrink: 0;
 
+    @include desktop {
+      font-size: 24px;
+      font-weight: 500;
+      margin: 12px 0;
+    }
+
     .back-icon {
       font-size: 24px;
       cursor: pointer;
+
+      &:hover {
+        color: #2196f3;
+      }
     }
   }
 
@@ -140,6 +157,15 @@ preventBack(showInfoPanel)
 
     .van-icon {
       margin-right: 16px;
+      cursor: pointer;
+      transition: color 0.15s ease;
+
+      @include desktop {
+        &:hover {
+          color: #2196f3;
+        }
+      }
+
       &:last-child {
         margin-right: 16px;
       }

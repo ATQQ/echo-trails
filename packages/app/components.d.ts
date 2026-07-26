@@ -35,6 +35,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SelectAlbumModal: typeof import('./src/components/SelectAlbumModal/SelectAlbumModal.vue')['default']
+    SideNav: typeof import('./src/components/SideNav/SideNav.vue')['default']
     TimeRangePicker: typeof import('./src/components/TimeRangePicker/TimeRangePicker.vue')['default']
     UnderInput: typeof import('./src/components/UnderInput/UnderInput.vue')['default']
     VanActionSheet: typeof import('vant/es')['ActionSheet']

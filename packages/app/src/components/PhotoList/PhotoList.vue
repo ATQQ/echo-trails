@@ -243,7 +243,10 @@ onUnmounted(() => {
   unregisterScrollListener()
 })
 const { width: windowWidth } = useWindowSize()
-const gridItemHeight = computed(() => windowWidth.value / 4)
+const gridItemHeight = computed(() => {
+  const effectiveWidth = Math.min(windowWidth.value, 1200)
+  return effectiveWidth / 4
+})
 const headerRef = ref<HTMLElement | null>(null)
 const { height: headerHeight } = useElementSize(headerRef)
 const containerRef = ref<HTMLElement | null>(null)
@@ -1491,6 +1494,7 @@ watch(containerRef, (el) => {
   </div>
 </template>
 <style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
 @import url(./style.scss);
 
 .upload-list-header {
@@ -1532,7 +1536,7 @@ watch(containerRef, (el) => {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -1552,6 +1556,11 @@ watch(containerRef, (el) => {
   /* 增加 GPU 加速 */
   transform: translateZ(0);
   -webkit-overflow-scrolling: touch;
+
+  @include desktop {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
 }
 
 .virtual-row {

@@ -13,12 +13,17 @@ import { checkUpdate as checkUpdateApi } from "@/service";
 import { isAutoCheckUpdateEnabled } from '@/composables/useAutoCheckUpdate';
 import NotificationBanner from '@/components/NotificationBanner/NotificationBanner.vue';
 import MainLayout from '@/components/MainLayout.vue';
+import SideNav from '@/components/SideNav/SideNav.vue';
 import { useFooterStore } from '@/stores/footer';
+import { useResponsive } from '@/composables/useResponsive';
 
 const route = useRoute();
 const footerStore = useFooterStore();
+const { isDesktop } = useResponsive();
 const showNav = computed(() => route.meta.nav === true)
-const isSwipePage = computed(() => ['/home', '/'].includes(route.path))
+const isSwipePage = computed(() => !isDesktop.value && ['/home', '/'].includes(route.path))
+const showSideNav = computed(() => isDesktop.value && route.name !== 'login')
+const isTauriDesktop = computed(() => isTauri && isDesktop.value)
 const isAlbumScrolled = ref(false)
 const showAlbumBlur = computed(() => route.path === '/' && isAlbumScrolled.value)
 const getRouteViewKey = (viewRoute: RouteLocationNormalizedLoaded) => {
@@ -163,18 +168,22 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-wrapper" ref="appWrapperRef">
-    <router-view v-slot="{ Component, route }">
-      <transition :name="showNav ? '' : 'van-fade'" mode="out-in">
-        <KeepAlive :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
-          <component :is="isSwipePage ? MainLayout : Component" :key="getRouteViewKey(route)"></component>
-        </KeepAlive>
-      </transition>
-    </router-view>
+  <div class="app-wrapper" :class="{ 'is-desktop': isDesktop, 'has-side-nav': showSideNav, 'is-tauri-desktop': isTauriDesktop }" ref="appWrapperRef">
+    <div v-if="isTauriDesktop" class="app-drag-region" data-tauri-drag-region></div>
+    <SideNav v-if="showSideNav" />
+    <div class="app-main">
+      <router-view v-slot="{ Component, route }">
+        <transition :name="showNav ? '' : 'van-fade'" mode="out-in">
+          <KeepAlive :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
+            <component :is="isSwipePage ? MainLayout : Component" :key="getRouteViewKey(route)"></component>
+          </KeepAlive>
+        </transition>
+      </router-view>
+    </div>
   </div>
-  <div v-if="showAlbumBlur" class="album-top-blur-mask" aria-hidden="true"></div>
-  <!-- 底部菜单 -->
-  <footer-nav v-show="showNav && footerStore.isVisible"></footer-nav>
+  <div v-if="showAlbumBlur && !isDesktop" class="album-top-blur-mask" aria-hidden="true"></div>
+  <!-- 底部菜单（仅移动端） -->
+  <footer-nav v-show="showNav && footerStore.isVisible && !isDesktop"></footer-nav>
 
   <!-- Notification Banner -->
   <NotificationBanner
@@ -197,11 +206,67 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-.app-wrapper > *:first-child {
+.app-drag-region {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  z-index: 9999;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.app-wrapper > *:first-child:not(.app-drag-region) {
   flex: 1;
   overflow-y: auto; /* Default to scrollable */
   width: 100%;
   height: 100%;
+}
+
+.app-wrapper.has-side-nav {
+  flex-direction: row;
+}
+
+.app-wrapper.has-side-nav > *:first-child:not(.app-drag-region) {
+  flex: 0 0 auto;
+  overflow-y: auto;
+  width: auto;
+  height: 100%;
+}
+
+.app-wrapper.has-side-nav .app-main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-wrapper.is-desktop {
+  --footer-area-height: 0px;
+}
+
+.app-wrapper.is-desktop .app-main,
+.app-wrapper.is-desktop .app-main * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-wrapper.is-desktop .app-main::-webkit-scrollbar,
+.app-wrapper.is-desktop *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.app-wrapper .app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 html,

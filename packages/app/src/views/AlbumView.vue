@@ -421,6 +421,8 @@ preventBack(showAddModal)
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .app-wrapper {
   height: 100vh;
   display: flex;
@@ -446,10 +448,22 @@ preventBack(showAddModal)
 
 .album {
   padding-bottom: var(--footer-area-height);
+
+  @include desktop {
+    padding: 0 24px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
 }
 
 .add-position {
   bottom: var(--footer-area-height);
+
+  @include desktop {
+    bottom: 32px;
+    right: 32px;
+  }
 }
 
 .large-card {
@@ -458,6 +472,18 @@ preventBack(showAddModal)
   overflow: hidden;
   height: 100vw;
   width: 100%;
+
+  @include desktop {
+    height: auto;
+    aspect-ratio: 16 / 9;
+    max-height: 480px;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+  }
 
   .title-desc {
     position: absolute;
@@ -555,6 +581,10 @@ preventBack(showAddModal)
       width: 32vw;
       aspect-ratio: 1 / 1.15;
 
+      @include desktop {
+        width: 200px;
+      }
+
       .title-desc {
         position: absolute;
         bottom: 0;
@@ -582,6 +612,10 @@ preventBack(showAddModal)
     &.portrait {
       width: 62vw;
       aspect-ratio: 3 / 4;
+
+      @include desktop {
+        width: 320px;
+      }
 
       .title-desc {
         position: absolute;
@@ -620,6 +654,20 @@ preventBack(showAddModal)
   :deep(.van-grid-item__content) {
     padding: 0;
     background-color: transparent;
+  }
+
+  @include desktop {
+    :deep(.van-grid-item) {
+      flex-basis: 20% !important;
+      max-width: 20% !important;
+    }
+  }
+
+  @include large-desktop {
+    :deep(.van-grid-item) {
+      flex-basis: 16.666667% !important;
+      max-width: 16.666667% !important;
+    }
   }
 }
 
@@ -677,6 +725,12 @@ preventBack(showAddModal)
   width: 100%;
   height: 100vw;
   margin-bottom: 16px;
+
+  @include desktop {
+    aspect-ratio: 16 / 9;
+    height: auto;
+    max-height: 480px;
+  }
 }
 
 .skeleton-grid {
