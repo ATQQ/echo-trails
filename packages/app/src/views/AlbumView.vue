@@ -477,11 +477,6 @@ preventBack(showAddModal)
 
 .add-position {
   bottom: var(--footer-area-height);
-
-  @include desktop {
-    bottom: 32px;
-    right: 32px;
-  }
 }
 
 .large-card {

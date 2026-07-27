@@ -7,6 +7,7 @@ import { getWeightDiff, getTimeDiffDes } from '@/lib/weight-utils'
 import { getWeightList, addWeight, updateWeight, deleteWeight, type WeightRecord } from '@/service/weight'
 import { useFamily } from '@/composables/useFamily'
 import FamilySelector from '@/components/FamilySelector/FamilySelector.vue'
+import AddButton from '@/components/AddButton/AddButton.vue'
 import dayjs from 'dayjs'
 import { createChart, ColorType, LineSeries } from 'lightweight-charts'
 import { preventBack } from '@/lib/router'
@@ -476,9 +477,7 @@ onMounted(() => {
       </div>
     </main>
     <!-- 添加记录 -->
-    <div class="add-record" @click="handleAddRecord">
-      <van-icon name="plus" size="20" />
-    </div>
+    <AddButton class="add-record" @click="handleAddRecord" />
     <!-- 添加记录弹窗 -->
     <van-popup
       v-model:show="showAddRecord"
@@ -632,18 +631,8 @@ onMounted(() => {
   justify-content: space-between;
 }
 
-.add-record {
-  position: fixed;
-  right: 2rem;
-  bottom: 2.5rem;
-  width: 3rem;
-  height: 3rem;
-  color: #fff;
+:deep(.add-record.add-btn--primary) {
   background-color: v-bind(themeColor);
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .record-popup {

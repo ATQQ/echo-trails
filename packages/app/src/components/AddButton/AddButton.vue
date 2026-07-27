@@ -26,7 +26,9 @@ const handleClick = () => {
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .add-btn {
     position: fixed;
     right: 20px;
@@ -41,6 +43,17 @@ const handleClick = () => {
     justify-content: center;
     align-items: center;
     transition: background-color 0.2s ease;
+
+    @include desktop {
+        width: 48px;
+        height: 48px;
+        right: 32px !important;
+        bottom: 32px !important;
+
+        :deep(.van-icon) {
+            font-size: 20px;
+        }
+    }
 }
 
 .add-btn--primary {
