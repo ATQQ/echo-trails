@@ -2,7 +2,7 @@
   <div class="preview-image" ref="previewWrapper" :class="{
     'show-detail': showMoreOperate
   }">
-    <van-image-preview :close-on-popstate="false" @change="handleChange" @scale="handlePreviewScale" v-model:show="show" :images="urls"
+    <van-image-preview ref="imagePreviewRef" :close-on-popstate="false" @change="handleChange" @scale="handlePreviewScale" v-model:show="show" :images="urls"
       :start-position="start" swipeDuration="100" :showIndex="false" :onClose="handleOnClose" :closeOnClickImage="false"
       transition="zoom">
       <template #cover>
@@ -130,6 +130,7 @@ import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePho
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import { showConfirmDialog, showNotify, showLoadingToast, closeToast } from 'vant';
+import type { ImagePreviewInstance } from 'vant';
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
@@ -224,6 +225,7 @@ const handleDeleteCache = async () => {
 }
 
 const previewWrapper = ref<HTMLDivElement>()
+const imagePreviewRef = ref<ImagePreviewInstance>()
 const showMoreOperate = ref(true)
 const touchStart = ref<Touch>()
 const touchTimes = ref(0)
@@ -676,6 +678,72 @@ preventBack(show)
 preventBack(showAlbumSelect)
 preventBack(showDeleteModeSheet)
 preventBack(showDownloadModeSheet)
+
+const isDesktopBusy = () =>
+  editMode.value || showAlbumSelect.value || showDownloadModeSheet.value || showDeleteModeSheet.value
+
+const goToIndex = (nextIdx: number) => {
+  const total = urls.value.length
+  if (!total) return
+  const clamped = Math.max(0, Math.min(total - 1, nextIdx))
+  if (clamped === currentIdx.value) return
+  imagePreviewRef.value?.swipeTo?.(clamped, { immediate: false })
+}
+
+const WHEEL_THROTTLE_MS = 260
+let lastWheelAt = 0
+
+useEventListener(window, 'keydown', (e: KeyboardEvent) => {
+  if (!show.value) return
+  if (isDesktopBusy()) return
+  if (e.key === 'Escape') {
+    show.value = false
+    return
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    goToIndex(currentIdx.value - 1)
+    return
+  }
+  if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    goToIndex(currentIdx.value + 1)
+  }
+})
+
+useEventListener(previewWrapper, 'wheel', (e: WheelEvent) => {
+  if (!show.value) return
+  if (isDesktopBusy()) return
+  if (!e.deltaY) return
+  const now = Date.now()
+  if (now - lastWheelAt < WHEEL_THROTTLE_MS) return
+  lastWheelAt = now
+  if (e.deltaY > 0) {
+    goToIndex(currentIdx.value + 1)
+  } else {
+    goToIndex(currentIdx.value - 1)
+  }
+})
+
+const MOUSE_DRAG_THRESHOLD = 5
+const mouseDownPos = ref<{ x: number; y: number } | null>(null)
+useEventListener(previewWrapper, 'mousedown', (e: MouseEvent) => {
+  mouseDownPos.value = { x: e.clientX, y: e.clientY }
+})
+useEventListener(previewWrapper, 'click', (e: MouseEvent) => {
+  if (!show.value) return
+  if (isDesktopBusy()) return
+  const target = e.target as Element | null
+  if (!target || !isTapTarget(target)) return
+  const start = mouseDownPos.value
+  mouseDownPos.value = null
+  if (start) {
+    const dx = Math.abs(e.clientX - start.x)
+    const dy = Math.abs(e.clientY - start.y)
+    if (dx >= MOUSE_DRAG_THRESHOLD || dy >= MOUSE_DRAG_THRESHOLD) return
+  }
+  showMoreOperate.value = !showMoreOperate.value
+})
 
 const restorePhotos = () => {
   photoListStore?.restorePhotos?.([activeImage.value._id])

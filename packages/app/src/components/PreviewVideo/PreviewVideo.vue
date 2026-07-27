@@ -110,6 +110,7 @@ import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import BottomActions from '../BottomActions/BottomActions.vue';
 import { preventBack } from '@/lib/router';
+import { useEventListener } from '@vueuse/core';
 
 const props = defineProps<{
   images: any[]
@@ -358,8 +359,57 @@ const downloadImage = () => {
 
 const close = () => {
   showSpeedSheet.value = false
+  activeVideo()?.pause?.()
   show.value = false
 }
+
+const isDesktopBusy = () => editMode.value || showSpeedSheet.value || showAlbumSelect.value
+
+const WHEEL_THROTTLE_MS = 260
+let lastWheelAt = 0
+
+useEventListener(window, 'keydown', (e: KeyboardEvent) => {
+  if (!show.value) return
+  if (isDesktopBusy()) return
+  if (e.key === 'Escape') {
+    close()
+    return
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    swipeRef.value?.prev?.()
+    return
+  }
+  if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    swipeRef.value?.next?.()
+    return
+  }
+  if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault()
+    const video = activeVideo()
+    if (!video) return
+    if (video.paused) {
+      video.play?.()
+    } else {
+      video.pause?.()
+    }
+  }
+})
+
+useEventListener(document, 'wheel', (e: WheelEvent) => {
+  if (!show.value) return
+  if (isDesktopBusy()) return
+  if (!e.deltaY) return
+  const now = Date.now()
+  if (now - lastWheelAt < WHEEL_THROTTLE_MS) return
+  lastWheelAt = now
+  if (e.deltaY > 0) {
+    swipeRef.value?.next?.()
+  } else {
+    swipeRef.value?.prev?.()
+  }
+})
 
 onBeforeRouteLeave((to, from, next) => {
   if (showSpeedSheet.value) {
