@@ -164,12 +164,23 @@ const onSubmit = () => {
   </PhotoList>
 </template>
 <style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .large-card {
   position: relative;
   border-radius: 10px 10px 0 0;
   overflow: hidden;
   height: 50vw;
   width: 100%;
+
+  @include desktop {
+    height: auto;
+    aspect-ratio: 21 / 9;
+    max-height: 420px;
+    border-radius: 12px;
+    margin: 0 auto;
+    max-width: 1200px;
+  }
 
   .title-desc {
     position: absolute;
@@ -211,6 +222,13 @@ const onSubmit = () => {
   background: linear-gradient(to top, rgba(255, 255, 255, 0), rgba(0, 0, 0, 0.3));
   display: flex;
   justify-content: space-between;
+
+  @include desktop {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: none;
+    color: #333;
+  }
 
   &.empty {
     color: #000;

@@ -14,9 +14,21 @@ import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useTagStyles, type TagStyle } from '@/composables/useTagStyles';
 import { useScrollRestore } from '@/composables/useScrollRestore';
+import { useResponsive } from '@/composables/useResponsive';
 import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
 
 defineOptions({ name: 'AlbumView' })
+
+const { width: viewportWidth, isDesktop } = useResponsive()
+
+const smallCardColumns = computed(() => {
+  if (!isDesktop.value) return 3
+  if (viewportWidth.value >= 1920) return 8
+  if (viewportWidth.value >= 1600) return 7
+  if (viewportWidth.value >= 1280) return 6
+  if (viewportWidth.value >= 900) return 5
+  return 4
+})
 
 const scrollContainer = ref<any>(null)
 useScrollRestore(scrollContainer)
@@ -140,7 +152,9 @@ const displayAlbumList = computed(() => {
 
   return {
     large: sortAlbums(albumList.value.large),
-    allSmall: sortedSmall.slice(0, 6),
+    allSmall: isDesktop.value
+      ? sortedSmall.slice(0, smallCardColumns.value * 2)
+      : sortedSmall.slice(0, 6),
     tagGroups
   }
 })
@@ -369,7 +383,7 @@ preventBack(showAddModal)
             <h2>全部相册</h2>
             <van-icon name="arrow" />
           </div>
-          <van-grid :gutter="10" :column-num="3" :border="false" class="small-card-grid">
+          <van-grid :gutter="10" :column-num="smallCardColumns" :border="false" class="small-card-grid">
             <van-grid-item v-for="album in displayAlbumList.allSmall" :key="album._id">
               <div class="small-card" @click.stop.prevent="goToDetail(album._id)"
                    @contextmenu="handleContextMenu($event, album)"
@@ -453,9 +467,11 @@ preventBack(showAddModal)
 
   @include desktop {
     padding: 0 24px 32px;
-    max-width: 1400px;
-    margin: 0 auto;
     box-sizing: border-box;
+  }
+
+  @include large-desktop {
+    padding: 0 32px 32px;
   }
 }
 
@@ -649,27 +665,9 @@ preventBack(showAddModal)
 }
 
 .small-card-grid {
-  :deep(.van-grid-item) {
-    flex-basis: 33.333333% !important;
-    max-width: 33.333333% !important;
-  }
   :deep(.van-grid-item__content) {
     padding: 0;
     background-color: transparent;
-  }
-
-  @include desktop {
-    :deep(.van-grid-item) {
-      flex-basis: 20% !important;
-      max-width: 20% !important;
-    }
-  }
-
-  @include large-desktop {
-    :deep(.van-grid-item) {
-      flex-basis: 16.666667% !important;
-      max-width: 16.666667% !important;
-    }
   }
 }
 
@@ -681,6 +679,16 @@ preventBack(showAddModal)
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+
+  @include desktop {
+    border-radius: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+  }
 
   :deep(.van-image) {
     border-radius: 12px;

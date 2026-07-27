@@ -173,6 +173,8 @@ watch(folderId, () => {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .album-folder-manage-view-wrapper {
   height: 100%;
   display: flex;
@@ -183,6 +185,14 @@ watch(folderId, () => {
   flex: 1;
   overflow-y: auto;
   padding-bottom: var(--footer-area-height);
+
+  @include desktop {
+    > * {
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  }
 }
 .save-btn {
   font-size: 14px;

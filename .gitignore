@@ -28,7 +28,8 @@ coverage
 *.sw?
 
 *.tsbuildinfo
-
+.trae
+fireworks.html
 # Release artifacts
 release/
 qzone_photos_download

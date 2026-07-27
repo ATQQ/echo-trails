@@ -3,8 +3,11 @@ import PhotoList from '@/components/PhotoList/PhotoList.vue';
 import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import { useRouter } from 'vue-router';
 import { ref } from 'vue';
+import { useResponsive } from '@/composables/useResponsive';
 
 defineOptions({ name: 'HomeView' })
+
+const { isDesktop } = useResponsive()
 
 // 连续点击5次标题，跳转到删除页面
 const clickCount = ref(0)
@@ -62,7 +65,13 @@ const onClearDate = () => {
     </template>
   </PhotoList>
 
-  <van-popup v-model:show="showDatePicker" position="bottom" style="height: 50%">
+  <van-popup
+    v-model:show="showDatePicker"
+    :position="isDesktop ? 'center' : 'bottom'"
+    :round="isDesktop"
+    :class="{ 'date-picker-desktop': isDesktop }"
+    :style="isDesktop ? { width: '520px', height: '560px' } : { height: '50%' }"
+  >
     <van-calendar
       title="选择结束日期"
       :poppable="false"
@@ -81,7 +90,9 @@ const onClearDate = () => {
   </van-popup>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .calendar-title-wrapper {
   position: relative;
   display: flex;
@@ -102,5 +113,11 @@ const onClearDate = () => {
   font-size: 14px;
   padding: 0;
   cursor: pointer;
+}
+
+.date-picker-desktop {
+  :deep(.van-calendar) {
+    height: 100%;
+  }
 }
 </style>

@@ -19,6 +19,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useScrollRestore } from '@/composables/useScrollRestore';
+import { useResponsive } from '@/composables/useResponsive';
 import { isLocalMode } from '@/lib/serviceRouter';
 import { notifyAlbumsChanged } from '@/lib/albumEvents';
 
@@ -243,14 +244,27 @@ onUnmounted(() => {
   unregisterScrollListener()
 })
 const { width: windowWidth } = useWindowSize()
-const gridItemHeight = computed(() => {
-  const effectiveWidth = Math.min(windowWidth.value, 1200)
-  return effectiveWidth / 4
-})
+const { isMobile } = useResponsive()
 const headerRef = ref<HTMLElement | null>(null)
 const { height: headerHeight } = useElementSize(headerRef)
 const containerRef = ref<HTMLElement | null>(null)
+const { width: containerWidth } = useElementSize(containerRef)
 useScrollRestore(containerRef)
+
+const columns = computed(() => {
+  if (isMobile.value) return 4
+  const w = windowWidth.value
+  if (w < 900) return 4
+  if (w < 1280) return 5
+  if (w < 1600) return 6
+  if (w < 1920) return 8
+  return 10
+})
+
+const gridItemHeight = computed(() => {
+  const effectiveWidth = containerWidth.value || Math.min(windowWidth.value, 1200)
+  return effectiveWidth / columns.value
+})
 
 // 滚动事件监听
 const checkScrollBottom = () => {
@@ -1263,8 +1277,9 @@ const virtualListSource = computed(() => {
     items.push({ type: 'upload-header', id: 'upload-header', count: showUploadList.value.length })
     // Chunk upload list
     const uploadChunks = []
-    for (let i = 0; i < showUploadList.value.length; i += 4) {
-      uploadChunks.push(showUploadList.value.slice(i, i + 4))
+    const cols = columns.value
+    for (let i = 0; i < showUploadList.value.length; i += cols) {
+      uploadChunks.push(showUploadList.value.slice(i, i + cols))
     }
     uploadChunks.forEach((chunk, index) => {
       items.push({
@@ -1279,6 +1294,7 @@ const virtualListSource = computed(() => {
   if (photoList.length === 0 && showEmpty.value && showUploadList.value.length === 0) {
     items.push({ type: 'empty', id: 'empty' })
   } else {
+    const cols = columns.value
     showPhotoList.value.forEach((group) => {
       items.push({
         type: 'group-header',
@@ -1289,8 +1305,8 @@ const virtualListSource = computed(() => {
       })
 
       const photoChunks = []
-      for (let i = 0; i < group.photos.length; i += 4) {
-        photoChunks.push(group.photos.slice(i, i + 4))
+      for (let i = 0; i < group.photos.length; i += cols) {
+        photoChunks.push(group.photos.slice(i, i + cols))
       }
       photoChunks.forEach((chunk, index) => {
         items.push({
@@ -1378,8 +1394,8 @@ watch(containerRef, (el) => {
 
             <!-- Upload Row -->
             <div v-else-if="item.data.type === 'upload-row'" class="virtual-row">
-               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }">
-                  <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
+               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: (100 / columns) + '%' }">
+                  <div class="img-border" :class="{ 'no-right-border': subIndex === columns - 1 }">
                     <ImageCell :src="subItem.url">
                       <!-- 解析中 -->
                       <div v-if="subItem.status === UploadStatus.PARSING" class="upload-mask">解析中…</div>
@@ -1424,8 +1440,8 @@ watch(containerRef, (el) => {
 
             <!-- Photo Row -->
             <div v-else-if="item.data.type === 'photo-row'" class="virtual-row">
-               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: '25%' }" :data-index="subItem.idx">
-                  <div class="img-border" :class="{ 'no-right-border': subIndex === 3 }">
+               <div v-for="(subItem, subIndex) in item.data.items" :key="subItem.key" class="virtual-col" :style="{ height: gridItemHeight + 'px', width: (100 / columns) + '%' }" :data-index="subItem.idx">
+                  <div class="img-border" :class="{ 'no-right-border': subIndex === columns - 1 }">
                     <ImageCell @click="(e: Event) => previewImage(subItem.idx, e)" :src="subItem.cover" :cache-key="subItem.key + '_cover'"
                       :is-live="isCompleteLivePhoto(subItem)"
                       @longpress="handleLongPress(subItem.idx)" />
@@ -1558,8 +1574,11 @@ watch(containerRef, (el) => {
   -webkit-overflow-scrolling: touch;
 
   @include desktop {
-    max-width: 1200px;
-    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  @include large-desktop {
+    padding: 0 32px;
   }
 }
 
