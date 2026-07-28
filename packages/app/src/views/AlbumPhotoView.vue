@@ -2,7 +2,9 @@
 import EditAlbumCard from '@/components/EditAlbumCard/EditAlbumCard.vue';
 import InfoCard from '@/components/InfoCard/InfoCard.vue';
 import PhotoList from '@/components/PhotoList/PhotoList.vue';
+import PageTitle from '@/components/PageTitle/PageTitle.vue';
 import { provideAlbumPhotoStore } from '@/composables/albumphoto';
+import { useResponsive } from '@/composables/useResponsive';
 import { getAlbumInfo, getPhotoListInfo, updateAlbum } from '@/service';
 import { showToast } from 'vant';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
@@ -11,6 +13,8 @@ import { preventBack } from '@/lib/router'
 import ImageCell from '@/components/ImageCell/ImageCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { notifyAlbumsChanged } from '@/lib/albumEvents';
+
+const { isDesktop } = useResponsive()
 
 const route = useRoute();
 const album = ref<Album>()
@@ -127,6 +131,11 @@ const onSubmit = () => {
 <template>
   <PhotoList v-if="album" :key="album._id" :album="album">
     <template #header>
+      <PageTitle v-if="isDesktop" :title="album.name" back :info="false">
+        <template #action>
+          <van-icon name="more-o" size="24" @click="handleShowInfoPanel" />
+        </template>
+      </PageTitle>
       <div v-if="album.count" class="large-card">
         <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
         <!-- 标题和描述 -->
@@ -137,9 +146,9 @@ const onSubmit = () => {
           <p>{{ album.description }}</p>
         </div>
       </div>
-      <div v-else class="safe-padding-top"></div>
+      <div v-else-if="!isDesktop" class="safe-padding-top"></div>
       <!-- 操作按钮 -->
-      <div class="actions safe-padding-top" :class="{
+      <div v-if="!isDesktop" class="actions safe-padding-top" :class="{
         empty: !album.count
       }">
         <span @click="handleBack" class="action-item back-btn"><van-icon name="arrow-left" /></span>
@@ -168,7 +177,7 @@ const onSubmit = () => {
 
 .large-card {
   position: relative;
-  border-radius: 10px 10px 0 0;
+  border-radius: 0;
   overflow: hidden;
   height: 50vw;
   width: 100%;
@@ -177,7 +186,7 @@ const onSubmit = () => {
     height: auto;
     aspect-ratio: 21 / 9;
     max-height: 420px;
-    border-radius: 12px;
+    border-radius: 0;
     margin: 0 auto;
     max-width: 1200px;
   }

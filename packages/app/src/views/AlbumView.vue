@@ -489,13 +489,25 @@ preventBack(showAddModal)
   @include desktop {
     height: auto;
     aspect-ratio: 16 / 9;
+    margin: 0 -24px;
+    width: calc(100% + 48px);
     max-height: 480px;
+    border-radius: 0;
+
+    :deep(.van-grid-item__content) {
+      padding: 0;
+    }
 
     &:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
+  }
+
+  @include large-desktop {
+    margin: 0 -32px;
+    width: calc(100% + 64px);
   }
 
   .title-desc {
@@ -735,6 +747,14 @@ preventBack(showAddModal)
     aspect-ratio: 16 / 9;
     height: auto;
     max-height: 480px;
+    margin: 0 -24px;
+    width: calc(100% + 48px);
+    border-radius: 0;
+  }
+
+  @include large-desktop {
+    margin: 0 -32px;
+    width: calc(100% + 64px);
   }
 }
 
