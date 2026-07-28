@@ -267,7 +267,9 @@ const toggleFooter = (item: AppItem) => {
     width: 100%;
     position: relative;
     padding: 6px 0 2px 0;
+  }
 
+  :deep(.van-grid-item__content) {
     @include desktop {
       border-radius: 12px;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
