@@ -264,6 +264,12 @@ body.body-has-side-nav .van-dropdown-item {
   transition: left 0.2s ease, width 0.2s ease;
 }
 
+body.body-has-side-nav .van-nav-bar--fixed {
+  left: var(--side-nav-width, 0px);
+  width: calc(100vw - var(--side-nav-width, 0px));
+  transition: left 0.2s ease, width 0.2s ease;
+}
+
 .app-wrapper.has-side-nav > *:first-child:not(.app-drag-region) {
   flex: 0 0 auto;
   overflow-y: auto;

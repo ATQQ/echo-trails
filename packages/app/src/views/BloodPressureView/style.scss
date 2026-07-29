@@ -556,12 +556,6 @@
     scrollbar-gutter: stable;
   }
 
-  .van-nav-bar--fixed {
-    left: var(--side-nav-width, 0px);
-    width: calc(100vw - var(--side-nav-width, 0px));
-    transition: left 0.2s ease, width 0.2s ease;
-  }
-
   .blood-pressure-view {
     max-width: none;
     width: 100%;
@@ -582,31 +576,47 @@
   }
 
   .content {
-    padding: clamp(20px, 5vw, 64px) clamp(20px, 5vw, 64px) 40px;
-    max-width: 1600px;
+    padding: clamp(16px, 3vw, 40px) clamp(16px, 3vw, 40px) 96px;
+    max-width: 1400px;
     margin: 0 auto;
     width: 100%;
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
       "date         date"
       "summary      chart"
       "stats        distribution"
       "records      records";
-    gap: 20px 24px;
-    align-items: start;
+    gap: 16px 20px;
+    align-items: stretch;
   }
 
   .date-selector { grid-area: date; margin-bottom: 0; }
-  .summary-card { grid-area: summary; margin-bottom: 0; }
+  .summary-card {
+    grid-area: summary;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .summary-card .status-bar-container { margin-top: auto; }
   .chart-card { grid-area: chart; margin-bottom: 0; }
-  .chart-card .chart-container { height: 360px; }
+  .chart-card .chart-container { height: clamp(280px, 32vh, 380px); }
   .stats-card:nth-of-type(1) { grid-area: stats; margin-bottom: 0; }
   .stats-card:nth-of-type(2) { grid-area: distribution; margin-bottom: 0; }
   .record-list { grid-area: records; margin-bottom: 0; padding-bottom: 0; }
   .stats-grid { grid-template-columns: repeat(3, 1fr); }
   .distribution-info { grid-template-columns: repeat(4, 1fr); }
+
+  .content > .van-empty,
+  .content > .loading-state {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: 100%;
+    max-width: 640px;
+    margin: 40px auto;
+  }
 
   .record-list .record-group .group-items {
     display: grid;
@@ -652,7 +662,24 @@
     transition: left 0.2s ease !important;
   }
   .bp-popup--add {
-    height: auto !important;
+    left: var(--side-nav-width, 0px) !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    transform: none !important;
+    width: calc(100vw - var(--side-nav-width, 0px)) !important;
+    max-width: none !important;
+    height: 100vh !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    transition: left 0.2s ease, width 0.2s ease !important;
+  }
+  .bp-popup--add .popup-content {
+    max-width: 720px;
+    margin: 0 auto;
+    max-height: 100vh;
+    padding: 32px 24px;
+    box-sizing: border-box;
   }
   .bp-popup .popup-content {
     padding: 24px;
