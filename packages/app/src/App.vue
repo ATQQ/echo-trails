@@ -16,14 +16,17 @@ import MainLayout from '@/components/MainLayout.vue';
 import SideNav from '@/components/SideNav/SideNav.vue';
 import { useFooterStore } from '@/stores/footer';
 import { useResponsive } from '@/composables/useResponsive';
+import { useSideNavCollapsed } from '@/composables/useSideNavCollapsed';
 
 const route = useRoute();
 const footerStore = useFooterStore();
 const { isDesktop } = useResponsive();
+const { collapsed: sideNavCollapsed } = useSideNavCollapsed();
 const showNav = computed(() => route.meta.nav === true)
 const isSwipePage = computed(() => !isDesktop.value && ['/home', '/'].includes(route.path))
 const showSideNav = computed(() => isDesktop.value && route.name !== 'login')
 const isTauriDesktop = computed(() => isTauri && isDesktop.value)
+const isSideNavCollapsed = computed(() => showSideNav.value && sideNavCollapsed.value)
 const isAlbumScrolled = ref(false)
 const showAlbumBlur = computed(() => route.path === '/' && isAlbumScrolled.value)
 const getRouteViewKey = (viewRoute: RouteLocationNormalizedLoaded) => {
@@ -166,13 +169,19 @@ onMounted(() => {
   doCheckUpdate();
 })
 
+watch([showSideNav, isSideNavCollapsed], ([hasSideNav, collapsedValue]) => {
+  if (typeof document === 'undefined') return
+  document.body.classList.toggle('body-has-side-nav', hasSideNav)
+  document.body.classList.toggle('body-side-nav-collapsed', collapsedValue)
+}, { immediate: true })
+
 onBeforeUnmount(() => {
   window.removeEventListener('album-scroll-state', handleAlbumScrollState)
 })
 </script>
 
 <template>
-  <div class="app-wrapper" :class="{ 'is-desktop': isDesktop, 'has-side-nav': showSideNav, 'is-tauri-desktop': isTauriDesktop }" ref="appWrapperRef">
+  <div class="app-wrapper" :class="{ 'is-desktop': isDesktop, 'has-side-nav': showSideNav, 'is-side-nav-collapsed': isSideNavCollapsed, 'is-tauri-desktop': isTauriDesktop }" ref="appWrapperRef">
     <div v-if="isTauriDesktop" class="app-drag-region" data-tauri-drag-region></div>
     <SideNav v-if="showSideNav" />
     <div class="app-main">
@@ -234,6 +243,25 @@ onBeforeUnmount(() => {
 
 .app-wrapper.has-side-nav {
   flex-direction: row;
+  --side-nav-width: 200px;
+}
+
+.app-wrapper.has-side-nav.is-side-nav-collapsed {
+  --side-nav-width: 64px;
+}
+
+body.body-has-side-nav {
+  --side-nav-width: 200px;
+}
+
+body.body-has-side-nav.body-side-nav-collapsed {
+  --side-nav-width: 64px;
+}
+
+body.body-has-side-nav .van-dropdown-item {
+  left: var(--side-nav-width, 0px);
+  width: calc(100vw - var(--side-nav-width, 0px));
+  transition: left 0.2s ease, width 0.2s ease;
 }
 
 .app-wrapper.has-side-nav > *:first-child:not(.app-drag-region) {

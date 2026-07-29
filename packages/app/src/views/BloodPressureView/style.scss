@@ -1,3 +1,5 @@
+@use '@/styles/breakpoints.scss' as *;
+
 .van-nav-bar__placeholder > :deep(.van-nav-bar--fixed) {
   padding-top: var(--safe-area-top);
 }
@@ -547,4 +549,121 @@
 
 :deep(.van-popup__close-icon) {
   padding-top: var(--safe-area-top);
+}
+
+@include desktop {
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  .van-nav-bar--fixed {
+    left: var(--side-nav-width, 0px);
+    width: calc(100vw - var(--side-nav-width, 0px));
+    transition: left 0.2s ease, width 0.2s ease;
+  }
+
+  .blood-pressure-view {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    background: #f7f8fa;
+    min-height: 100vh;
+    position: relative;
+    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+  }
+
+  .family-select-wrapper {
+    padding: 0 clamp(20px, 5vw, 64px);
+
+    :deep(.van-dropdown-menu__bar) {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+  }
+
+  .content {
+    padding: clamp(20px, 5vw, 64px) clamp(20px, 5vw, 64px) 40px;
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    grid-template-areas:
+      "date         date"
+      "summary      chart"
+      "stats        distribution"
+      "records      records";
+    gap: 20px 24px;
+    align-items: start;
+  }
+
+  .date-selector { grid-area: date; margin-bottom: 0; }
+  .summary-card { grid-area: summary; margin-bottom: 0; }
+  .chart-card { grid-area: chart; margin-bottom: 0; }
+  .chart-card .chart-container { height: 360px; }
+  .stats-card:nth-of-type(1) { grid-area: stats; margin-bottom: 0; }
+  .stats-card:nth-of-type(2) { grid-area: distribution; margin-bottom: 0; }
+  .record-list { grid-area: records; margin-bottom: 0; padding-bottom: 0; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .distribution-info { grid-template-columns: repeat(4, 1fr); }
+
+  .record-list .record-group .group-items {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+  }
+  .record-list .record-group .group-items .record-item {
+    min-width: 0;
+    border-right: 1px solid #f5f5f5;
+  }
+  .record-list .record-group .group-items .record-item:nth-child(2n) {
+    border-right: none;
+  }
+  .record-list .record-group .group-items .record-item:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+  .record-list .record-group .group-items .record-item .record-main .record-note .text {
+    max-width: 140px;
+  }
+
+  .bottom-action {
+    position: fixed;
+    left: calc(var(--side-nav-width, 0px) + (100vw - var(--side-nav-width, 0px)) / 2);
+    right: auto;
+    bottom: 24px;
+    width: min(420px, calc(100vw - var(--side-nav-width, 0px) - 32px));
+    transform: translateX(-50%);
+    transition: left 0.2s ease, width 0.2s ease;
+    z-index: 99;
+  }
+
+  .bp-popup {
+    left: calc(var(--side-nav-width, 0px) + (100vw - var(--side-nav-width, 0px)) / 2) !important;
+    top: 50% !important;
+    bottom: auto !important;
+    right: auto !important;
+    transform: translate(-50%, -50%) !important;
+    width: 560px !important;
+    max-width: calc(100vw - var(--side-nav-width, 0px) - 32px) !important;
+    max-height: 90vh !important;
+    border-radius: 16px !important;
+    height: auto !important;
+    transition: left 0.2s ease !important;
+  }
+  .bp-popup--add {
+    height: auto !important;
+  }
+  .bp-popup .popup-content {
+    padding: 24px;
+    padding-bottom: 24px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .bp-overlay {
+    left: var(--side-nav-width, 0px) !important;
+    width: calc(100vw - var(--side-nav-width, 0px)) !important;
+    transition: left 0.2s ease, width 0.2s ease;
+  }
 }
