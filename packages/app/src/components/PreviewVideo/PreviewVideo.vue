@@ -5,24 +5,24 @@
         :show-indicators="false" :touchable="!isDesktop">
         <van-swipe-item v-for="(item, index) in images" :key="item._id" class="video-swipe-item" @click.self="handleOverlayTap">
           <div class="video-wrapper" @click.self="handleOverlayTap">
-            <video v-if="shouldRender(index)" :ref="(el) => setVideoRef(el, index)" :src="item.url"
-              :controls="!isDesktop && showMoreOperate === false"
+            <video v-if="shouldRender(index)" :ref="(el) => setVideoRef(el, index)" :src="getVideoSrc(item)"
+              :controls="isDesktop || showMoreOperate === false"
               playsinline webkit-playsinline preload="metadata" class="video-player"
               :poster="item.cover"
-              @click.stop="handleVideoTap"
+              @click="handleVideoClick"
               @play="handleVideoPlay"
               @pause="handleVideoPause"
               @error="handleVideoError(index, $event)"
               @loadedmetadata="handleVideoLoaded(index)">
               您的浏览器不支持视频播放。
             </video>
-            <!-- 桌面端自定义中央播放按钮，仅在暂停时展示 -->
+            <!-- 桌面端自定义中央播放按钮：仅暂停时展示，点击调用 play() -->
             <button
               v-if="isDesktop && index === currentIdx && !isPlaying"
               class="video-center-play"
               type="button"
               aria-label="播放视频"
-              @click.stop="handleVideoTap"
+              @click.stop="handleCenterPlay"
             >
               <van-icon name="play" size="36" />
             </button>
@@ -128,6 +128,8 @@ import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import BottomActions from '../BottomActions/BottomActions.vue';
 import { preventBack } from '@/lib/router';
 import { useEventListener, useMediaQuery } from '@vueuse/core';
+import { cacheVideo } from '@/composables/useCachedVideo';
+import { isTauri } from '@/constants';
 
 const props = defineProps<{
   images: any[]
@@ -148,7 +150,33 @@ const lastOverlayTapAt = ref(0)
 const isPlaying = ref(false)
 const videoRefs = new Map<number, HTMLVideoElement>()
 const isDesktop = useMediaQuery('(min-width: 480px)')
+const videoUrlMap = ref(new Map<string, string>())
 preventBack(showSpeedSheet)
+
+const getVideoSrc = (item: any) => {
+  if (!item) return ''
+  return videoUrlMap.value.get(item._id) || item.url
+}
+
+const resolveVideoUrl = async (item: any) => {
+  if (!isTauri) return
+  if (!item || !item._id || !item.url) return
+  if (videoUrlMap.value.has(item._id)) return
+  try {
+    const result = await cacheVideo(item.url, item._id)
+    if (result && result !== item.url) {
+      videoUrlMap.value.set(item._id, result)
+    }
+  } catch (e) {
+    console.error('[PreviewVideo] resolveVideoUrl failed', e)
+  }
+}
+
+watch(() => props.images, () => {
+  const item = props.images?.[currentIdx.value]
+  if (item) resolveVideoUrl(item)
+}, { immediate: true })
+
 
 watch(() => props.start, (val) => {
   currentIdx.value = val || 0
@@ -182,6 +210,8 @@ const onChange = (index: number) => {
   showInfoDetail.value = false
   isPlaying.value = false
   showMoreOperate.value = true
+  const nextItem = props.images?.[index]
+  if (nextItem) resolveVideoUrl(nextItem)
   nextTick(() => applyPlaybackRate())
 }
 
@@ -225,6 +255,29 @@ const handleVideoError = (index: number, event: Event) => {
 const handleVideoLoaded = (index: number) => {
   if (index !== currentIdx.value) return
   applyPlaybackRate()
+}
+
+// 桌面端点击 <video>（含原生 controls）时不再自行切换 play/pause，避免与 controls 冲突；
+// 移动端仍走原有 handleVideoTap 逻辑。
+const handleVideoClick = (event: Event) => {
+  if (isDesktop.value) {
+    event.stopPropagation()
+    return
+  }
+  event.stopPropagation()
+  handleVideoTap()
+}
+
+// 桌面端自定义中央播放按钮：单向 play，交给原生 controls 处理后续
+const handleCenterPlay = () => {
+  const video = activeVideo()
+  if (!video) return
+  const result = video.play?.()
+  if (result && typeof result.catch === 'function') {
+    result.catch(() => {
+      showControls()
+    })
+  }
 }
 
 // 点击视频区域：切换 play/pause（同时联动工具条）
@@ -705,7 +758,7 @@ const menus = computed(() => {
   align-items: center;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.2s ease;
-  padding-left: 4px; // 视觉居中三角形
+  padding-left: 4px;
 
   &:hover {
     background: rgba(0, 0, 0, 0.72);

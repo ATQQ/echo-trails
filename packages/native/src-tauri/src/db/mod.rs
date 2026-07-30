@@ -346,6 +346,24 @@ pub async fn ensure_album_folders_table(conn: &turso::Connection) -> Result<(), 
 
 // ==================== Legacy KV cache commands ====================
 
+const KV_CACHE_CREATE_SQL: &str = "CREATE TABLE IF NOT EXISTS kv_cache (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)";
+
+async fn ensure_kv_cache_table(conn: &turso::Connection) -> Result<(), String> {
+    conn.execute(KV_CACHE_CREATE_SQL, ())
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn is_missing_kv_cache_error(err: &str) -> bool {
+    let lower = err.to_ascii_lowercase();
+    lower.contains("no such table") && lower.contains("kv_cache")
+}
+
 #[tauri::command]
 pub async fn db_set_cache(
     state: tauri::State<'_, TursoDb>,
@@ -353,14 +371,23 @@ pub async fn db_set_cache(
     value: String,
 ) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO kv_cache (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP",
-        (key, value),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    Ok(())
+    let sql = "INSERT INTO kv_cache (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP";
+    match conn.execute(sql, (key.clone(), value.clone())).await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let msg = e.to_string();
+            if is_missing_kv_cache_error(&msg) {
+                ensure_kv_cache_table(&conn).await?;
+                conn.execute(sql, (key, value))
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(())
+            } else {
+                Err(msg)
+            }
+        }
+    }
 }
 
 #[tauri::command]
@@ -369,10 +396,19 @@ pub async fn db_get_cache(
     key: String,
 ) -> Result<Option<String>, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
-    let mut rows = conn
-        .query("SELECT value FROM kv_cache WHERE key = ?1", (key,))
-        .await
-        .map_err(|e| e.to_string())?;
+    let sql = "SELECT value FROM kv_cache WHERE key = ?1";
+    let mut rows = match conn.query(sql, (key.clone(),)).await {
+        Ok(r) => r,
+        Err(e) => {
+            let msg = e.to_string();
+            if is_missing_kv_cache_error(&msg) {
+                ensure_kv_cache_table(&conn).await?;
+                conn.query(sql, (key,)).await.map_err(|e| e.to_string())?
+            } else {
+                return Err(msg);
+            }
+        }
+    };
 
     if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row.get_value(0).map_err(|e| e.to_string())?;
@@ -389,13 +425,19 @@ pub async fn db_get_all_cache_info(
     state: tauri::State<'_, TursoDb>,
 ) -> Result<Vec<CacheInfo>, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
-    let mut rows = conn
-        .query(
-            "SELECT key, LENGTH(value) as size FROM kv_cache",
-            (),
-        )
-        .await
-        .map_err(|e| e.to_string())?;
+    let sql = "SELECT key, LENGTH(value) as size FROM kv_cache";
+    let mut rows = match conn.query(sql, ()).await {
+        Ok(r) => r,
+        Err(e) => {
+            let msg = e.to_string();
+            if is_missing_kv_cache_error(&msg) {
+                ensure_kv_cache_table(&conn).await?;
+                conn.query(sql, ()).await.map_err(|e| e.to_string())?
+            } else {
+                return Err(msg);
+            }
+        }
+    };
 
     let mut result = Vec::new();
     while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
@@ -418,8 +460,20 @@ pub async fn db_delete_cache(
     key: String,
 ) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM kv_cache WHERE key = ?1", (key,))
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    let sql = "DELETE FROM kv_cache WHERE key = ?1";
+    match conn.execute(sql, (key.clone(),)).await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let msg = e.to_string();
+            if is_missing_kv_cache_error(&msg) {
+                ensure_kv_cache_table(&conn).await?;
+                conn.execute(sql, (key,))
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(())
+            } else {
+                Err(msg)
+            }
+        }
+    }
 }
