@@ -64,7 +64,6 @@ main {
     bottom: 10px;
 }
 
-// 4的倍数
 .img-border:nth-child(4n) {
     border-right: none;
 }
@@ -174,12 +173,13 @@ main {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: rgba(0, 0, 0, 0.35);
     display: flex;
     justify-content: center;
     align-items: center;
     color: #fff;
     font-size: 12px;
+    z-index: 3;
 }
 
 .error-mask {
@@ -194,6 +194,7 @@ main {
     align-items: center;
     color: #f53f3f;
     font-size: 12px;
+    z-index: 3;
 }
 
 .duplicate-mask {
@@ -210,6 +211,7 @@ main {
     font-size: 12px;
     flex-direction: column;
     gap: 8px;
+    z-index: 3;
 
     .duplicate-info {
         display: flex;

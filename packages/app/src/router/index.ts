@@ -198,6 +198,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/audio',
+      name: 'audio',
+      component: () => import('../views/AudioView.vue'),
+      meta: {
+        keepAlive: true,
+        nav: false,
+        componentName: 'AudioView'
+      }
+    },
+    {
       path: '/memorial',
       name: 'memorial',
       component: () => import('../views/memorial/MemorialList.vue'),

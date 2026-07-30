@@ -185,6 +185,13 @@ pub async fn get_file_info(file_path: String) -> Result<FileInfo, String> {
             "avi" => Some("video/x-msvideo".to_string()),
             "mkv" => Some("video/x-matroska".to_string()),
             "webm" => Some("video/webm".to_string()),
+            "mp3" => Some("audio/mpeg".to_string()),
+            "wav" => Some("audio/wav".to_string()),
+            "flac" => Some("audio/flac".to_string()),
+            "aac" => Some("audio/aac".to_string()),
+            "m4a" => Some("audio/mp4".to_string()),
+            "ogg" | "oga" => Some("audio/ogg".to_string()),
+            "opus" => Some("audio/opus".to_string()),
             _ => None,
         };
         

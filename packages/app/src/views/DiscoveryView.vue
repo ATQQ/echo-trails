@@ -131,7 +131,7 @@ const healthApps = computed<AppItem[]>(() => [
 
 const mediaApps = ref<AppItem[]>([
   { text: '视频', icon: 'video-o', color: '#07c160', url: '/video' },
-  { text: '音频', icon: 'music-o', color: '#ff976a' },
+  { text: '音频', icon: 'music-o', color: '#ff976a', url: '/audio' },
 ]);
 
 const otherApps = ref<AppItem[]>([

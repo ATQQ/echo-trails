@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, computed, watch, ref, onDeactivated, onActivated, onUnmounted, onMounted } from 'vue'
 import { addFileInfo, checkDuplicateByMd5, deletePhotos, getPhotos, getUploadUrl, restorePhotos, updatePhotosAlbums, uploadFile } from '../../service';
-import { generateFileKey, ensureVideoUploadInfo, parseNativeVideoFileUploadInfo, filePath2Name, pickEssentialExif } from '../../lib/file';
+import { generateFileKey, ensureAudioUploadInfo, parseNativeAudioFileUploadInfo, filePath2Name, pickEssentialExif } from '../../lib/file';
 import { isTauri, UploadStatus } from '../../constants/index'
 import { useEventListener } from '@vueuse/core'
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
@@ -10,12 +10,11 @@ import pLimit from 'p-limit';
 import { open } from '@tauri-apps/plugin-dialog';
 import BottomActions from '../BottomActions/BottomActions.vue';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
-import { showConfirmDialog, showNotify, showImagePreview } from 'vant';
+import { showConfirmDialog, showNotify } from 'vant';
 import { preventBack } from '@/lib/router'
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import VideoCell from '../VideoCell/VideoCell.vue';
-import PreviewVideo from '../PreviewVideo/PreviewVideo.vue';
+import AudioCell from '../AudioCell/AudioCell.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useScrollRestore } from '@/composables/useScrollRestore';
 
@@ -49,15 +48,11 @@ onMounted(() => {
 })
 
 onActivated(async () => {
-  // 调用时机为首次挂载
-  // 以及每次从缓存中被重新插入时
   isActive.value = true
   setupProgressListener()
 })
 
 onDeactivated(() => {
-  // 在从 DOM 上移除、进入缓存
-  // 以及组件卸载时调用
   isActive.value = false
   cleanupProgressListener()
 })
@@ -74,7 +69,7 @@ const { likedMode = false, album, isDelete = false } = defineProps<{
 }>()
 
 
-const waitUploadList = reactive<{ key: string, url: string, cover?: string, status: UploadStatus, progress?: number }[]>([])
+const waitUploadList = reactive<{ key: string, url: string, name?: string, status: UploadStatus, progress?: number }[]>([])
 
 const showUploadList = computed(() => waitUploadList.filter(v => v.status !== UploadStatus.SUCCESS))
 const hasErrorUploads = computed(() => showUploadList.value.some(v => v.status === UploadStatus.ERROR || v.status === UploadStatus.DUPLICATE))
@@ -85,16 +80,15 @@ const pageInfo = reactive({
   lock: false,
 })
 
-// 缓存相关逻辑
 const getCacheKey = () => {
-  return `video_list_cache_${album?._id || 'all'}_${likedMode}_${isDelete ? 'deleted' : 'normal'}`
+  return `audio_list_cache_${album?._id || 'all'}_${likedMode}_${isDelete ? 'deleted' : 'normal'}`
 }
 
 const { data: cacheData, loadAsync: loadStorageAsync, saveAsync: saveStorageAsync } = useTTLStorage<{
   list: Photo[],
   pageIndex: number
 }>({
-  key: getCacheKey, // Pass function for dynamic key
+  key: getCacheKey,
   initialValue: { list: [], pageIndex: 1 },
   ttl: 15 * 60 * 1000
 })
@@ -137,7 +131,6 @@ const addPhoto2List = (photo: Photo) => {
     photoList.push(photo)
     return true
   } else {
-    // 更新其中链接
     const existPhoto = existPhotoMap.get(photo._id)!
     existPhoto.url = photo.url
     existPhoto.cover = photo.cover
@@ -152,14 +145,12 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
   if (!isActive.value) return
   if (pageInfo.lock) return
   pageInfo.lock = true
-  // 获取数据
   return getPhotos(index || pageInfo.pageIndex, pageSize || pageInfo.pageSize, {
     likedMode,
     albumId: album?._id,
     isDelete,
-    type: 'video'
+    type: 'audio'
   }).then(res => {
-    // 如果是刷新操作，清空现有列表
     if (isRefresh) {
       photoList.length = 0
       existPhotoMap.clear()
@@ -167,29 +158,22 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
     }
 
     let addCount = 0
-    // 数据去重
     res.forEach(v => {
       if (addPhoto2List(v)) {
         addCount += 1
       }
     })
     showEmpty.value = photoList.length === 0
-    // 按时间排个序
     photoList.sort((a, b) => {
       return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
     })
 
-    // 更新缓存
     saveCache()
-    // 指定页码时不做额外操作
     if (index || pageSize) {
-      // 检查是否已经没有更多数据了（当前页数据不满pageSize）
       if (res.length < (pageSize || pageInfo.pageSize)) {
         hasMoreData.value = false
       } else {
-        // 如果重新加载了第一页，且数据满了，说明可能还有更多数据
         hasMoreData.value = true
-        // 修正页码：如果是重置加载（如下拉刷新），重置为下一页
         if (index === 1 || isRefresh) {
           pageInfo.pageIndex = 2
         }
@@ -198,12 +182,9 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
     }
 
     if (res.length < pageInfo.pageSize) {
-      // 返回数据少于 pageSize，说明没有更多数据了
       hasMoreData.value = false
-      // 仍然增加页码，避免重复请求当前页（虽然没有更多了，但逻辑上当前页已加载）
       pageInfo.pageIndex += 1
     } else {
-      // 数据够了，增加页码以便下次加载下一页
       pageInfo.pageIndex += 1
       hasMoreData.value = true
     }
@@ -212,32 +193,26 @@ const loadNext = async (index = 0, pageSize = 0, isRefresh = false) => {
   })
 }
 
-// 手动加载更多
 const handleLoadMore = async () => {
   if (!hasMoreData.value || pageInfo.lock) return
   await loadNext()
 }
 
-// 滚动监听已在上面实现
 onUnmounted(() => {
-  // 组件卸载时清理事件监听器
   unregisterScrollListener()
   cleanupProgressListener()
 })
-// 滚动事件监听
 const checkScrollBottom = () => {
   if (!isActive.value) return
   if (!containerRef.value) return
 
   const { scrollTop, clientHeight, scrollHeight } = containerRef.value
 
-  // 距离半个屏幕就触发
   if (scrollTop + clientHeight >= scrollHeight - clientHeight / 3) {
     loadNext()
   }
 }
 
-// 根据页面活动状态注册/取消事件监听
 let scrollListener: (() => void) | null = null
 
 const registerScrollListener = () => {
@@ -260,63 +235,15 @@ const unregisterScrollListener = () => {
   }
 }
 
-// 监听页面活动状态
 watch(isActive, async (active) => {
   if (active) {
-    // 如果列表为空，尝试加载缓存
     if (photoList.length === 0) {
       const restored = await loadCache()
       if (!restored) {
         loadNext()
       }
-    } else {
-      // 已有数据（可能是从详情页返回），不重新加载，但可能需要检查更新？
-      // 这里保持原有逻辑，原有逻辑是直接 loadNext() 吗？
-      // 原有逻辑：
-      // loadNext()
-      // registerScrollListener()
-
-      // 如果我们保留了数据，再次激活时是否需要 loadNext?
-      // 通常 keep-alive 激活时不需要重新加载第一页，除非为了刷新数据。
-      // 原有逻辑在 active 为 true 时调用了 loadNext()，这可能会导致重复请求第一页（如果 pageIndex 没变）或者请求下一页？
-      // 让我们看下 loadNext 实现：如果 index/pageSize 未传，使用 pageInfo.pageIndex。
-      // 如果之前加载到了第 3 页，再次激活时会请求第 3 页。这可能不是想要的行为（可能是想刷新或者保持不动）。
-
-      // 假设原有逻辑是合理的（虽然看起来有点怪），我们尽量保持兼容。
-      // 但为了利用缓存且避免闪烁，如果已经有数据，我们就不自动 loadNext 了？
-      // 或者，如果已经有数据，我们静默刷新？
-
-      // 鉴于用户需求是“首次快速加载，不用重复发起请求”，
-      // 我们可以认为：如果 photoList 有数据（无论是缓存恢复的还是内存中保留的），就不必立即 loadNext。
-      // 但为了数据新鲜度，可能需要后台静默更新。
-
-      // 让我们修改逻辑：
-      // 1. 如果没数据 -> loadCache -> 成功则显示缓存 -> 失败则 loadNext
-      // 2. 如果有数据 -> 可能是内存中的 -> 不做操作（或者根据需求刷新）
-
-      // 原有逻辑是：
-      // loadNext()
-      // 这意味着每次 activated 都会请求一次数据。
-      // 结合 loadNext 内部逻辑：
-      // getPhotos(index || pageInfo.pageIndex, ...)
-      // 如果 pageIndex 已经增加了，这会请求“当前页”。
-
-      // 我们调整为：只有当没有数据时，或者缓存失效时，才发起请求。
-      // 如果从缓存恢复了，就不请求了（除非用户手动下拉刷新）。
-      // 如果内存里有数据，也不请求了。
-
-      // 但是，如果用户在其他设备删除了照片，这里不刷新就看不到了。
-      // AlbumView 的逻辑是 20 分钟过期。
-      // 这里我们已经加了 loadCache 的 20 分钟过期检查。
-      // 所以如果 loadCache 成功，或者是内存数据，我们可以暂不刷新，或者静默刷新。
-
-      // 为了严格遵循“不用重复发起请求”，我们仅在数据为空时尝试加载。
     }
 
-    // 修正：如果原有逻辑是每次都 loadNext，那可能是为了自动加载更多？
-    // 或者是因为 keep-alive 的行为？
-
-    // 如果我们只在 photoList 为空时加载：
     if (photoList.length === 0) {
       loadNext()
     }
@@ -329,10 +256,7 @@ watch(isActive, async (active) => {
 
 import { getLunarDate } from '@/lib/lunar';
 
-// 正式列表展示使用 computed 进行groupBy分组
 const showPhotoList = computed(() => {
-  // 按时间排个序
-  // 按照 category 进行分组
   return photoList.reduce<{ title: string, weekDay: string, lunarDate: string, photos: (Photo & { idx: number })[] }[]>((pre, cur, idx) => {
     const { category } = cur
     const existCategory = pre.find(v => v.title === category)
@@ -343,7 +267,6 @@ const showPhotoList = computed(() => {
     if (existCategory) {
       existCategory.photos.push(expandValue)
     } else {
-      // 解析周几
       const weekDayMap = ['日', '一', '二', '三', '四', '五', '六']
       const date = new Date(cur.lastModified);
       const weekDay = `星期${weekDayMap[date.getDay()]}`
@@ -366,14 +289,14 @@ const generateUploadInfo = (value: FileInfoItem) => {
   }
   const { exif, lastModified, file } = value
   const key = generateFileKey(value)
-  const name = file.name.replace(/\s+/g, '_') // 去除空格
+  const name = file.name.replace(/\s+/g, '_')
   const result = {
     key,
     name,
     lastModified,
     exif: pickEssentialExif(exif),
     size: file.size,
-    type: file.type,
+    type: file.type || 'audio/mpeg',
     likedMode,
     md5: value.md5,
     ...(album ? { albumId: [album._id] } : {})
@@ -389,7 +312,7 @@ const addWaitUploadList = (fileInfo: FileInfoItem) => {
   const temp = {
     key,
     url: fileInfo.objectUrl,
-    cover: (fileInfo as any).cover,
+    name: (fileInfo.file as any)?.name,
     status: fileInfo.repeat ? UploadStatus.DUPLICATE : UploadStatus.PENDING,
     progress: 0,
   }
@@ -404,14 +327,11 @@ const uploadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, for
   const key = uploadInfo.key
   const { file } = fileInfo
 
-  // 获取到上传列表里对应项
   const wrapperItem = waitUploadList.find(v => v.key === key)!
 
-  // 列表里重复的情况
   if (!forceUpload && wrapperItem.status === UploadStatus.DUPLICATE) {
     return
   }
-  // MD5判断是否重复，重复则先不上传做提示
   if (!forceUpload && uploadInfo.md5) {
     try {
       const duplicateResult = await checkDuplicateByMd5(uploadInfo.md5)
@@ -428,17 +348,13 @@ const uploadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, for
         type: 'danger',
         message: `检查MD5重复失败: ${error}`
       })
-      // 检查失败时继续上传流程
     }
   }
 
-  // 准备上传
   wrapperItem.status = UploadStatus.UPLOADING
 
-  // 获取上传链接
   const uploadUrl = await getUploadUrl(key)
 
-  // 触发上传
   try {
     if ((fileInfo as any).filePath && isTauri) {
       await invoke('upload_file', {
@@ -452,24 +368,18 @@ const uploadOneFile = async (fileInfo: FileInfoItem, uploadInfo: UploadInfo, for
       })
     }
 
-    // 数据落库
     const result = await addFileInfo(uploadInfo)
 
-    // 空相册首次上传
     if (!photoList.length) {
       albumPhotoStore?.refreshAlbum?.()
     }
 
-    // 优先展示临时资源链接，避免闪烁（会导致缓存数据异常）
-    // result.cover = wrapperItem.url
-    // 正式列表数据更新
     if (addPhoto2List(result)) {
       photoList.sort((a, b) => +new Date(b.lastModified) - +new Date(a.lastModified))
     }
     saveCache()
     wrapperItem.status = UploadStatus.SUCCESS
 
-    // 移除map中的数据
     uploadInfoMap.delete(fileInfo)
     uploadValueMap.delete(key)
   } catch (err) {
@@ -491,9 +401,8 @@ const startUpload = async (values: FileInfoItem[]) => {
   for (const value of values) {
     limit(async () => {
       try {
-        // Tauri 环境下，如果有 filePath 且没有实际文件内容
         if (isTauri && value.filePath) {
-          const uploadInfo = await parseNativeVideoFileUploadInfo(value.filePath)
+          const uploadInfo = await parseNativeAudioFileUploadInfo(value.filePath)
           if (!uploadInfo) {
             showNotify({
               type: 'danger',
@@ -504,9 +413,8 @@ const startUpload = async (values: FileInfoItem[]) => {
           Object.assign(value, uploadInfo)
         }
 
-        await ensureVideoUploadInfo(value)
+        await ensureAudioUploadInfo(value)
 
-        // 本地MD5重复检测
         const existingUploadInfo = Array.from(uploadInfoMap.values()).find(info => info.md5 === value.md5)
         if (existingUploadInfo) {
           value.repeat = true
@@ -516,13 +424,10 @@ const startUpload = async (values: FileInfoItem[]) => {
           })
         }
 
-        // 加入待上传列表，同时支持列表里展示
         addWaitUploadList(value)
 
-        // 生成上传信息
         const info = generateUploadInfo(value)
 
-        // 记录开始上传的文件原始信息，重传使用
         uploadValueMap.set(info.key, value)
 
         await uploadOneFile(value, info)
@@ -584,7 +489,7 @@ const handleRetryAll = () => {
   })
 }
 
-const reUpload = (item: { key: string, url: string, cover?: string, status: UploadStatus, progress?: number }) => {
+const reUpload = (item: { key: string, url: string, status: UploadStatus, progress?: number }) => {
   item.status = UploadStatus.PENDING
   item.progress = 0
   const fileInfo = uploadValueMap.get(item.key)
@@ -593,19 +498,15 @@ const reUpload = (item: { key: string, url: string, cover?: string, status: Uplo
   }
 }
 
-// 删除重复文件
-const removeDuplicateFile = (item: { key: string, url: string, cover?: string, status: UploadStatus, progress?: number }) => {
-  // 从待上传列表中移除
+const removeDuplicateFile = (item: { key: string, url: string, status: UploadStatus, progress?: number }) => {
   const index = waitUploadList.findIndex(upload => upload.key === item.key)
   if (index !== -1) {
     waitUploadList.splice(index, 1)
   }
 
-  // 清理相关数据
   uploadInfoMap.delete(uploadValueMap.get(item.key)!)
   uploadValueMap.delete(item.key)
 
-  // 释放对象URL
   if (item.url) {
     URL.revokeObjectURL(item.url)
   }
@@ -613,25 +514,18 @@ const removeDuplicateFile = (item: { key: string, url: string, cover?: string, s
   showNotify({ type: 'success', message: '已删除重复文件' })
 }
 
-// 强制上传重复文件
-const forceUpload = (item: { key: string, url: string, cover?: string, status: UploadStatus, progress?: number }) => {
+const forceUpload = (item: { key: string, url: string, status: UploadStatus, progress?: number }) => {
   item.status = UploadStatus.PENDING
   item.progress = 0
 
   const fileInfo = uploadValueMap.get(item.key)
   if (fileInfo) {
-    // 重新生成上传信息，跳过重复检测
     const info = generateUploadInfo(fileInfo)
-    limit(() => uploadOneFile(fileInfo, info, true)) // 添加强制上传标志
+    limit(() => uploadOneFile(fileInfo, info, true))
   }
 }
 
-const previewDuplicate = (item: { url: string, cover?: string }) => {
-  showImagePreview([item.cover || item.url])
-}
-
 const afterRead = (files: any) => {
-  // 解析获取图片信息
   const fileInfoList = [files].flat().map(value => {
     const { file, objectUrl } = value
     return {
@@ -663,10 +557,8 @@ const editData = reactive({
 const showAlbumSelect = ref(false)
 const selectedAlbums = ref<string[]>([])
 
-// TODO：相册中的照片删除逻辑？
 const handleSaveAlbumSelect = async (albumIds: string[]) => {
   await updatePhotosAlbums(editData.selectIds, albumIds)
-  // 更新相册数据
   const selectPhotos = photoList.filter(v => editData.selectIds.includes(v._id))
   selectPhotos.forEach(v => {
     albumIds.forEach(id => {
@@ -688,13 +580,13 @@ const cancelEditMode = () => {
 
 const handleDeletePhotos = async () => {
   if (!editData.selectIds.length) {
-    showNotify({ type: 'warning', message: '请选择要删除的视频' });
+    showNotify({ type: 'warning', message: '请选择要删除的音频' });
     return
   }
   const confirmed = await showConfirmDialog({
     title: '删除确认',
     message:
-      `确定要删除这${editData.selectIds.length}个视频吗？`,
+      `确定要删除这${editData.selectIds.length}个音频吗？`,
   })
     .then(() => {
       return true;
@@ -708,7 +600,6 @@ const handleDeletePhotos = async () => {
 
   await deletePhotos(editData.selectIds)
 
-  // 更新相册数据
   editData.selectIds.forEach(v => {
     deletePhoto(v)
   })
@@ -722,14 +613,14 @@ const handleRestorePhotos = async (ids: string[] = []) => {
     editData.selectIds = ids
   }
   if (!editData.selectIds.length) {
-    showNotify({ type: 'warning', message: '请选择要恢复的视频' });
+    showNotify({ type: 'warning', message: '请选择要恢复的音频' });
     return
   }
 
   const confirmed = await showConfirmDialog({
     title: '恢复确认',
     message:
-      `确定要恢复这${editData.selectIds.length}个视频吗？`,
+      `确定要恢复这${editData.selectIds.length}个音频吗？`,
   })
     .then(() => {
       return true;
@@ -743,7 +634,6 @@ const handleRestorePhotos = async (ids: string[] = []) => {
 
   await restorePhotos(editData.selectIds)
   showNotify({ type: 'success', message: '恢复成功' });
-  // 更新本地相册数据
   editData.selectIds.forEach(v => {
     deletePhoto(v)
   })
@@ -767,11 +657,6 @@ const menus = computed(() => {
   }
 
   return [
-    // {
-    //   icon: 'star-o',
-    //   text: '添加相册',
-    //   handleClick: handleAddAlbum
-    // },
     {
       icon: 'delete-o',
       text: '删除',
@@ -816,14 +701,12 @@ const pullRefresh = () => {
     })
 }
 
-// provide
 const deletePhoto = (id: string) => {
   const deleteIndex = photoList.findIndex(v => v._id === id)
   if (deleteIndex !== -1) {
     existPhotoMap.delete(photoList[deleteIndex].key)
     photoList.splice(deleteIndex, 1)
 
-    // 展示空文案
     if (photoList.length === 0) {
       showEmpty.value = true
     }
@@ -843,8 +726,8 @@ const handleOpenFile = async () => {
   const selected = await open({
     multiple: true,
     filters: [{
-      name: 'Video',
-      extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm']
+      name: 'Audio',
+      extensions: ['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg', 'opus', 'oga']
     }]
   });
 
@@ -871,7 +754,6 @@ const handleOpenFile = async () => {
       <main>
         <slot name="header"></slot>
         <van-empty v-if="!photoList.length && showEmpty && !showUploadList.length" description="空空如也，快去添加吧" />
-        <!-- 待上传列表 -->
         <div v-if="showUploadList.length > 0" class="upload-list-header">
            <span class="upload-title">正在上传 ({{ showUploadList.length }})</span>
            <div class="upload-actions" v-if="hasErrorUploads">
@@ -881,17 +763,13 @@ const handleOpenFile = async () => {
         </div>
         <van-grid v-if="showUploadList.length > 0" :border="false" square>
           <van-grid-item v-for="item in showUploadList" :key="item.key" class="img-border">
-            <VideoCell :src="item.url" :cover="item.cover">
-              <!-- 等待中 -->
+            <AudioCell :src="item.url" :name="item.name">
               <div v-if="item.status === UploadStatus.PENDING" class="upload-mask">等待上传</div>
-              <!-- 上传中 -->
               <div v-if="item.status === UploadStatus.UPLOADING" class="upload-mask">
                 上传中 {{ item.progress || 0 }}%
               </div>
-              <!-- TODO：添加删除逻辑 -->
-              <!-- 重复 -->
               <div v-else-if="item.status === UploadStatus.DUPLICATE" class="duplicate-mask">
-                <div class="duplicate-info" @click.stop="previewDuplicate(item)">
+                <div class="duplicate-info">
                   <van-icon name="warning" />
                   <span>文件重复</span>
                 </div>
@@ -900,14 +778,12 @@ const handleOpenFile = async () => {
                   <van-button size="mini" type="primary" @click="forceUpload(item)">上传</van-button>
                 </div>
               </div>
-              <!-- 失败 -->
               <div @click="reUpload(item)" v-else-if="item.status === UploadStatus.ERROR" class="error-mask">上传失败
                 <van-icon name="replay" />
               </div>
-            </VideoCell>
+            </AudioCell>
           </van-grid-item>
         </van-grid>
-        <!-- 正常列表 -->
         <van-checkbox-group v-model="editData.selectIds">
           <template v-for="{ title, photos, weekDay, lunarDate } in showPhotoList" :key="title">
             <h2 class="photo-group-header">
@@ -920,7 +796,7 @@ const handleOpenFile = async () => {
             </h2>
             <van-grid :border="false" square>
               <van-grid-item v-for="item in photos" :key="item.key" class="img-border">
-                <VideoCell @click="previewImage(item.idx)" :src="item.url" :cover="item.cover"
+                <AudioCell @click="previewImage(item.idx)" :src="item.url" :name="item.name"
                   @longpress="handleLongPress(item.idx)" />
                 <van-checkbox v-if="editData.active" :ref="el => checkboxRefs[item.idx] = el" :name="item._id"
                   class="editSelected" />
@@ -928,8 +804,6 @@ const handleOpenFile = async () => {
             </van-grid>
           </template>
         </van-checkbox-group>
-        <!-- 空白块，用于触发列表滚动加载 -->
-        <!-- 加载更多按钮 -->
         <div class="load-more-container" v-if="!showEmpty && photoList.length > 0">
           <van-button v-if="hasMoreData" @click="handleLoadMore" :loading="pageInfo.lock" type="default" size="small"
             class="load-more-btn">
@@ -940,7 +814,6 @@ const handleOpenFile = async () => {
         <div class="block"></div>
       </main>
     </van-pull-refresh>
-    <!-- 回到顶部 -->
     <van-back-top :bottom="'calc(var(--footer-area-height) + 48px)'" :right="20" :style="{
       '--van-back-top-icon-size': '16px',
       '--van-back-top-size': '36px',
@@ -952,22 +825,18 @@ const handleOpenFile = async () => {
           {{ pendingCount }}
         </div>
       </van-button>
-      <!-- 上传 -->
-      <van-uploader v-else class="upload-container" :after-read="afterRead" multiple accept="video/*">
+      <van-uploader v-else class="upload-container" :after-read="afterRead" multiple accept="audio/*">
         <van-icon name="plus" size="16" />
         <div v-if="pendingCount > 0" class="upload-count-badge">
           {{ pendingCount }}
         </div>
       </van-uploader>
     </template>
-    <!-- 视频预览 -->
-    <PreviewVideo :is-delete="isDelete" :album="album" v-model:show="showPreview" :images="photoList"
+    <PreviewAudio :is-delete="isDelete" :album="album" v-model:show="showPreview" :images="photoList"
       :start="startPosition" />
-    <!-- 底部操作栏 -->
     <transition name="van-slide-up">
       <BottomActions style="z-index: 11" :menus="menus" v-show="editData.active" />
     </transition>
-    <!-- 选择相册 -->
     <SelectAlbumModal v-model:show="showAlbumSelect" @save="handleSaveAlbumSelect" :current-album-id="album?._id"
       :selected="selectedAlbums" />
   </div>
@@ -986,7 +855,7 @@ const handleOpenFile = async () => {
   .upload-title {
     font-weight: 500;
   }
-  
+
   .upload-actions {
     display: flex;
     align-items: center;

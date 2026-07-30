@@ -1,43 +1,27 @@
 <template>
-  <van-overlay :show="show" @click="handleOverlayClose" :class="['video-preview-overlay', { 'chrome-visible': showMoreOperate }]" z-index="2000">
-    <div class="video-preview-container" @click.self="handleOverlayTap">
-      <van-swipe ref="swipeRef" :initial-swipe="start" @change="onChange" :loop="false" class="video-swipe"
-        :show-indicators="false" :touchable="!isDesktop">
-        <van-swipe-item v-for="(item, index) in images" :key="item._id" class="video-swipe-item" @click.self="handleOverlayTap">
-          <div class="video-wrapper" @click.self="handleOverlayTap">
-            <video v-if="shouldRender(index)" :ref="(el) => setVideoRef(el, index)" :src="item.url"
-              :controls="!isDesktop && showMoreOperate === false"
-              playsinline webkit-playsinline preload="metadata" class="video-player"
-              :poster="item.cover"
-              @click.stop="handleVideoTap"
-              @play="handleVideoPlay"
-              @pause="handleVideoPause"
-              @error="handleVideoError(index, $event)"
-              @loadedmetadata="handleVideoLoaded(index)">
-              您的浏览器不支持视频播放。
-            </video>
-            <!-- 桌面端自定义中央播放按钮，仅在暂停时展示 -->
-            <button
-              v-if="isDesktop && index === currentIdx && !isPlaying"
-              class="video-center-play"
-              type="button"
-              aria-label="播放视频"
-              @click.stop="handleVideoTap"
+  <van-overlay :show="show" @click="close" :class="['audio-preview-overlay', { 'chrome-visible': showMoreOperate }]" z-index="2000">
+    <div class="audio-preview-container" @click="handleOverlayTap">
+      <van-swipe ref="swipeRef" :initial-swipe="start" @change="onChange" :loop="false" class="audio-swipe"
+        :show-indicators="false">
+        <van-swipe-item v-for="(item, index) in images" :key="item._id" class="audio-swipe-item">
+          <div class="audio-wrapper" @click.stop>
+            <div class="audio-visual">
+              <van-icon name="music-o" :size="isDesktop ? 128 : 96" color="#fff" />
+              <div class="audio-title" v-if="item.name">{{ item.name }}</div>
+            </div>
+            <audio
+              v-if="shouldRender(index)"
+              :ref="(el) => setAudioRef(el, index)"
+              controls
+              preload="metadata"
+              class="audio-player"
             >
-              <van-icon name="play" size="36" />
-            </button>
+              <source :src="item.url" :type="item.type || 'audio/mpeg'">
+              您的浏览器不支持音频播放。
+            </audio>
           </div>
         </van-swipe-item>
       </van-swipe>
-      <!-- 移动端：工具条可见时的整层点击拦截，用于点击视频区域隐藏工具条 -->
-      <button
-        v-show="showMoreOperate && !isDesktop"
-        class="video-tap-layer"
-        type="button"
-        aria-label="隐藏视频工具栏"
-        @click.stop="handleVideoTap"
-        @pointerup.stop="handleVideoTap"
-      ></button>
 
       <!-- 顶部操作栏 -->
       <transition name="slide-down">
@@ -58,8 +42,6 @@
             </div>
 
             <div class="header-actions">
-              <van-icon v-show="showSetCover" class="set-cover-icon" @click.stop="handleSetCover" name="bookmark-o"
-                size="24" />
               <van-icon @click.stop="handleEditDescription" :name="editMode ? 'chat' : 'chat-o'" class="message-icon"
                 size="24" />
               <van-icon @click.stop="showInfoDetail = !showInfoDetail" :name="showInfoDetail ? 'more' : 'more-o'"
@@ -68,8 +50,7 @@
 
           </header>
           <div v-show="showInfoDetail" class="cover-info">
-            <van-cell title="视频信息" :value="filesize" :label="activeItem.name" />
-            <van-cell title="分辨率" :value="fileWH" />
+            <van-cell title="音频信息" :value="filesize" :label="activeItem.name" />
             <van-cell title="格式" :value="fileType" />
           </div>
 
@@ -78,7 +59,7 @@
           </div>
           <div v-show="editMode" class="edit-description">
             <van-field ref="descriptionInput" :border="false" show-word-limit v-model="description" rows="6" autosize
-              type="textarea" maxlength="1000" placeholder="视频背后的故事" />
+              type="textarea" maxlength="1000" placeholder="音频背后的故事" />
             <van-row class="edit-btns">
               <van-col offset="10" span="3">
                 <van-button size="mini" type="primary" @click="editMode = false">取消</van-button>
@@ -108,7 +89,6 @@
         @select="handleSpeedSelect"
       />
 
-      <!-- 选择相册 -->
       <SelectAlbumModal v-model:show="showAlbumSelect" @save="handleSaveAlbumSelect" :current-album-id="album?._id"
         :selected="selectedAlbums" />
     </div>
@@ -119,11 +99,11 @@
 import { useAlbumPhotoStore } from '@/composables/albumphoto';
 import { usePhotoListStore } from '@/composables/photoList';
 import { downloadFile, formatSize, generateDownloadFileName } from '@/lib/file';
-import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePhotoAlbum } from '@/service';
+import { deletePhoto, updateDescription, updatePhotoAlbum } from '@/service';
 import dayjs from 'dayjs';
 import { showConfirmDialog, showNotify, showLoadingToast, closeToast } from 'vant';
 import { computed, nextTick, ref, watch } from 'vue';
-import { useRoute, onBeforeRouteLeave } from 'vue-router';
+import { onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import BottomActions from '../BottomActions/BottomActions.vue';
 import { preventBack } from '@/lib/router';
@@ -143,152 +123,66 @@ const swipeRef = ref()
 const showMoreOperate = ref(true)
 const showSpeedSheet = ref(false)
 const playbackRate = ref(1)
-const lastVideoTapAt = ref(0)
-const lastOverlayTapAt = ref(0)
-const isPlaying = ref(false)
-const videoRefs = new Map<number, HTMLVideoElement>()
+const audioRefs = new Map<number, HTMLAudioElement>()
 const isDesktop = useMediaQuery('(min-width: 480px)')
 preventBack(showSpeedSheet)
 
 watch(() => props.start, (val) => {
   currentIdx.value = val || 0
-  // 如果 swipeRef 存在，跳转到指定位置
   if (swipeRef.value && show.value) {
     swipeRef.value.swipeTo(val, { immediate: true })
   }
 })
 
-watch(show, (val) => {
-  if (val) {
-    showMoreOperate.value = true
-    isPlaying.value = false
-  } else {
-    isPlaying.value = false
-  }
-})
-
-// 只渲染当前视频，避免 v-if 频繁切换导致的 ERR_ABORTED 请求中断
 const shouldRender = (index: number) => {
-  return index === currentIdx.value
+  return Math.abs(index - currentIdx.value) <= 1
 }
 
 const onChange = (index: number) => {
-  const prev = activeVideo()
-  if (prev && !prev.paused) {
-    prev.pause?.()
-  }
+  // 切换时暂停前一个
+  activeAudio()?.pause?.()
   currentIdx.value = index
   editMode.value = false
   showInfoDetail.value = false
-  isPlaying.value = false
-  showMoreOperate.value = true
   nextTick(() => applyPlaybackRate())
 }
 
-const hideControls = () => {
-  if (!showMoreOperate.value) return
-  showMoreOperate.value = false
-  showInfoDetail.value = false
-  editMode.value = false
+const setAudioRef = (el: Element | any, index: number) => {
+  if (el instanceof HTMLAudioElement) {
+    audioRefs.set(index, el)
+    el.playbackRate = playbackRate.value
+    return
+  }
+  audioRefs.delete(index)
 }
 
-const showControls = () => {
-  if (showMoreOperate.value) return
-  showMoreOperate.value = true
-}
+const activeAudio = () => audioRefs.get(currentIdx.value)
 
-const handleVideoPlay = () => {
-  isPlaying.value = true
-  // 播放时隐藏工具条
-  hideControls()
-}
-
-const handleVideoPause = () => {
-  isPlaying.value = false
-  // 暂停时显示工具条
-  showControls()
-}
-
-const handleVideoError = (index: number, event: Event) => {
-  const target = event.target as HTMLVideoElement | null
-  const err = target?.error
-  console.error('[PreviewVideo] video error', {
-    index,
-    url: props.images?.[index]?.url,
-    type: props.images?.[index]?.type,
-    code: err?.code,
-    message: err?.message,
-  })
-  showNotify({ type: 'danger', message: `视频加载失败${err?.code ? ` (code ${err.code})` : ''}` })
-}
-
-const handleVideoLoaded = (index: number) => {
-  if (index !== currentIdx.value) return
-  applyPlaybackRate()
-}
-
-// 点击视频区域：切换 play/pause（同时联动工具条）
-const handleVideoTap = () => {
-  const now = Date.now()
-  if (now - lastVideoTapAt.value < 180) return
-  lastVideoTapAt.value = now
-
-  if (isDesktopBusy()) return
-
-  const video = activeVideo()
-  if (!video) return
-
-  if (video.paused) {
-    const result = video.play?.()
-    if (result && typeof result.catch === 'function') {
-      result.catch(() => {
-        showControls()
-      })
-    }
-  } else {
-    video.pause?.()
+const applyPlaybackRate = () => {
+  const audio = activeAudio()
+  if (audio) {
+    audio.playbackRate = playbackRate.value
   }
 }
 
 const togglePlayback = () => {
-  handleVideoTap()
-}
-
-// 点击遮罩（视频外区域）：仅切换工具条，不影响播放
-const handleOverlayTap = (event?: Event) => {
-  if (isDesktopBusy()) return
-  if (event && event.target instanceof HTMLVideoElement) return
-  const now = Date.now()
-  if (now - lastOverlayTapAt.value < 180) return
-  lastOverlayTapAt.value = now
-  if (showMoreOperate.value) {
-    hideControls()
+  const audio = activeAudio()
+  if (!audio) return
+  if (audio.paused) {
+    const result = audio.play?.()
+    if (result && typeof result.catch === 'function') {
+      result.catch(() => {})
+    }
   } else {
-    showControls()
+    audio.pause?.()
   }
 }
 
-const handleOverlayClose = () => {
-  if (isDesktop.value) return
+const handleOverlayTap = (event: Event) => {
+  if (!isDesktop.value) return
+  if (isDesktopBusy()) return
+  event.stopPropagation()
   close()
-}
-
-const setVideoRef = (el: Element | any, index: number) => {
-  if (el instanceof HTMLVideoElement) {
-    videoRefs.set(index, el)
-    el.playbackRate = playbackRate.value
-    return
-  }
-  videoRefs.delete(index)
-}
-
-const activeVideo = () => videoRefs.get(currentIdx.value)
-
-const applyPlaybackRate = () => {
-  const video = activeVideo()
-  if (video) {
-    video.playbackRate = playbackRate.value
-  }
 }
 
 const openSpeedSheet = () => {
@@ -313,7 +207,6 @@ const activeItem = computed(() => props.images[currentIdx.value] || {})
 
 import { getLunarDate } from '@/lib/lunar';
 
-// Information Computed Props
 const coverDate = computed(() => activeItem.value.lastModified ? dayjs(activeItem.value.lastModified).format('YYYY年MM月DD日') : '')
 const coverTime = computed(() => activeItem.value.lastModified ? dayjs(activeItem.value.lastModified).format('HH:mm') : '')
 const weekDay = computed(() => {
@@ -328,10 +221,6 @@ const lunarDate = computed(() => {
   return getLunarDate(date);
 })
 const filesize = computed(() => formatSize(activeItem.value.size))
-const fileWH = computed(() => {
-  const { width, height } = activeItem.value
-  return `${width} x ${height}`
-})
 const fileType = computed(() => {
   const { type, fileType } = activeItem.value
   if(!fileType) return type
@@ -363,32 +252,14 @@ const handleSaveDescription = () => {
   })
 }
 
-const handleUpdateLike = () => {
-  updateLike(activeItem.value._id).then(() => {
-    const nextLiked = !activeItem.value.isLiked
-    activeItem.value.isLiked = nextLiked
-    photoListStore?.updateLiked?.(activeItem.value._id, nextLiked)
-  })
-}
-
 const showAlbumSelect = ref(false)
 const selectedAlbums = ref<string[]>([])
-
-const handleAddAlbum = async () => {
-  showAlbumSelect.value = true
-  if (activeItem.value.albumId?.length) {
-    selectedAlbums.value = [...activeItem.value.albumId]
-  } else {
-    selectedAlbums.value = []
-  }
-}
 
 const photoListStore = usePhotoListStore()
 const albumPhotoStore = useAlbumPhotoStore()
 
 const removePhotoFromList = (id: string) => {
   photoListStore?.deletePhoto?.(id)
-  // 通知上层刷新相册信息
   albumPhotoStore?.refreshAlbum?.()
   if (photoListStore?.isEmpty?.value) {
     show.value = false
@@ -399,7 +270,6 @@ const handleSaveAlbumSelect = async (albumIds: string[]) => {
   await updatePhotoAlbum(activeItem.value._id, albumIds)
   activeItem.value.albumId = albumIds
   showAlbumSelect.value = false
-  // 判断是否从当前相册移除
   if (props.album?._id && !albumIds.includes(props.album?._id)) {
     removePhotoFromList(activeItem.value._id)
   }
@@ -407,26 +277,10 @@ const handleSaveAlbumSelect = async (albumIds: string[]) => {
   showNotify({ type: 'success', message: '更改成功' });
 }
 
-// 设置封面
-const route = useRoute()
-const isAlbumPage = computed(() => albumPhotoStore && route.name === 'album-photo')
-const showSetCover = computed(() => isAlbumPage.value && activeItem.value.key !== props.album?.coverKey)
-const handleSetCover = () => {
-  if (!props.album) {
-    return
-  }
-  updateAlbumCover(props.album?._id, activeItem.value.key).then(() => {
-    showNotify({ type: 'success', message: '封面更新成功' });
-    // 通知上层封面刷新
-    albumPhotoStore?.refreshAlbum?.()
-  })
-}
-
-// 删除视频
 const handleDeleteImage = async () => {
   const confirmed = await showConfirmDialog({
     title: '删除确认',
-    message: '确定要删除这个视频吗？',
+    message: '确定要删除这个音频吗？',
   })
     .then(() => true)
     .catch(() => false);
@@ -459,7 +313,7 @@ const downloadImage = () => {
 
 const close = () => {
   showSpeedSheet.value = false
-  activeVideo()?.pause?.()
+  activeAudio()?.pause?.()
   show.value = false
 }
 
@@ -549,23 +403,11 @@ const menus = computed(() => {
   }
   return [
     speedMenu,
-    // {
-    //   icon: activeItem.value.isLiked ? 'like' : 'like-o',
-    //   text: '我喜欢',
-    //   handleClick: handleUpdateLike,
-    //   activeColor: activeItem.value.isLiked ? '#f53f3f' : '#000',
-    //   active: activeItem.value.isLiked
-    // },
     {
       icon: 'delete-o',
       text: '删除',
       handleClick: handleDeleteImage
     },
-    // {
-    //   icon: 'star-o',
-    //   text: '添加相册',
-    //   handleClick: handleAddAlbum
-    // },
     {
       icon: 'down',
       text: '下载',
@@ -577,7 +419,8 @@ const menus = computed(() => {
 </script>
 
 <style scoped lang="scss">
-// 自定义过渡动画
+@use '@/styles/breakpoints.scss' as *;
+
 .slide-up-enter-active,
 .slide-up-leave-active {
   transition: transform 0.3s ease-out, opacity 0.3s ease-out;
@@ -589,7 +432,6 @@ const menus = computed(() => {
   opacity: 0;
 }
 
-// 确保默认状态
 .slide-up-enter-to,
 .slide-up-leave-from {
   transform: translateY(0);
@@ -613,48 +455,27 @@ const menus = computed(() => {
   opacity: 1;
 }
 
-.video-preview-overlay {
-  background-color: #000;
+.audio-preview-overlay {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   display: flex;
   flex-direction: column;
-  transition: background-color 0.3s ease;
-  --video-chrome-bg: #fff;
-  --video-chrome-text: #20242b;
-  --video-chrome-subtext: #7d8795;
+  --audio-chrome-bg: #fff;
+  --audio-chrome-text: #20242b;
+  --audio-chrome-subtext: #7d8795;
 }
 
-.video-preview-container {
+.audio-preview-container {
   width: 100%;
   height: 100%;
   position: relative;
 }
 
-.show-detail {
-  // 当显示操作栏时，让 overlay 背景变白
-  // 但注意 .video-preview-overlay 是父级，这里我们在子级上加 class 只能控制子级样式
-  // 或者通过 :class 控制 overlay 的样式。
-  // 不过 PreviewImage 是通过 ::v-deep 控制 van-image-preview__overlay。
-  // 这里我们是自己写的 van-overlay。
-  // 实际上 van-overlay 的背景色是在 .video-preview-overlay 设置的。
-  // 我们可以通过 js 控制 overlay 的 style，或者...
-  // 由于 video-preview-container 是 overlay 的 slot 内容，无法直接改变父级样式。
-  // 简单方案：overlay 背景设为透明，而在 container 里放一个 absolute 的背景层，或者...
-  // 其实 PreviewImage 的实现里 .show-detail 是加在 wrapper 上的，然后修改了 CSS 变量 --van-image-preview-overlay-background
-
-  // 对于视频，背景变白可能导致视频画面上下黑边变白条（如果视频没填满）。
-  // 但用户要求“默认底色为白色”。
-}
-
-// 修正：我们需要把 show-detail 类加在 overlay 或者动态绑定 style。
-// 鉴于 Template 结构，我们在 van-overlay 上直接绑定 class 可能更方便，但 van-overlay 的 slot 是内容。
-// 我们可以把 .video-preview-overlay 改为 :class="['video-preview-overlay', { 'white-bg': showMoreOperate }]"
-
-.video-swipe {
+.audio-swipe {
   width: 100%;
   height: 100%;
 }
 
-.video-swipe-item {
+.audio-swipe-item {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -662,59 +483,44 @@ const menus = computed(() => {
   height: 100%;
 }
 
-.video-wrapper {
+.audio-wrapper {
   position: relative;
   width: 100%;
   height: 100%;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+  gap: 32px;
+  padding: 40px 20px;
+  box-sizing: border-box;
 }
 
-.video-player {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  display: block;
-  object-fit: contain;
-}
-
-.video-tap-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  cursor: pointer;
-  background: transparent;
-}
-
-.video-center-play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 6;
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.55);
+.audio-visual {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   color: #fff;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
-  padding-left: 4px; // 视觉居中三角形
+  gap: 20px;
+  max-width: 90%;
 
-  &:hover {
-    background: rgba(0, 0, 0, 0.72);
-    transform: translate(-50%, -50%) scale(1.05);
+  .audio-title {
+    font-size: 15px;
+    line-height: 1.6;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.9);
+    word-break: break-all;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
+}
 
-  &:active {
-    transform: translate(-50%, -50%) scale(0.96);
-  }
+.audio-player {
+  width: min(90%, 640px);
+  outline: none;
 }
 
 .cover-wrapper {
@@ -723,9 +529,15 @@ const menus = computed(() => {
     left: 0;
     right: 0;
     z-index: 10;
-    pointer-events: none; // 让点击穿透，除非点在子元素上
-    background: var(--video-chrome-bg);
+    pointer-events: none;
+    background: var(--audio-chrome-bg);
     box-sizing: border-box;
+
+    @include desktop {
+      max-width: 1200px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
 }
 
 .cover-wrapper > * {
@@ -736,7 +548,7 @@ const menus = computed(() => {
   padding: 10px;
   transition: all 0.5s ease;
   background: transparent;
-  color: var(--video-chrome-text);
+  color: var(--audio-chrome-text);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -749,7 +561,7 @@ const menus = computed(() => {
       .back-icon {
           padding: 10px 10px 10px 0;
           margin-right: 5px;
-          color: var(--video-chrome-text);
+          color: var(--audio-chrome-text);
       }
       .header-text {
           min-width: 0;
@@ -757,12 +569,12 @@ const menus = computed(() => {
             margin: 0;
             font-size: 16px;
             font-weight: 500;
-            color: var(--video-chrome-text);
+            color: var(--audio-chrome-text);
 
             .week-day, .lunar-date {
                 font-size: 12px;
                 opacity: 0.8;
-                color: var(--video-chrome-subtext);
+                color: var(--audio-chrome-subtext);
             }
           }
 
@@ -771,10 +583,10 @@ const menus = computed(() => {
             font-size: 12px;
             font-weight: normal;
             opacity: 0.8;
-            color: var(--video-chrome-subtext);
+            color: var(--audio-chrome-subtext);
 
             .lunar-date {
-              color: var(--video-chrome-subtext);
+              color: var(--audio-chrome-subtext);
             }
           }
       }
@@ -788,7 +600,7 @@ const menus = computed(() => {
 
     .van-icon {
       margin-left: 20px;
-      color: var(--video-chrome-text);
+      color: var(--audio-chrome-text);
     }
   }
 }
@@ -835,12 +647,11 @@ const menus = computed(() => {
       background: rgba(255, 255, 255, 0.94);
       backdrop-filter: blur(12px);
     }
+
+    @include desktop {
+      max-width: 1200px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
 }
-
-// 适配 BottomActions 在深色背景下的显示，如果需要的话。
-// BottomActions 组件内部可能有自己的样式。如果它是白底的，在视频上会显示白底条。
-// PreviewImage 是白底的。这里为了“一致”，我们也应该接受白底，或者让 BottomActions 透明。
-// 通常视频应用底部操作栏是透明或半透明的。
-// 但为了严格的“功能一致”，我们先直接引用。
-
 </style>

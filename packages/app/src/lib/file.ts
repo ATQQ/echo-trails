@@ -669,6 +669,66 @@ export async function ensureVideoUploadInfo(value: Partial<FileInfoItem> & { fil
   return value as FileInfoItem
 }
 
+export async function parseNativeAudioFileUploadInfo(filePath: string) {
+  try {
+    const nativeInfo = await getNativeFileInfo(filePath)
+    const assetUrl = convertFileSrc(filePath)
+    const fileType = nativeInfo.fileType || 'audio/mpeg'
+
+    const lastModified = nativeInfo.lastModified || new Date().getTime()
+
+    const originalName = filePath2Name(filePath) || 'unknown'
+    const file = new File([], originalName, {
+      type: fileType,
+      lastModified: lastModified,
+    })
+
+    if (nativeInfo.size > 0) {
+      Object.defineProperty(file, 'size', { value: nativeInfo.size, writable: false })
+    }
+
+    const exif: any = {
+      'FileType': { value: fileType },
+    }
+
+    return {
+      file,
+      md5: nativeInfo.md5,
+      width: 0,
+      height: 0,
+      fileType,
+      lastModified,
+      date: new Date(lastModified),
+      objectUrl: assetUrl,
+      exif,
+    }
+  } catch (e) {
+    console.error('Failed to read audio file:', e)
+    return undefined
+  }
+}
+
+export async function ensureAudioUploadInfo(value: Partial<FileInfoItem> & { file: File }) {
+  const { file } = value
+
+  value.exif = value.exif || {}
+  if (!value.exif['FileType']) value.exif['FileType'] = { value: file.type }
+
+  if (!value.md5) {
+    value.md5 = (await getFileMd5Hash(file)) as string
+  }
+
+  value.width = value.width || 0
+  value.height = value.height || 0
+
+  if (!value.lastModified) {
+    value.lastModified = file.lastModified || Date.now()
+    value.date = new Date(value.lastModified)
+  }
+
+  return value as FileInfoItem
+}
+
 /**
  * Tauri / Desktop 端：调用 Rust 命令查找同名的 MOV/MP4 配对（Apple Live Photo）
  */
