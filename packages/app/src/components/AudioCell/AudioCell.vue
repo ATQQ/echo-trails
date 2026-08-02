@@ -8,10 +8,6 @@
     <div class="audio-info">
       <div class="audio-name">{{ displayName }}</div>
     </div>
-
-    <div class="play-mask">
-      <van-icon name="play-circle-o" size="28" color="#fff" />
-    </div>
   </div>
 </template>
 
@@ -99,15 +95,5 @@ const cancel = () => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-all;
-}
-
-.play-mask {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 5;
-  pointer-events: none;
-  opacity: 0.85;
 }
 </style>

@@ -2,8 +2,8 @@
   <van-popup
     :show="visible"
     @update:show="$emit('update:visible', $event)"
-    position="bottom"
-    :style="{ height: '100%' }"
+    :position="isDesktop ? 'center' : 'bottom'"
+    :style="isDesktop ? { width: '560px', maxHeight: '90vh', height: 'auto', borderRadius: '16px' } : { height: '100%' }"
     class="safe-padding-top"
   >
     <div class="popup-content">
@@ -136,6 +136,9 @@ import { getUploadUrl, uploadFile } from '@/service';
 import { isTauri } from '@/constants';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
+import { useResponsive } from '@/composables/useResponsive';
+
+const { isDesktop } = useResponsive();
 
 const props = defineProps<{
   visible: boolean;
@@ -448,6 +451,19 @@ const handleSave = async () => {
     flex: 1;
     overflow-y: auto;
     padding-top: 10px;
+  }
+}
+
+@media (min-width: 480px) {
+  .popup-content {
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+
+    .form-scroll {
+      flex: 1;
+      overflow-y: auto;
+    }
   }
 }
 

@@ -71,6 +71,8 @@ const getCategoryName = (id: string) => {
 </script>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .van-nav-bar__placeholder> :deep(.van-nav-bar--fixed) {
   padding-top: var(--safe-area-top);
 }
@@ -82,6 +84,17 @@ const getCategoryName = (id: string) => {
 
 .timeline-content {
   padding: 16px;
+}
+
+@include desktop {
+  .asset-timeline {
+    min-height: 100%;
+  }
+
+  .timeline-content {
+    max-width: 960px;
+    margin: 0 auto;
+  }
 }
 
 .year-group {

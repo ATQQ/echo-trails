@@ -6,7 +6,7 @@
         <van-swipe-item v-for="(item, index) in images" :key="item._id" class="audio-swipe-item">
           <div class="audio-wrapper" @click.stop>
             <div class="audio-visual">
-              <van-icon name="music-o" :size="isDesktop ? 128 : 96" color="#fff" />
+              <van-icon name="music-o" :size="isDesktop ? 128 : 96" color="#20242b" />
               <div class="audio-title" v-if="item.name">{{ item.name }}</div>
             </div>
             <audio
@@ -125,7 +125,12 @@ const showSpeedSheet = ref(false)
 const playbackRate = ref(1)
 const audioRefs = new Map<number, HTMLAudioElement>()
 const isDesktop = useMediaQuery('(min-width: 480px)')
+let speedSheetJustClosedAt = 0
 preventBack(showSpeedSheet)
+
+watch(showSpeedSheet, (val, oldVal) => {
+  if (oldVal && !val) speedSheetJustClosedAt = Date.now()
+})
 
 watch(() => props.start, (val) => {
   currentIdx.value = val || 0
@@ -179,6 +184,7 @@ const togglePlayback = () => {
 }
 
 const handleOverlayTap = (event: Event) => {
+  if ((event.target as HTMLElement)?.closest?.('.van-action-sheet, .van-popup:not(.audio-preview-overlay)')) return
   if (!isDesktop.value) return
   if (isDesktopBusy()) return
   event.stopPropagation()
@@ -201,6 +207,7 @@ const speedActions = computed(() => {
 const handleSpeedSelect = (action: { value: number }) => {
   playbackRate.value = action.value
   applyPlaybackRate()
+  speedSheetJustClosedAt = Date.now()
 }
 
 const activeItem = computed(() => props.images[currentIdx.value] || {})
@@ -317,7 +324,7 @@ const close = () => {
   show.value = false
 }
 
-const isDesktopBusy = () => editMode.value || showSpeedSheet.value || showAlbumSelect.value
+const isDesktopBusy = () => editMode.value || showSpeedSheet.value || showAlbumSelect.value || (Date.now() - speedSheetJustClosedAt < 400)
 
 const WHEEL_THROTTLE_MS = 260
 let lastWheelAt = 0
@@ -456,7 +463,9 @@ const menus = computed(() => {
 }
 
 .audio-preview-overlay {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: #fff;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   --audio-chrome-bg: #fff;
@@ -494,6 +503,8 @@ const menus = computed(() => {
   gap: 32px;
   padding: 40px 20px;
   box-sizing: border-box;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 .audio-visual {
@@ -501,7 +512,7 @@ const menus = computed(() => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  color: #fff;
+  color: #20242b;
   gap: 20px;
   max-width: 90%;
 
@@ -509,7 +520,7 @@ const menus = computed(() => {
     font-size: 15px;
     line-height: 1.6;
     text-align: center;
-    color: rgba(255, 255, 255, 0.9);
+    color: #20242b;
     word-break: break-all;
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -532,12 +543,6 @@ const menus = computed(() => {
     pointer-events: none;
     background: var(--audio-chrome-bg);
     box-sizing: border-box;
-
-    @include desktop {
-      max-width: 1200px;
-      left: 50%;
-      transform: translateX(-50%);
-    }
 }
 
 .cover-wrapper > * {
@@ -646,12 +651,6 @@ const menus = computed(() => {
     :deep(.footer-nav) {
       background: rgba(255, 255, 255, 0.94);
       backdrop-filter: blur(12px);
-    }
-
-    @include desktop {
-      max-width: 1200px;
-      left: 50%;
-      transform: translateX(-50%);
     }
 }
 </style>

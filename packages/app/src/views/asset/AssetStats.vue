@@ -222,6 +222,8 @@ const getStatusIcon = (status: string) => {
 </script>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .van-nav-bar__placeholder> :deep(.van-nav-bar--fixed) {
   padding-top: var(--safe-area-top);
 }
@@ -418,6 +420,25 @@ const getStatusIcon = (status: string) => {
         &.active .status-icon { color: #07c160; }
         &.retired .status-icon { color: #ee0a24; }
         &.sold .status-icon { color: #ff976a; }
+    }
+}
+
+@include desktop {
+    .asset-stats {
+        min-height: 100%;
+    }
+    .content {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .status-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@include large-desktop {
+    .status-grid {
+        grid-template-columns: repeat(4, 1fr);
     }
 }
 </style>

@@ -139,6 +139,8 @@ const handleRemoveSubCategory = async (catId: string, subId: string) => {
 </script>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .van-nav-bar__placeholder> :deep(.van-nav-bar--fixed) {
   padding-top: var(--safe-area-top);
 }
@@ -164,6 +166,17 @@ const handleRemoveSubCategory = async (catId: string, subId: string) => {
      color: #999;
      font-size: 12px;
      text-align: center;
+  }
+}
+
+@include desktop {
+  .asset-manage {
+    min-height: 100%;
+  }
+
+  :deep(.van-cell-group--inset) {
+    max-width: 720px;
+    margin: 16px auto;
   }
 }
 </style>
