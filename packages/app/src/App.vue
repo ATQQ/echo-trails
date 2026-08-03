@@ -197,8 +197,22 @@ const doCheckUpdate = async () => {
   }
 };
 
+// 拦截非输入元素上的 Backspace，防止触发浏览器/Tauri WebView 的 history.back()
+// 焦点在 input/textarea/contenteditable 上时正常删除字符
+const handleBackspaceNavigation = (e: KeyboardEvent) => {
+  if (e.key !== 'Backspace') return
+  const target = e.target as HTMLElement | null
+  if (!target) return
+  const tag = target.tagName
+  // 输入类元素允许默认删除行为
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return
+  // 其余元素阻止默认的 history.back()
+  e.preventDefault()
+}
+
 onMounted(() => {
   window.addEventListener('album-scroll-state', handleAlbumScrollState)
+  window.addEventListener('keydown', handleBackspaceNavigation)
   window?.hideLoadingScreen?.()
   // 初始化 vConsole 调试控制台（依据设置页调试面板的开关状态）
   useVConsole()
@@ -214,6 +228,7 @@ watch([showSideNav, isSideNavCollapsed], ([hasSideNav, collapsedValue]) => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('album-scroll-state', handleAlbumScrollState)
+  window.removeEventListener('keydown', handleBackspaceNavigation)
 })
 </script>
 
