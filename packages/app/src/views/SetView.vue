@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getConfig, refreshService, saveConfig, validConfig } from '@/lib/configStorage';
+import { clearUserData, getConfig, refreshService, saveConfig, validConfig } from '@/lib/configStorage';
 import { checkServiceHealth } from '@/service';
 import { defaultBitifulConfig, getBitifulConfig, getBitifulConfigLocal, mergeBitifulConfig, updateBitifulConfigComplete, type BitifulConfig } from '@/lib/bitifulConfig';
 import { defaultOrigin } from '@/lib/request';
@@ -56,7 +56,15 @@ const onSubmit = async () => {
     token: '',
   }
 
+  // 检测模式或服务地址是否变更，决定是否需要清理旧数据
+  const currentCfg = await getConfig()
+  const modeChanged = currentCfg.mode !== config.mode
+  const urlChanged = !isOffline.value && !!config.serverUrl && currentCfg.serverUrl !== config.serverUrl
+  const needClear = modeChanged || urlChanged
+
   if (isOffline.value) {
+    // 本地模式无需远端校验，直接清理 + 保存 + 刷新
+    if (needClear) await clearUserData()
     await saveConfig(config)
     await refreshService(config)
     showNotify({ type: 'success', message: '已切换到本地模式，页面即将重载' })
@@ -68,6 +76,8 @@ const onSubmit = async () => {
 
   try {
     await checkServiceHealth(config.serverUrl)
+    // 远端校验通过后再清理旧数据，避免校验失败导致数据丢失
+    if (needClear) await clearUserData()
     await saveConfig(config)
     await refreshService(config)
     showNotify({ type: 'success', message: '远程地址校验通过，页面即将重载' })
@@ -136,8 +146,8 @@ const onReset = async () => {
     return
   }
 
-  // 清空配置数据
-  localStorage.removeItem('config')
+  // 清空用户会话与缓存数据（含 localStorage、KV cache、图片缓存）
+  await clearUserData()
 
   mode.value = 'server'
   modeValue.value = ['server']
@@ -149,6 +159,10 @@ const onReset = async () => {
     serverUrl: defaultOrigin,
     token: ''
   })
+  showNotify({ type: 'success', message: '已初始化所有配置，页面即将重载' })
+  setTimeout(() => {
+    window.location.href = location.origin
+  }, 2000)
 }
 
 const onLogout = async () => {
