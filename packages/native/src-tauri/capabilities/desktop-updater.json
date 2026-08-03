@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-updater",
+  "description": "Updater & process permissions (desktop only). 单独文件 + platforms 限制，避免 Android/iOS 因 updater/process 插件未注册而报 unknown permission。",
+  "platforms": ["macOS", "windows", "linux"],
+  "windows": ["main"],
+  "permissions": [
+    "updater:default",
+    "process:allow-restart",
+    "process:allow-exit"
+  ]
+}

@@ -30,6 +30,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
+            // Desktop-only plugins: updater (auto update) + process (relaunch)
+            // 不在 mobile 注册，避免 Android/iOS 拉入桌面依赖
+            #[cfg(desktop)]
+            {
+                app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+                app.handle().plugin(tauri_plugin_process::init())?;
+            }
             tauri::async_runtime::block_on(async {
                 match db::init(app.handle()).await {
                     Ok(()) => info!("Database initialized successfully"),

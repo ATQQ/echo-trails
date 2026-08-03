@@ -115,6 +115,38 @@ const handleBannerClick = () => {
 
 const doCheckUpdate = async () => {
   try {
+    // 桌面端（Tauri）：用 tauri-plugin-updater API 实现应用内自动更新
+    if (isTauri && isDesktop.value) {
+      const { checkDesktopUpdate, downloadAndInstallDesktopUpdate } = await import('@/lib/updater')
+      const update = await checkDesktopUpdate()
+      if (update) {
+        updateInfoRef.value = {
+          hasUpdate: true,
+          currentVersion: appVersion.value,
+          latestVersion: update.version,
+          description: update.body || '',
+          downloadUrl: '',
+          forceUpdate: false,
+          md5: '',
+        }
+        bannerTitle.value = '发现新版本 - 点击开始下载'
+        bannerMessage.value = `v${update.version} ${update.body || ''}`
+        bannerDuration.value = 6000
+        bannerAction.value = async () => {
+          try {
+            showToast('正在下载并安装更新...')
+            // 下载 + 签名校验 + 安装，完成后自动 relaunch
+            await downloadAndInstallDesktopUpdate()
+          } catch (e) {
+            showToast('更新失败: ' + e)
+          }
+        }
+        showBanner.value = true
+      }
+      return
+    }
+
+    // Android / Web：现有逻辑（Native check_update 命令 / 服务端接口）
     // 获取当前平台
     let platform = 'macos';
     if (isTauri) {

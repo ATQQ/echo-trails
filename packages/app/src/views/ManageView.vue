@@ -126,6 +126,38 @@ const handleCheckUpdate = async () => {
       else if (ua.includes('linux')) platform = 'linux';
     }
 
+    // 桌面端（Tauri）：用 tauri-plugin-updater API 实现应用内自动更新
+    const isDesktopPlatform = isTauri && ['macos', 'windows', 'linux'].includes(platform);
+    if (isDesktopPlatform) {
+      const { checkDesktopUpdate, downloadAndInstallDesktopUpdate } = await import('@/lib/updater')
+      const update = await checkDesktopUpdate()
+      closeToast()
+      if (update) {
+        showConfirmDialog({
+          title: '发现新版本',
+          message: `最新版本：${update.version}\n\n${update.body || ''}`,
+          confirmButtonText: '立即更新',
+          cancelButtonText: '取消',
+        })
+          .then(async () => {
+            try {
+              showToast('正在下载并安装更新...')
+              // 下载 + 签名校验 + 安装，完成后自动 relaunch
+              await downloadAndInstallDesktopUpdate()
+            } catch (e) {
+              showToast('更新失败: ' + e)
+            }
+          })
+          .catch(() => {
+            // 取消
+          })
+      } else {
+        showToast('当前已是最新版本')
+      }
+      return
+    }
+
+    // Android / Web：现有逻辑（Native check_update 命令 / 服务端接口）
     const updateInfo = await checkUpdateApi({
       currentVersion: appVersion.value,
       platform,
