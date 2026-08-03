@@ -104,11 +104,21 @@ async function presetTauriMode() {
   return promise
 }
 
-presetTauriMode().then(() => {
-  return Promise.all([
-    getConfig().then(cfg => refreshService(cfg)),
-    initImageCache()
-  ])
+presetTauriMode().then(async () => {
+  // getConfig + refreshService 必须在 login() 之前完成，
+  // 否则 isLocalMode() 可能返回错误值导致误跳登录页。
+  // 不能用 Promise.all 与 initImageCache 并行——若 initImageCache 先 reject，
+  // Promise.all 会立即 reject，此时 refreshService 可能尚未执行，currentMode 仍为 'server'。
+  try {
+    const cfg = await getConfig()
+    await refreshService(cfg)
+  } catch (e) {
+    console.error('[main] getConfig/refreshService failed:', e)
+  }
+  // initImageCache 不阻塞登录流程，独立运行
+  initImageCache().catch((e: unknown) => {
+    console.error('[ImageCache] init failed:', e)
+  })
 }).finally(() => {
   app.use(router)
   login().then(() => {
