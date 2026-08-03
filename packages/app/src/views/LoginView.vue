@@ -9,10 +9,14 @@ import { saveConfig, refreshService } from '@/lib/configStorage';
 import { QrcodeStream } from 'vue-qrcode-reader';
 import { preventBack } from '@/lib/router';
 import { isLocalMode } from '@/lib/serviceRouter';
+import { useResponsive } from '@/composables/useResponsive';
+import { useAuthStore } from '@/stores/auth';
 
 const password = ref('');
 const isPasswordVisible = ref(false);
 const router = useRouter();
+const authStore = useAuthStore();
+const { isDesktop } = useResponsive();
 
 const showScanner = ref(false);
 preventBack(showScanner)
@@ -70,7 +74,7 @@ const handleLogin = (silent = false) => {
   if (isTauri) {
     localStorage.clear();
   }
-  localStorage.setItem('token', password.value);
+  authStore.setToken(password.value);
   login().then((res) => {
     userInfo.username = res.data.username;
     userInfo.operator = res.data.operator;
@@ -80,7 +84,8 @@ const handleLogin = (silent = false) => {
     });
     if (silent) return;
     showNotify({ type: 'success', message: '登录成功！' });
-  }).catch(() => {
+  }).catch((err) => {
+    console.error('[Login] 登录失败', err);
     if (silent) return;
     showNotify({ type: 'danger', message: '无效秘钥！' });
   });
@@ -117,7 +122,7 @@ onMounted(() => {
   <div class="login-container safe-padding-top">
     <div class="header">
       <div class="header-actions">
-        <div class="settings-icon" @click="showScanner = true">
+        <div v-if="!isDesktop" class="settings-icon" @click="showScanner = true">
           <van-icon name="scan" size="24" color="#333" />
         </div>
         <div class="settings-icon" @click="goToSettings">

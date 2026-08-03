@@ -11,11 +11,13 @@ import QrcodeVue from 'qrcode.vue';
 import { QrcodeStream } from 'vue-qrcode-reader';
 import { preventBack } from '@/lib/router';
 import { isTauri } from '@/constants';
+import { useAuthStore } from '@/stores/auth';
 
 const mode = ref('');
 const modeValue = ref<string[]>([]);
 const selectMode = computed(() => modeValue.value[0])
 const showModeSelect = ref(false);
+const authStore = useAuthStore();
 const columns = computed(() => {
   const cols = [
     { text: '远程模式', value: 'server' },
@@ -167,6 +169,7 @@ const onLogout = async () => {
 
   // 清空配置数据
   localStorage.clear()
+  authStore.refresh()
   token.value = ''
   const config = {
     mode: selectMode.value as 'server' | 'offline',
@@ -306,6 +309,7 @@ const onCameraError = (error: any) => {
           </div>
         </template>
       </van-cell-group>
+
       <div class="btn-wrapper">
         <van-button round block type="success" native-type="submit">
           {{ isOffline ? '进入本地模式' : '确定' }}

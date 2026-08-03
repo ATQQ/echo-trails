@@ -15,16 +15,19 @@ import NotificationBanner from '@/components/NotificationBanner/NotificationBann
 import MainLayout from '@/components/MainLayout.vue';
 import SideNav from '@/components/SideNav/SideNav.vue';
 import { useFooterStore } from '@/stores/footer';
+import { useAuthStore } from '@/stores/auth';
 import { useResponsive } from '@/composables/useResponsive';
 import { useSideNavCollapsed } from '@/composables/useSideNavCollapsed';
+import { useVConsole } from '@/composables/useVConsole';
 
 const route = useRoute();
 const footerStore = useFooterStore();
+const authStore = useAuthStore();
 const { isDesktop } = useResponsive();
 const { collapsed: sideNavCollapsed } = useSideNavCollapsed();
 const showNav = computed(() => route.meta.nav === true)
 const isSwipePage = computed(() => !isDesktop.value && ['/home', '/'].includes(route.path))
-const showSideNav = computed(() => isDesktop.value && route.name !== 'login')
+const showSideNav = computed(() => isDesktop.value && route.name !== 'login' && authStore.isLoggedIn)
 const isTauriDesktop = computed(() => isTauri && isDesktop.value)
 const isSideNavCollapsed = computed(() => showSideNav.value && sideNavCollapsed.value)
 const isAlbumScrolled = ref(false)
@@ -197,6 +200,8 @@ const doCheckUpdate = async () => {
 onMounted(() => {
   window.addEventListener('album-scroll-state', handleAlbumScrollState)
   window?.hideLoadingScreen?.()
+  // 初始化 vConsole 调试控制台（依据设置页调试面板的开关状态）
+  useVConsole()
   if(!isTauri || !isAutoCheckUpdateEnabled.value) return;
   doCheckUpdate();
 })

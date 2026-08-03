@@ -14,6 +14,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { isCacheDebugMode, isCacheDisabled } from '@/composables/useCachedImage';
 import { isNativeUploadTokenEnabled } from '@/composables/useUploadTokenConfig';
 import { isAutoCheckUpdateEnabled } from '@/composables/useAutoCheckUpdate';
+import { useVConsole } from '@/composables/useVConsole';
 import { preventBack } from '@/lib/router';
 
 const router = useRouter();
@@ -61,6 +62,7 @@ const clickVersionCount = ref(0);
 let clickTimer: any = null;
 const showDebugMenu = ref(false);
 const useLegacyWeightEntry = useLocalStorage('use_legacy_weight_entry', false);
+const { enabled: vConsoleEnabled } = useVConsole();
 preventBack(showDebugMenu);
 
 const handleVersionClick = () => {
@@ -381,6 +383,11 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
           <van-cell title="旧版体重入口" label="开启后健康管理里的「体重记录」进入旧版页面">
             <template #right-icon>
               <van-switch v-model="useLegacyWeightEntry" size="20" />
+            </template>
+          </van-cell>
+          <van-cell title="vConsole 调试控制台" label="启用后可在应用内查看 console 日志">
+            <template #right-icon>
+              <van-switch v-model="vConsoleEnabled" size="20" />
             </template>
           </van-cell>
         </van-cell-group>
