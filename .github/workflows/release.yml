@@ -437,6 +437,18 @@ jobs:
       - name: Generate latest.json
         run: bun run scripts/generate-latest-json.ts --input ./release-meta --output ./latest.json
 
+      - name: Sync latest.json to packages/app/public
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --depth=1 origin main
+          git checkout main
+          mkdir -p packages/app/public
+          cp latest.json packages/app/public/latest.json
+          git add packages/app/public/latest.json
+          git diff --cached --quiet || git commit -m "chore(release): sync latest.json@${{ inputs.tag }}"
+          git push origin main
+
       - name: Publish latest.json to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
