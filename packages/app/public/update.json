@@ -25,6 +25,13 @@
   ],
   "android": [
     {
+      "version": "0.8.2-beta.0",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.2-beta.0.apk",
+      "forceUpdate": false,
+      "description": "桌面端支持",
+      "md5": "20d6f6c1b1ee5bca000a04f1dd5cc836"
+    },
+    {
       "version": "0.8.1",
       "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.1.apk",
       "forceUpdate": false,
