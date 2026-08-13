@@ -1,0 +1,8 @@
+{
+  "projectId": "proj_ae622e59fc2b",
+  "outputDir": "./dist",
+  "files": [
+    "**/*"
+  ],
+  "serverUrl": "https://kite.sugarat.top"
+}
