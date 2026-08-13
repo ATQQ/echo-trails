@@ -25,6 +25,7 @@
     "build:android": "bun --filter echo-trails-native build:android",
     "build:desktop:mac": "bun --filter echo-trails-native build:desktop",
     "build:desktop:win": "bun --filter echo-trails-native build:desktop",
+    "build:desktop:linux": "bun --filter echo-trails-native build:desktop",
     "build:test": "bun run scripts/build-test-android.ts",
     "export:splash-icon": "bun run scripts/export-splash-icon.ts",
     "analyze:android-size": "bun run scripts/analyze-android-package-size.ts"

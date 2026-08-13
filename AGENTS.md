@@ -32,8 +32,8 @@ bun install
   - **跨平台**: `lib.rs` 中的 Rust 代码应优雅处理 `#[cfg(target_os = "android")]` 与其他平台的差异。所有依赖 `jni` / `ndk-context` 的代码必须放在 `#[cfg(target_os = "android")]` 分支内，桌面分支提供跨平台等价实现或 stub。
 - **构建命令**:
   - Android: `cd packages/native && bun run build:android`（会跑 `pre:build` + `tauri android build` + rename + 更新 md5）。
-  - Desktop（本地 macOS/Windows 首次验证）: `cd packages/native && bun run build:desktop`；产物位于 `packages/native/src-tauri/target/release/bundle/{dmg,macos,msi,nsis}/`。
-  - Desktop 目标产物 whitelist 已在 [tauri.conf.json](./packages/native/src-tauri/tauri.conf.json) `bundle.targets` 里显式列出 (`app`, `dmg`, `msi`, `nsis`)，避免 `"all"` 触碰 Linux 打包链路。
+  - Desktop（本地 macOS/Windows/Linux 首次验证）: `cd packages/native && bun run build:desktop`；产物位于 `packages/native/src-tauri/target/release/bundle/{dmg,macos,msi,nsis,deb,rpm,appimage}/`。
+  - Desktop 目标产物 whitelist 已在 [tauri.conf.json](./packages/native/src-tauri/tauri.conf.json) `bundle.targets` 里显式列出 (`app`, `dmg`, `msi`, `nsis`, `deb`, `rpm`, `appimage`)。CI 在 `ubuntu-22.04` 打 Linux x64。
 - **本地开发命令**:
   - Android（后端 + Android 原生）: 项目根目录 `bun run dev`（等价 `run-p dev:server dev:android`）。
   - Desktop（后端 + 桌面 Tauri）: 项目根目录 `bun run dev:app`（等价 `run-p dev:server dev:desktop`）。

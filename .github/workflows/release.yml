@@ -262,7 +262,7 @@ jobs:
           labels: automated,release
 
   # ============================================================
-  # Job 2-4: Desktop (macOS ARM / macOS Intel / Windows) — matrix
+  # Job 2-5: Desktop (macOS ARM / macOS Intel / Windows / Linux) — matrix
   # ============================================================
   build-desktop:
     name: Build ${{ matrix.label }}
@@ -276,14 +276,26 @@ jobs:
             label: macOS (Apple Silicon)
             target: aarch64-apple-darwin
             updater_platform: darwin-aarch64
+            updater_dir: macos
+            updater_glob: "*.app.tar.gz"
           - os: macos-13
             label: macOS (Intel)
             target: x86_64-apple-darwin
             updater_platform: darwin-x86_64
+            updater_dir: macos
+            updater_glob: "*.app.tar.gz"
           - os: windows-latest
             label: Windows (x64)
             target: x86_64-pc-windows-msvc
             updater_platform: windows-x86_64
+            updater_dir: nsis
+            updater_glob: "*-setup.exe"
+          - os: ubuntu-22.04
+            label: Linux (x64)
+            target: x86_64-unknown-linux-gnu
+            updater_platform: linux-x86_64
+            updater_dir: appimage
+            updater_glob: "*.AppImage.tar.gz"
 
     steps:
       - name: Checkout tag
@@ -328,6 +340,24 @@ jobs:
       - name: Install dependencies (bun)
         run: bun install --frozen-lockfile
 
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libfuse2
+
       - name: Build desktop bundle (with updater signature)
         working-directory: packages/native
         env:
@@ -368,17 +398,18 @@ jobs:
             packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
             packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
             packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe.sig
+            packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.tar.gz
+            packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.tar.gz.sig
+            packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
+            packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/rpm/*.rpm
 
       - name: Prepare desktop meta + signature artifact
         shell: bash
         run: |
           set -e
           BUNDLE_DIR="packages/native/src-tauri/target/${{ matrix.target }}/release/bundle"
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            ARTIFACT=$(find "$BUNDLE_DIR/macos" -name "*.app.tar.gz" -not -name "*.sig" | head -1)
-          else
-            ARTIFACT=$(find "$BUNDLE_DIR/nsis" -name "*-setup.exe" -not -name "*.sig" | head -1)
-          fi
+          ARTIFACT=$(find "$BUNDLE_DIR/${{ matrix.updater_dir }}" -name "${{ matrix.updater_glob }}" -not -name "*.sig" | head -1)
           if [ -z "$ARTIFACT" ]; then
             echo "ERROR: updater artifact not found in $BUNDLE_DIR"
             exit 1
@@ -404,7 +435,7 @@ jobs:
           path: artifact/
 
   # ============================================================
-  # Job 5: Generate & publish latest.json (needs all builds)
+  # Job 6: Generate & publish latest.json (needs all builds)
   # ============================================================
   publish-latest-json:
     name: Publish latest.json

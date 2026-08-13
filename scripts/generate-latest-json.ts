@@ -2,7 +2,7 @@
  * 生成 latest.json（tauri updater 标准格式 + android 扩展字段）
  *
  * 在合并后的 release.yml 的 publish-latest-json job 中执行：
- * 各 build job（android / darwin-aarch64 / darwin-x86_64 / windows-x86_64）通过
+ * 各 build job（android / darwin-aarch64 / darwin-x86_64 / windows-x86_64 / linux-x86_64）通过
  * upload-artifact 上传 meta.json + signature.sig，download-artifact 下载到输入目录的子目录。
  * 本脚本读取这些元数据 + tauri.conf.json 的 version，组装 latest.json。
  *
@@ -15,6 +15,7 @@
  *     darwin-aarch64/ meta.json { platform, url, version } + signature.sig
  *     darwin-x86_64/  meta.json { platform, url, version } + signature.sig
  *     windows-x86_64/ meta.json { platform, url, version } + signature.sig
+ *     linux-x86_64/   meta.json { platform, url, version } + signature.sig
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,8 +25,8 @@ const ROOT = path.resolve(import.meta.dir, '..');
 const TAURI_CONF = path.join(ROOT, 'packages/native/src-tauri/tauri.conf.json');
 
 interface DesktopMeta {
-  platform: string; // darwin-aarch64 | darwin-x86_64 | windows-x86_64
-  url: string; // GitHub Release 下载 URL（指向 .app.tar.gz / -setup.exe）
+  platform: string; // darwin-aarch64 | darwin-x86_64 | windows-x86_64 | linux-x86_64
+  url: string; // GitHub Release 下载 URL（指向 .app.tar.gz / -setup.exe / .AppImage.tar.gz）
   version: string;
 }
 
@@ -115,7 +116,7 @@ async function main() {
   }
 
   // 校验
-  const missing = ['darwin-aarch64', 'darwin-x86_64', 'windows-x86_64'].filter((p) => !platforms[p]);
+  const missing = ['darwin-aarch64', 'darwin-x86_64', 'windows-x86_64', 'linux-x86_64'].filter((p) => !platforms[p]);
   if (missing.length > 0) {
     console.warn(`[latest.json] WARNING: missing desktop platforms: ${missing.join(', ')}`);
   }
