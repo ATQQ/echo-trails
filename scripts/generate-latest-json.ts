@@ -16,6 +16,7 @@
  *     darwin-x86_64/  meta.json { platform, url, version } + signature.sig
  *     windows-x86_64/ meta.json { platform, url, version } + signature.sig
  *     linux-x86_64/   meta.json { platform, url, version } + signature.sig
+ *                    （Linux updater 产物为 .AppImage + .AppImage.sig）
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,7 +27,7 @@ const TAURI_CONF = path.join(ROOT, 'packages/native/src-tauri/tauri.conf.json');
 
 interface DesktopMeta {
   platform: string; // darwin-aarch64 | darwin-x86_64 | windows-x86_64 | linux-x86_64
-  url: string; // GitHub Release 下载 URL（指向 .app.tar.gz / -setup.exe / .AppImage.tar.gz）
+  url: string; // GitHub Release 下载 URL（指向 .app.tar.gz / -setup.exe / .AppImage）
   version: string;
 }
 

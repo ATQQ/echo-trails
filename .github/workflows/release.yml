@@ -283,7 +283,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             updater_platform: linux-x86_64
             updater_dir: appimage
-            updater_glob: "*.AppImage.tar.gz"
+            updater_glob: "*.AppImage"
 
     steps:
       - name: Checkout tag
@@ -357,35 +357,6 @@ jobs:
           TAURI: "true"
         run: bunx tauri build --target ${{ matrix.target }}
 
-      - name: Ensure Linux updater tar.gz + signature
-        if: runner.os == 'Linux'
-        working-directory: packages/native
-        shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          BUNDLE_DIR="src-tauri/target/${{ matrix.target }}/release/bundle/appimage"
-          echo "== appimage dir =="
-          ls -la "$BUNDLE_DIR" || true
-          shopt -s nullglob
-          tars=("$BUNDLE_DIR"/*.AppImage.tar.gz)
-          if [ ${#tars[@]} -gt 0 ]; then
-            echo "Updater tar.gz already present: ${tars[0]}"
-            exit 0
-          fi
-          images=("$BUNDLE_DIR"/*.AppImage)
-          if [ ${#images[@]} -eq 0 ]; then
-            echo "ERROR: no AppImage in $BUNDLE_DIR"
-            exit 1
-          fi
-          IMG="${images[0]}"
-          echo "Creating updater archive from $IMG"
-          tar -C "$BUNDLE_DIR" -czf "${IMG}.tar.gz" "$(basename "$IMG")"
-          bunx tauri signer sign "${IMG}.tar.gz"
-          ls -la "$BUNDLE_DIR"
-
       - name: List release artifacts (unix)
         if: runner.os != 'Windows'
         run: |
@@ -420,6 +391,7 @@ jobs:
             packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
             packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe.sig
             packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.sig
             packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.tar.gz
             packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage.tar.gz.sig
             packages/native/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
