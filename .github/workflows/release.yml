@@ -355,7 +355,19 @@ jobs:
           VITE_VERSION_URL: https://photo.sugarat.top/version.json
           VITE_BASE_ORIGIN: https://photo.sugarat.top
           TAURI: "true"
-        run: bunx tauri build --target ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          extra=()
+          # WiX MSI ProductVersion only allows numeric prerelease (e.g. 0.8.2-0).
+          # 0.8.2-beta.0 fails bundling; updater already ships NSIS *-setup.exe.
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+            if echo "$VERSION" | grep -Eq '-[0-9A-Za-z.]*[A-Za-z]'; then
+              echo "Skipping MSI for version $VERSION (non-numeric prerelease)"
+              extra+=(--bundles nsis)
+            fi
+          fi
+          bunx tauri build --target ${{ matrix.target }} "${extra[@]}"
 
       - name: List release artifacts (unix)
         if: runner.os != 'Windows'

@@ -25,6 +25,12 @@
   ],
   "android": [
     {
+      "version": "0.8.2",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.2.apk",
+      "forceUpdate": false,
+      "description": "桌面端多平台构建"
+    },
+    {
       "version": "0.8.2-beta.0",
       "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.2-beta.0.apk",
       "forceUpdate": false,
