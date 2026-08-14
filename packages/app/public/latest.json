@@ -1,0 +1,22 @@
+{
+  "version": "0.8.2-beta.0",
+  "notes": "桌面端支持",
+  "pub_date": "2026-08-14T09:23:26.799Z",
+  "platforms": {
+    "darwin-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVFRbGpnZEMrckZYYnp5QnpTQWpUckVzc0hNbERRQTdBcDZGSEhmYWl4bDgvR2ptVXhPRDkxaWh4aENWSlVCMkNZTWl4aWQvVVlrZ0J3UFBvcHJZa2dzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njk5MzM0CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKMklTRm44cE12UlVHanNFL2tRQkhpVERTbkl4UDFBekkyWDdGZ0I4VDhuOE5qbGhlNkhqL2NYbUc2TE5OTWxXblIyZjBnMjBZcklxTmp1dEVKSkVGQkE9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2-beta.0/记忆的回响.app.tar.gz"
+    },
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVphNTI0RFFHbjNPdWN5eUthSkcyY3BUY3pST1FpbWY3WnRYK21Xc3g3eHNLZ3c5VmQrV1ZnLzdibllhV2lFY1dtV1dMWDBmYTkwTytPU0lsVU00elFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njk4MTg3CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKaXlkK1hMVWZiMUhnZWtjN1lGYTdKNzRPNzY4cDNEZmF2RTVORWE5STY3MGcraU84dUp5NXN4bElyUk1Gd0ZIV0hDeDNvTXFlSFVSUEFiWXFiNXFoQnc9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2-beta.0/记忆的回响.app.tar.gz"
+    }
+  },
+  "android": {
+    "version": "0.8.2-beta.0",
+    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2-beta.0/echo-trails-release-0.8.2-beta.0.apk",
+    "forceUpdate": false,
+    "description": "桌面端支持",
+    "md5": "ed1a59b31ef8c4fff3c8769e9dcafcaa"
+  }
+}
