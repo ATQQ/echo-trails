@@ -1,14 +1,18 @@
 {
   "version": "0.8.2-beta.0",
   "notes": "桌面端支持",
-  "pub_date": "2026-08-14T09:23:26.799Z",
+  "pub_date": "2026-08-14T09:53:51.551Z",
   "platforms": {
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVVER2hkUzlXQ0lCZnRvUExIdFlaZmx6eG5RU1l3UVVRVThnVXU5Uzl3Vnd5N01SbWowSUxWY29aTElEYkxaK1RXTzRvTVBzN1JPTnc1dXF5RVB5UHd3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NzAwOTg3CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOC4yLWJldGEuMF9hbWQ2NC5BcHBJbWFnZQphQmJJQ1FpWk1Cd2JlNzlDWEkvUnFEQ3VDU3FhKzZ2QkZ3Qkg4a0NOL2N3am1pcUcrTkJnYysrRDlSb0xsbUhlQ0ZnQ1IxSnJzZ3N1bkdMUWliUVpBdz09Cg==",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2-beta.0/记忆的回响_0.8.2-beta.0_amd64.AppImage"
+    },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVFRbGpnZEMrckZYYnp5QnpTQWpUckVzc0hNbERRQTdBcDZGSEhmYWl4bDgvR2ptVXhPRDkxaWh4aENWSlVCMkNZTWl4aWQvVVlrZ0J3UFBvcHJZa2dzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njk5MzM0CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKMklTRm44cE12UlVHanNFL2tRQkhpVERTbkl4UDFBekkyWDdGZ0I4VDhuOE5qbGhlNkhqL2NYbUc2TE5OTWxXblIyZjBnMjBZcklxTmp1dEVKSkVGQkE9PQo=",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWVWa25wMUxKcDYzRDd6M2s5QWw1Y2I1aEJCZkliNkp5VWJTWjkwQkRGRHN4cXBZQmZEMkQra1RnTEMwaWpmVzFQK2xLN3ErdTdPdXdrNGNrRy9tL1FFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NzAwNzI3CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKUDBEa25sVGxRQ3U3ZldobzZXeXFDUWpXNXl3dm9Id0JQdStuZ21acGh6dmVGUU5FVzdZV3ZNdUZNSkgxRFFNek94WmdaWkpSWDJtakZ4MHpzNEpZRGc9PQo=",
       "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2-beta.0/记忆的回响.app.tar.gz"
     },
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVphNTI0RFFHbjNPdWN5eUthSkcyY3BUY3pST1FpbWY3WnRYK21Xc3g3eHNLZ3c5VmQrV1ZnLzdibllhV2lFY1dtV1dMWDBmYTkwTytPU0lsVU00elFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njk4MTg3CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKaXlkK1hMVWZiMUhnZWtjN1lGYTdKNzRPNzY4cDNEZmF2RTVORWE5STY3MGcraU84dUp5NXN4bElyUk1Gd0ZIV0hDeDNvTXFlSFVSUEFiWXFiNXFoQnc9PQo=",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVQ5d1Z5NXBuZmtqRWhSYkYzUWtKSTBybEZ1aWwzc040TDB1YWVwYVEvemszWVBhcXRUZEhIaHpUTmw2SzEzRkRxdkpDRDVTd0ZLQVR5RG03U3pXZkFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NzAwNTM2CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKMU1kaGoxUU1naC9zOGdnN0IxcHRVQU13TVdERWZxZnFRRk14NEUwNm5YeDVRSmpkVkwyM0VHbFB2OFl3OWpyQmFEbHhPNHRpVSszVGVSY3dyYkw5QVE9PQo=",
       "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2-beta.0/记忆的回响.app.tar.gz"
     }
   },
@@ -17,6 +21,6 @@
     "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2-beta.0/echo-trails-release-0.8.2-beta.0.apk",
     "forceUpdate": false,
     "description": "桌面端支持",
-    "md5": "ed1a59b31ef8c4fff3c8769e9dcafcaa"
+    "md5": "0e460ed718fd800122233dfba1dd84af"
   }
 }
