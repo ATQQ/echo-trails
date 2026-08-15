@@ -217,7 +217,7 @@
     </div>
 
     <!-- Add Record Popup -->
-    <van-popup v-model:show="showAddPopup" position="bottom" class="safe-padding-top" round :style="{ height: '100%' }"
+    <van-popup v-model:show="showAddPopup" position="bottom" class="safe-padding-top bp-popup bp-popup--add" overlay-class="bp-overlay" round :style="{ height: '100%' }"
       closeable>
       <div class="popup-content">
         <h2 class="popup-title">{{ isEditing ? '编辑数据' : '添加数据' }}</h2>
@@ -299,7 +299,7 @@
     </van-popup>
 
     <!-- Date Picker Popup -->
-    <van-popup v-model:show="showDatePicker" position="bottom" round>
+    <van-popup v-model:show="showDatePicker" position="bottom" round class="bp-popup bp-popup--date" overlay-class="bp-overlay">
       <van-picker-group v-model:active-tab="pickerActiveTab" title="测量时间" :tabs="['选择日期', '选择时间']"
         @confirm="onConfirmPicker" @cancel="showDatePicker = false">
         <van-date-picker v-model="datePickerValue" :min-date="minDate" :max-date="maxDate" />
@@ -311,7 +311,7 @@
       :current-range="currentRange" @confirm="onTimeRangeConfirm" />
 
     <!-- Detail Popup -->
-    <van-popup v-model:show="showDetailPopup" position="bottom" round closeable>
+    <van-popup v-model:show="showDetailPopup" position="bottom" round closeable class="bp-popup bp-popup--detail" overlay-class="bp-overlay">
       <div class="popup-content">
         <h2 class="popup-title">详情</h2>
         <div class="detail-list" v-if="currentRecord">

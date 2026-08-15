@@ -169,20 +169,6 @@ struct VersionInfo {
     md5: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct PlatformVersions {
-    #[serde(default)]
-    android: Vec<VersionInfo>,
-    #[serde(default)]
-    macos: Vec<VersionInfo>,
-    #[serde(default)]
-    windows: Vec<VersionInfo>,
-    #[serde(default)]
-    linux: Vec<VersionInfo>,
-    #[serde(default)]
-    ios: Vec<VersionInfo>,
-}
-
 #[derive(Clone, Serialize)]
 pub struct UpdateInfo {
     #[serde(rename = "hasUpdate")]
@@ -213,10 +199,45 @@ fn compare_version(v1: &str, v2: &str) -> i32 {
 }
 
 const DEFAULT_VERSION_URLS: &[&str] = &[
+    // 首选：GitHub Release 上的 latest.json（tauri updater 标准格式 + android 扩展字段）
+    "https://github.com/ATQQ/echo-trails/releases/latest/download/latest.json",
+    // 回退：仓库 main 分支的 update.json（数组格式，兼容旧客户端）
     "https://raw.githubusercontent.com/ATQQ/echo-trails/main/packages/app/public/update.json",
     "https://cdn.jsdelivr.net/gh/ATQQ/echo-trails@main/packages/app/public/update.json",
     "https://photo.sugarat.top/update.json",
 ];
+
+// 从 JSON Value 中提取指定平台的最新版本信息。
+// 兼容三种格式：
+//   1. latest.json: 顶层 `<platform>` 是对象（单版本），例如 { android: {version, downloadUrl, ...} }
+//   2. update.json: 顶层 `<platform>` 是数组（多版本历史，按版本降序），取最大版本
+//   3. version.json: 顶层 `<platform>` 是对象（单版本）
+// 同时兼容 { code, data } 包裹的响应。
+fn extract_platform_latest(data: &serde_json::Value, platform: &str) -> Option<VersionInfo> {
+    // 兼容 { code, data } 包裹
+    let root = if let Some(code) = data.get("code").and_then(|v| v.as_f64()) {
+        if code == 0.0 {
+            data.get("data").unwrap_or(data)
+        } else {
+            return None;
+        }
+    } else {
+        data
+    };
+
+    let platform_value = root.get(platform)?;
+
+    if platform_value.is_object() {
+        // latest.json / version.json: 对象格式
+        serde_json::from_value::<VersionInfo>(platform_value.clone()).ok()
+    } else if platform_value.is_array() {
+        // update.json: 数组格式，取版本号最大的
+        let versions: Vec<VersionInfo> = serde_json::from_value(platform_value.clone()).ok()?;
+        versions.into_iter().max_by(|a, b| compare_version(&a.version, &b.version).cmp(&0))
+    } else {
+        None
+    }
+}
 
 #[tauri::command]
 pub async fn check_update(current_version: String, platform: String) -> Result<UpdateInfo, String> {
@@ -225,7 +246,7 @@ pub async fn check_update(current_version: String, platform: String) -> Result<U
         .build()
         .map_err(|e| e.to_string())?;
 
-    let mut version_config: Option<PlatformVersions> = None;
+    let mut found_latest: Option<VersionInfo> = None;
 
     for url in DEFAULT_VERSION_URLS {
         let fetch_url = format!("{}?t={}", url, chrono::Utc::now().timestamp_millis());
@@ -245,47 +266,20 @@ pub async fn check_update(current_version: String, platform: String) -> Result<U
                             Ok(v) => v,
                             Err(_) => continue,
                         };
-                        // 兼容 { code, data } 或直接返回 PlatformVersions
-                        let config_data = if let Some(code) = data.get("code").and_then(|v| v.as_f64()) {
-                            if code == 0.0 {
-                                data.get("data").cloned().unwrap_or(data)
-                            } else {
-                                continue;
+
+                        match extract_platform_latest(&data, &platform) {
+                            Some(latest_info) => {
+                                // 发现新版本：立即采用并停止轮询
+                                if compare_version(&latest_info.version, &current_version) > 0 {
+                                    found_latest = Some(latest_info);
+                                    break;
+                                }
+                                // 当前 URL 无新版本，作为兜底保存（继续尝试后续 URL）
+                                if found_latest.is_none() {
+                                    found_latest = Some(latest_info);
+                                }
                             }
-                        } else {
-                            data
-                        };
-
-                        let config: PlatformVersions = match serde_json::from_value(config_data) {
-                            Ok(c) => c,
-                            Err(_) => continue,
-                        };
-
-                        let platform_versions = match platform.as_str() {
-                            "android" => &config.android,
-                            "macos" => &config.macos,
-                            "windows" => &config.windows,
-                            "linux" => &config.linux,
-                            "ios" => &config.ios,
-                            _ => continue,
-                        };
-
-                        if platform_versions.is_empty() {
-                            continue;
-                        }
-
-                        let latest = platform_versions.iter()
-                            .max_by(|a, b| compare_version(&a.version, &b.version).cmp(&0));
-
-                        if let Some(latest_info) = latest {
-                            if compare_version(&latest_info.version, &current_version) > 0 {
-                                version_config = Some(config);
-                                break;
-                            }
-                        }
-
-                        if version_config.is_none() {
-                            version_config = Some(config);
+                            None => continue,
                         }
                     }
                     Err(_) => continue,
@@ -295,36 +289,7 @@ pub async fn check_update(current_version: String, platform: String) -> Result<U
         }
     }
 
-    let config = match version_config {
-        Some(c) => c,
-        None => {
-            return Ok(UpdateInfo {
-                has_update: false,
-                current_version: current_version.clone(),
-                latest_version: current_version,
-                description: String::new(),
-                download_url: String::new(),
-                force_update: false,
-                md5: String::new(),
-            });
-        }
-    };
-
-    let platform_versions = match platform.as_str() {
-        "android" => &config.android,
-        "macos" => &config.macos,
-        "windows" => &config.windows,
-        "linux" => &config.linux,
-        "ios" => &config.ios,
-        _ => {
-            return Err(format!("Unsupported platform: {}", platform));
-        }
-    };
-
-    let latest = platform_versions.iter()
-        .max_by(|a, b| compare_version(&a.version, &b.version).cmp(&0));
-
-    match latest {
+    match found_latest {
         Some(latest_info) => {
             let has_update = compare_version(&latest_info.version, &current_version) > 0;
             Ok(UpdateInfo {

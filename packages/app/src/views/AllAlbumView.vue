@@ -434,7 +434,7 @@ preventBack(folderSelectMode)
 </script>
 
 <template>
-  <div class="app-wrapper">
+  <div class="all-album-view-wrapper">
     <!-- <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div> -->
     <van-pull-refresh v-model="loading" @refresh="loadAll(true)" class="pull-refresh-container" ref="scrollContainer" @scroll="handleScroll">
       <PageTitle title="全部相册" :info="false" back>
@@ -588,6 +588,8 @@ preventBack(folderSelectMode)
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .popup-content {
   padding: 16px;
   padding-bottom: env(safe-area-inset-bottom);
@@ -600,8 +602,8 @@ preventBack(folderSelectMode)
   color: #333;
 }
 
-.app-wrapper {
-  height: 100vh;
+.all-album-view-wrapper {
+  height: 100%;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -672,6 +674,12 @@ preventBack(folderSelectMode)
 .album-search {
   padding: 0 12px 8px;
   background: transparent;
+
+  @include desktop {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 8px 24px;
+  }
 }
 
 .tag-filter {
@@ -681,6 +689,14 @@ preventBack(folderSelectMode)
   padding: 0 12px 14px;
   scroll-padding: 12px;
   -webkit-overflow-scrolling: touch;
+
+  @include desktop {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px 14px;
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
 
   &::-webkit-scrollbar {
     display: none;
@@ -737,6 +753,24 @@ preventBack(folderSelectMode)
     padding: 0;
     background-color: transparent;
   }
+
+  @include desktop {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px 24px;
+
+    :deep(.van-grid-item) {
+      flex-basis: 20% !important;
+      max-width: 20% !important;
+    }
+  }
+
+  @include large-desktop {
+    :deep(.van-grid-item) {
+      flex-basis: 16.666667% !important;
+      max-width: 16.666667% !important;
+    }
+  }
 }
 
 .small-card {
@@ -748,6 +782,19 @@ preventBack(folderSelectMode)
   -webkit-touch-callout: none;
   overflow: hidden;
   position: relative;
+
+  @include desktop {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    padding: 6px;
+    border-radius: 14px;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+      background: #fafafa;
+    }
+  }
 
   :deep(.van-image) {
     border-radius: 12px;
@@ -846,6 +893,12 @@ preventBack(folderSelectMode)
 /* 相册分类样式 */
 .folders-section {
   padding: 12px;
+
+  @include desktop {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px 24px;
+  }
 }
 
 .empty-folders {
@@ -869,7 +922,15 @@ preventBack(folderSelectMode)
   background: #f8f8f8;
   border-radius: 12px;
   cursor: pointer;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+
+  @include desktop {
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+      background: #fff;
+    }
+  }
 
   &.is-select-mode.is-selected {
     box-shadow: 0 0 0 2px #1989fa inset;

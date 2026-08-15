@@ -15,6 +15,7 @@ import { preventBack } from '@/lib/router'
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import VideoCell from '../VideoCell/VideoCell.vue';
+import PreviewVideo from '../PreviewVideo/PreviewVideo.vue';
 import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useScrollRestore } from '@/composables/useScrollRestore';
 

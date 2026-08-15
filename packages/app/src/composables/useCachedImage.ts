@@ -128,7 +128,7 @@ export async function deleteSingleImageCache(url: string, cacheKey?: string) {
   }
 }
 
-export async function clearImageCache() {
+export async function clearImageCache(silent = false) {
   if (!isTauri) return;
   try {
     await remove(CACHE_DIR_NAME, { baseDir: BaseDirectory.AppLocalData, recursive: true });
@@ -136,7 +136,7 @@ export async function clearImageCache() {
     await removeLocalCache(MEMORY_CACHE_STORAGE_KEY);
     cacheDirPromise = null;
     initImageCache();
-    showToast('Cache cleared');
+    if (!silent) showToast('Cache cleared');
   } catch (e) {
     console.error('[ImageCache] Failed to clear cache', e);
   }

@@ -303,6 +303,8 @@ const onSave = () => {
 </script>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+
 .van-nav-bar__placeholder> :deep(.van-nav-bar--fixed) {
   padding-top: var(--safe-area-top);
 }
@@ -439,5 +441,20 @@ const onSave = () => {
 
 .add-position {
   bottom: var(--footer-area-height);
+}
+
+@include desktop {
+  // 注意：不覆写 .asset-list 的 padding-bottom —— AssetLayout 在桌面端把
+  // --footer-area-height 恢复为 60px，让原 `padding-bottom: var(--footer-area-height)`
+  // 自动为底部 BottomActions 预留空间。
+  .stats-header {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .list-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
 }
 </style>

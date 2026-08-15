@@ -12,7 +12,7 @@
     </div>
 
     <div class="section-title">健康管理</div>
-    <van-grid :column-num="2" :gutter="10" clickable>
+    <van-grid :column-num="gridColumnNum" :gutter="10" clickable>
       <van-grid-item v-for="item in healthApps" :key="item.text" @click="handleClick(item)">
         <div class="grid-item-content">
           <div class="icon-wrapper">
@@ -27,7 +27,7 @@
     </van-grid>
 
     <div class="section-title">娱乐媒体</div>
-    <van-grid :column-num="2" :gutter="10" clickable>
+    <van-grid :column-num="gridColumnNum" :gutter="10" clickable>
       <van-grid-item v-for="item in mediaApps" :key="item.text" @click="handleClick(item)">
         <div class="grid-item-content">
           <div class="icon-wrapper">
@@ -42,7 +42,7 @@
     </van-grid>
 
     <div class="section-title">其他工具</div>
-    <van-grid :column-num="4" :gutter="10" clickable>
+    <van-grid :column-num="gridColumnNum" :gutter="10" clickable>
       <van-grid-item v-for="item in otherApps" :key="item.text" @click="handleClick(item)">
         <div class="grid-item-content">
           <div class="icon-wrapper">
@@ -66,6 +66,7 @@ import { useRouter } from 'vue-router';
 import { useFooterStore } from '@/stores/footer';
 import { useScrollRestore } from '@/composables/useScrollRestore';
 import { useLocalStorage } from '@vueuse/core';
+import { useResponsive } from '@/composables/useResponsive';
 
 defineOptions({
   name: 'DiscoveryView'
@@ -73,6 +74,16 @@ defineOptions({
 
 const scrollContainer = ref<HTMLElement | null>(null)
 useScrollRestore(scrollContainer)
+
+const { width } = useResponsive();
+const gridColumnNum = computed(() => {
+  if (width.value >= 1920) return 8;
+  if (width.value >= 1600) return 7;
+  if (width.value >= 1200) return 6;
+  if (width.value >= 900) return 5;
+  if (width.value >= 480) return 4;
+  return 2;
+});
 
 const router = useRouter();
 const footerStore = useFooterStore();
@@ -120,7 +131,7 @@ const healthApps = computed<AppItem[]>(() => [
 
 const mediaApps = ref<AppItem[]>([
   { text: '视频', icon: 'video-o', color: '#07c160', url: '/video' },
-  { text: '音频', icon: 'music-o', color: '#ff976a' },
+  { text: '音频', icon: 'music-o', color: '#ff976a', url: '/audio' },
 ]);
 
 const otherApps = ref<AppItem[]>([
@@ -175,12 +186,18 @@ const toggleFooter = (item: AppItem) => {
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.scss' as *;
+
 .discovery-view {
   padding: 20px 16px;
   background-color: #f7f8fa;
   min-height: 100vh;
   padding-bottom: 80px; // Space for bottom nav
   box-sizing: border-box;
+
+  @include desktop {
+    padding: 32px 32px 80px;
+  }
 
   .header {
     margin-bottom: 24px;
@@ -250,6 +267,18 @@ const toggleFooter = (item: AppItem) => {
     width: 100%;
     position: relative;
     padding: 6px 0 2px 0;
+  }
+
+  :deep(.van-grid-item__content) {
+    @include desktop {
+      border-radius: 12px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      }
+    }
   }
 
   .grid-text {

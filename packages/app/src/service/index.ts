@@ -456,7 +456,9 @@ export function checkUpdate(params: {
   currentVersion: string,
   platform: string
 }) {
-    if (isLocalMode()) return local.checkUpdate(params)
+    // Tauri 环境（含 local 与远程模式）统一走 Native check_update，
+    // 不再依赖服务端接口；Web 环境保留走服务端 app/check-update（兼容）
+    if (isTauri) return local.checkUpdate(params)
     return api.get<ServerResponse<any>>('app/check-update', {
         searchParams: {
             version: params.currentVersion,

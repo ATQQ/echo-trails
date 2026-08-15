@@ -1,0 +1,14 @@
+{
+  "projectId": "proj_f0cae771c9ba",
+  "outputDir": ".",
+  "files": [
+    "src",
+    "types",
+    ".env",
+    "package.json",
+    "tsconfig.json",
+    "bunfig.toml"
+  ],
+  "postDeploy": "bun install && pm2 delete echo-trails; pm2 start npm --name echo-trails -- run start",
+  "serverUrl": "https://kite.sugarat.top"
+}

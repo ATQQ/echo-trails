@@ -1,3 +1,5 @@
+@use '@/styles/breakpoints.scss' as *;
+
 .photo-group-header {
     padding-left: 16px;
     font-weight: normal;
@@ -31,6 +33,11 @@ main :deep(.van-grid-item__content) {
 
 main {
     background-color: #fff;
+
+    @include desktop {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
 }
 
 .img-border {
@@ -38,6 +45,17 @@ main {
     border-bottom: 1px solid #fff;
     border-right: 1px solid #fff;
     position: relative;
+
+    @include desktop {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
+
+        &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+            z-index: 1;
+        }
+    }
 }
 
 .editSelected {
@@ -49,6 +67,40 @@ main {
 // 4的倍数
 .img-border:nth-child(4n) {
     border-right: none;
+}
+
+@include desktop {
+    main :deep(.van-grid) {
+        --van-grid-item-content-padding: 0;
+    }
+
+    main :deep(.van-grid-item) {
+        flex-basis: 16.666667% !important;
+        max-width: 16.666667% !important;
+    }
+
+    .img-border:nth-child(4n) {
+        border-right: 1px solid #fff;
+    }
+
+    .img-border:nth-child(6n) {
+        border-right: none;
+    }
+}
+
+@include large-desktop {
+    main :deep(.van-grid-item) {
+        flex-basis: 12.5% !important;
+        max-width: 12.5% !important;
+    }
+
+    .img-border:nth-child(6n) {
+        border-right: 1px solid #fff;
+    }
+
+    .img-border:nth-child(8n) {
+        border-right: none;
+    }
 }
 
 .block {
@@ -69,6 +121,13 @@ main {
     color: #fff;
     border-radius: 50%;
     border: none;
+
+    @media (min-width: 480px) {
+        bottom: 32px;
+        right: 32px;
+        width: 48px;
+        height: 48px;
+    }
 
     &.tauri-mode {
         // bottom: 90px;

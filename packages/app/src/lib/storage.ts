@@ -50,6 +50,24 @@ export async function removeLocalCache(key: string): Promise<void> {
   }
 }
 
+/**
+ * 清空全部 kv_cache（用于切换模式/地址时清理残留缓存）。
+ * Tauri 环境调用 db_clear_all_cache 命令清空本地数据库 kv_cache 表；
+ * Web 环境无 kv_cache，仅移除图片内存缓存键。
+ * 不使用 localStorage.clear() 以避免误清 bitiful-config 等用户数据。
+ */
+export async function clearAllLocalCache(): Promise<void> {
+  if (isTauri) {
+    try {
+      await invoke('db_clear_all_cache');
+    } catch (e) {
+      console.error('[Storage] Tauri clear all cache failed:', e);
+    }
+  }
+  // 两端均清理图片内存缓存键
+  localStorage.removeItem('image_memory_cache_v1');
+}
+
 export interface CacheInfo {
   key: string;
   size: number;

@@ -288,7 +288,7 @@ preventBack(albumSelectMode)
 </script>
 
 <template>
-  <div class="app-wrapper">
+  <div class="album-folder-view-wrapper">
     <div class="top-blur-mask" :class="{ 'is-visible': isScrolled }"></div>
     <van-pull-refresh v-model="loading" @refresh="loadData(true)" class="pull-refresh-container" ref="scrollContainer" @scroll="handleScroll">
       <PageTitle :title="folder?.name || '分类'" :info="false" back>
@@ -386,8 +386,10 @@ preventBack(albumSelectMode)
 </template>
 
 <style scoped lang="scss">
-.app-wrapper {
-  height: 100vh;
+@use '@/styles/breakpoints.scss' as *;
+
+.album-folder-view-wrapper {
+  height: 100%;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -451,6 +453,12 @@ preventBack(albumSelectMode)
 .album-search {
   padding: 12px 12px 8px;
   background: transparent;
+
+  @include desktop {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 12px 24px 8px;
+  }
 }
 .small-card-grid {
   padding: 0 10px 16px;
@@ -462,6 +470,24 @@ preventBack(albumSelectMode)
     padding: 0;
     background-color: transparent;
   }
+
+  @include desktop {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px 24px;
+
+    :deep(.van-grid-item) {
+      flex-basis: 20% !important;
+      max-width: 20% !important;
+    }
+  }
+
+  @include large-desktop {
+    :deep(.van-grid-item) {
+      flex-basis: 16.666667% !important;
+      max-width: 16.666667% !important;
+    }
+  }
 }
 .small-card {
   width: 100%;
@@ -471,6 +497,19 @@ preventBack(albumSelectMode)
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+
+  @include desktop {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    padding: 6px;
+    border-radius: 14px;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+      background: #fafafa;
+    }
+  }
 
   &.is-select-mode.is-selected .cover-wrap {
     box-shadow: 0 0 0 2px #1989fa inset;

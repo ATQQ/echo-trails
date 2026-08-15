@@ -1,20 +1,37 @@
 <template>
-  <van-overlay :show="show" @click="close" :class="['video-preview-overlay', { 'chrome-visible': showMoreOperate }]" z-index="2000">
-    <div class="video-preview-container" @click.stop>
+  <van-overlay :show="show" @click="handleOverlayClose" :class="['video-preview-overlay', { 'chrome-visible': showMoreOperate }]" z-index="2000">
+    <div class="video-preview-container" @click.self="handleOverlayTap">
       <van-swipe ref="swipeRef" :initial-swipe="start" @change="onChange" :loop="false" class="video-swipe"
-        :show-indicators="false">
-        <van-swipe-item v-for="(item, index) in images" :key="item._id" class="video-swipe-item">
-          <div class="video-wrapper">
-            <video v-if="shouldRender(index)" :ref="(el) => setVideoRef(el, index)" :controls="!showMoreOperate" playsinline webkit-playsinline class="video-player"
-              :poster="item.cover" @click.stop="handleVideoTap" @pointerup.stop="handleVideoTap">
-              <source :src="item.url" :type="item.type || 'video/mp4'">
+        :show-indicators="false" :touchable="!isDesktop">
+        <van-swipe-item v-for="(item, index) in images" :key="item._id" class="video-swipe-item" @click.self="handleOverlayTap">
+          <div class="video-wrapper" @click.self="handleOverlayTap">
+            <video v-if="shouldRender(index)" :ref="(el) => setVideoRef(el, index)" :src="getVideoSrc(item)"
+              :controls="isDesktop || showMoreOperate === false"
+              playsinline webkit-playsinline preload="metadata" class="video-player"
+              :poster="item.cover"
+              @click="handleVideoClick"
+              @play="handleVideoPlay"
+              @pause="handleVideoPause"
+              @error="handleVideoError(index, $event)"
+              @loadedmetadata="handleVideoLoaded(index)">
               您的浏览器不支持视频播放。
             </video>
+            <!-- 桌面端自定义中央播放按钮：仅暂停时展示，点击调用 play() -->
+            <button
+              v-if="isDesktop && index === currentIdx && !isPlaying"
+              class="video-center-play"
+              type="button"
+              aria-label="播放视频"
+              @click.stop="handleCenterPlay"
+            >
+              <van-icon name="play" size="36" />
+            </button>
           </div>
         </van-swipe-item>
       </van-swipe>
+      <!-- 移动端：工具条可见时的整层点击拦截，用于点击视频区域隐藏工具条 -->
       <button
-        v-show="showMoreOperate"
+        v-show="showMoreOperate && !isDesktop"
         class="video-tap-layer"
         type="button"
         aria-label="隐藏视频工具栏"
@@ -110,6 +127,9 @@ import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
 import BottomActions from '../BottomActions/BottomActions.vue';
 import { preventBack } from '@/lib/router';
+import { useEventListener, useMediaQuery } from '@vueuse/core';
+import { cacheVideo } from '@/composables/useCachedVideo';
+import { isTauri } from '@/constants';
 
 const props = defineProps<{
   images: any[]
@@ -126,8 +146,37 @@ const showMoreOperate = ref(true)
 const showSpeedSheet = ref(false)
 const playbackRate = ref(1)
 const lastVideoTapAt = ref(0)
+const lastOverlayTapAt = ref(0)
+const isPlaying = ref(false)
 const videoRefs = new Map<number, HTMLVideoElement>()
+const isDesktop = useMediaQuery('(min-width: 480px)')
+const videoUrlMap = ref(new Map<string, string>())
 preventBack(showSpeedSheet)
+
+const getVideoSrc = (item: any) => {
+  if (!item) return ''
+  return videoUrlMap.value.get(item._id) || item.url
+}
+
+const resolveVideoUrl = async (item: any) => {
+  if (!isTauri) return
+  if (!item || !item._id || !item.url) return
+  if (videoUrlMap.value.has(item._id)) return
+  try {
+    const result = await cacheVideo(item.url, item._id)
+    if (result && result !== item.url) {
+      videoUrlMap.value.set(item._id, result)
+    }
+  } catch (e) {
+    console.error('[PreviewVideo] resolveVideoUrl failed', e)
+  }
+}
+
+watch(() => props.images, () => {
+  const item = props.images?.[currentIdx.value]
+  if (item) resolveVideoUrl(item)
+}, { immediate: true })
+
 
 watch(() => props.start, (val) => {
   currentIdx.value = val || 0
@@ -137,39 +186,144 @@ watch(() => props.start, (val) => {
   }
 })
 
-// 只渲染当前、前一个和后一个视频，避免性能问题
+watch(show, (val) => {
+  if (val) {
+    showMoreOperate.value = true
+    isPlaying.value = false
+  } else {
+    isPlaying.value = false
+  }
+})
+
+// 只渲染当前视频，避免 v-if 频繁切换导致的 ERR_ABORTED 请求中断
 const shouldRender = (index: number) => {
-  return Math.abs(index - currentIdx.value) <= 1
+  return index === currentIdx.value
 }
 
 const onChange = (index: number) => {
+  const prev = activeVideo()
+  if (prev && !prev.paused) {
+    prev.pause?.()
+  }
   currentIdx.value = index
   editMode.value = false
   showInfoDetail.value = false
-  editMode.value = false
+  isPlaying.value = false
+  showMoreOperate.value = true
+  const nextItem = props.images?.[index]
+  if (nextItem) resolveVideoUrl(nextItem)
   nextTick(() => applyPlaybackRate())
 }
 
 const hideControls = () => {
+  if (!showMoreOperate.value) return
   showMoreOperate.value = false
   showInfoDetail.value = false
   editMode.value = false
 }
 
 const showControls = () => {
+  if (showMoreOperate.value) return
   showMoreOperate.value = true
 }
 
+const handleVideoPlay = () => {
+  isPlaying.value = true
+  // 播放时隐藏工具条
+  hideControls()
+}
+
+const handleVideoPause = () => {
+  isPlaying.value = false
+  // 暂停时显示工具条
+  showControls()
+}
+
+const handleVideoError = (index: number, event: Event) => {
+  const target = event.target as HTMLVideoElement | null
+  const err = target?.error
+  console.error('[PreviewVideo] video error', {
+    index,
+    url: props.images?.[index]?.url,
+    type: props.images?.[index]?.type,
+    code: err?.code,
+    message: err?.message,
+  })
+  showNotify({ type: 'danger', message: `视频加载失败${err?.code ? ` (code ${err.code})` : ''}` })
+}
+
+const handleVideoLoaded = (index: number) => {
+  if (index !== currentIdx.value) return
+  applyPlaybackRate()
+}
+
+// 桌面端点击 <video>（含原生 controls）时不再自行切换 play/pause，避免与 controls 冲突；
+// 移动端仍走原有 handleVideoTap 逻辑。
+const handleVideoClick = (event: Event) => {
+  if (isDesktop.value) {
+    event.stopPropagation()
+    return
+  }
+  event.stopPropagation()
+  handleVideoTap()
+}
+
+// 桌面端自定义中央播放按钮：单向 play，交给原生 controls 处理后续
+const handleCenterPlay = () => {
+  const video = activeVideo()
+  if (!video) return
+  const result = video.play?.()
+  if (result && typeof result.catch === 'function') {
+    result.catch(() => {
+      showControls()
+    })
+  }
+}
+
+// 点击视频区域：切换 play/pause（同时联动工具条）
 const handleVideoTap = () => {
   const now = Date.now()
   if (now - lastVideoTapAt.value < 180) return
   lastVideoTapAt.value = now
 
+  if (isDesktopBusy()) return
+
+  const video = activeVideo()
+  if (!video) return
+
+  if (video.paused) {
+    const result = video.play?.()
+    if (result && typeof result.catch === 'function') {
+      result.catch(() => {
+        showControls()
+      })
+    }
+  } else {
+    video.pause?.()
+  }
+}
+
+const togglePlayback = () => {
+  handleVideoTap()
+}
+
+// 点击遮罩（视频外区域）：仅切换工具条，不影响播放
+const handleOverlayTap = (event?: Event) => {
+  if (isDesktopBusy()) return
+  if (event && event.target instanceof HTMLVideoElement) return
+  const now = Date.now()
+  if (now - lastOverlayTapAt.value < 180) return
+  lastOverlayTapAt.value = now
   if (showMoreOperate.value) {
     hideControls()
-    return
+  } else {
+    showControls()
   }
-  showControls()
+}
+
+const handleOverlayClose = () => {
+  if (isDesktop.value) return
+  close()
 }
 
 const setVideoRef = (el: Element | any, index: number) => {
@@ -358,8 +512,51 @@ const downloadImage = () => {
 
 const close = () => {
   showSpeedSheet.value = false
+  activeVideo()?.pause?.()
   show.value = false
 }
+
+const isDesktopBusy = () => editMode.value || showSpeedSheet.value || showAlbumSelect.value
+
+const WHEEL_THROTTLE_MS = 260
+let lastWheelAt = 0
+
+useEventListener(window, 'keydown', (e: KeyboardEvent) => {
+  if (!show.value) return
+  if (isDesktopBusy()) return
+  if (e.key === 'Escape') {
+    close()
+    return
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    swipeRef.value?.prev?.()
+    return
+  }
+  if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    swipeRef.value?.next?.()
+    return
+  }
+  if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault()
+    togglePlayback()
+  }
+})
+
+useEventListener(document, 'wheel', (e: WheelEvent) => {
+  if (!show.value) return
+  if (isDesktopBusy()) return
+  if (!e.deltaY) return
+  const now = Date.now()
+  if (now - lastWheelAt < WHEEL_THROTTLE_MS) return
+  lastWheelAt = now
+  if (e.deltaY > 0) {
+    swipeRef.value?.next?.()
+  } else {
+    swipeRef.value?.prev?.()
+  }
+})
 
 onBeforeRouteLeave((to, from, next) => {
   if (showSpeedSheet.value) {
@@ -530,7 +727,10 @@ const menus = computed(() => {
 .video-player {
   max-width: 100%;
   max-height: 100%;
-  width: 100%;
+  width: auto;
+  height: auto;
+  display: block;
+  object-fit: contain;
 }
 
 .video-tap-layer {
@@ -539,6 +739,35 @@ const menus = computed(() => {
   z-index: 5;
   cursor: pointer;
   background: transparent;
+}
+
+.video-center-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  padding-left: 4px;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.72);
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+
+  &:active {
+    transform: translate(-50%, -50%) scale(0.96);
+  }
 }
 
 .cover-wrapper {

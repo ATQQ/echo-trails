@@ -117,7 +117,7 @@ watch(folderId, () => {
 </script>
 
 <template>
-  <div class="app-wrapper">
+  <div class="album-folder-manage-view-wrapper">
     <PageTitle title="管理相册" :info="false" back>
       <template #action>
         <span class="save-btn" :class="{ disabled: saving }" @click="handleSave">{{ saving ? '保存中...' : '保存' }}</span>
@@ -173,8 +173,10 @@ watch(folderId, () => {
 </template>
 
 <style scoped lang="scss">
-.app-wrapper {
-  height: 100vh;
+@use '@/styles/breakpoints.scss' as *;
+
+.album-folder-manage-view-wrapper {
+  height: 100%;
   display: flex;
   flex-direction: column;
   background-color: #f7f8fa;
@@ -183,6 +185,14 @@ watch(folderId, () => {
   flex: 1;
   overflow-y: auto;
   padding-bottom: var(--footer-area-height);
+
+  @include desktop {
+    > * {
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  }
 }
 .save-btn {
   font-size: 14px;

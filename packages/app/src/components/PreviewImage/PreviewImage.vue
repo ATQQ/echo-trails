@@ -2,7 +2,7 @@
   <div class="preview-image" ref="previewWrapper" :class="{
     'show-detail': showMoreOperate
   }">
-    <van-image-preview :close-on-popstate="false" @change="handleChange" @scale="handlePreviewScale" v-model:show="show" :images="urls"
+    <van-image-preview ref="imagePreviewRef" :close-on-popstate="false" @change="handleChange" @scale="handlePreviewScale" v-model:show="show" :images="urls"
       :start-position="start" swipeDuration="100" :showIndex="false" :onClose="handleOnClose" :closeOnClickImage="false"
       transition="zoom">
       <template #cover>
@@ -130,6 +130,7 @@ import { deletePhoto, updateAlbumCover, updateDescription, updateLike, updatePho
 import { useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import { showConfirmDialog, showNotify, showLoadingToast, closeToast } from 'vant';
+import type { ImagePreviewInstance } from 'vant';
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import SelectAlbumModal from '../SelectAlbumModal/SelectAlbumModal.vue';
@@ -224,6 +225,7 @@ const handleDeleteCache = async () => {
 }
 
 const previewWrapper = ref<HTMLDivElement>()
+const imagePreviewRef = ref<ImagePreviewInstance>()
 const showMoreOperate = ref(true)
 const touchStart = ref<Touch>()
 const touchTimes = ref(0)
@@ -232,6 +234,7 @@ const livePlaying = ref(false)
 const liveVideoActive = ref(false)
 const livePlayFromStart = ref(false)
 const liveVideoWrapStyle = ref<Record<string, string>>({})
+const isZoomed = ref(false)
 let livePressTimer: ReturnType<typeof setTimeout> | null = null
 let liveVideoSyncRaf: number | null = null
 let liveTouchCount = 0
@@ -342,8 +345,11 @@ const startLivePress = () => {
   }, LIVE_PRESS_DELAY)
 }
 
-const handlePreviewScale = () => {
+const handlePreviewScale = (payload?: { scale?: number }) => {
   cancelLivePress()
+  if (typeof payload?.scale === 'number') {
+    isZoomed.value = payload.scale > 1.01
+  }
   if (liveVideoActive.value) syncLiveVideoTransform()
 }
 
@@ -355,6 +361,7 @@ watch(() => show.value, (newVal) => {
     showMoreOperate.value = false;
     showInfoDetail.value = false;
     editMode.value = false;
+    isZoomed.value = false;
     endLiveSession();
   }
 })
@@ -457,6 +464,7 @@ const handleChange = (index: number) => {
   endLiveSession()
   currentIdx.value = index
   editMode.value = false
+  isZoomed.value = false
 
   // 尝试在 DOM 中找到对应索引的缩略图并更新坐标，以便缩小动画回到正确位置
   // 使用 requestAnimationFrame 确保获取到最新的 DOM 位置
@@ -475,6 +483,9 @@ const handleChange = (index: number) => {
 import { getLunarDate } from '@/lib/lunar';
 import { isCompleteLivePhoto, livePhotoDebug } from '@/lib/livePhoto';
 import { preventBack } from '@/lib/router';
+import { useResponsive } from '@/composables/useResponsive';
+
+const { isDesktop } = useResponsive()
 
 const activeImage = computed(() => images[currentIdx.value] || {})
 const isLivePhoto = computed(() => isCompleteLivePhoto(activeImage.value))
@@ -676,6 +687,89 @@ preventBack(show)
 preventBack(showAlbumSelect)
 preventBack(showDeleteModeSheet)
 preventBack(showDownloadModeSheet)
+
+const isDesktopBusy = () =>
+  editMode.value || showAlbumSelect.value || showDownloadModeSheet.value || showDeleteModeSheet.value
+    || livePlaying.value || liveVideoActive.value || isZoomed.value
+
+const goToIndex = (nextIdx: number) => {
+  const total = urls.value.length
+  if (!total) return
+  const clamped = Math.max(0, Math.min(total - 1, nextIdx))
+  if (clamped === currentIdx.value) return
+  imagePreviewRef.value?.swipeTo?.(clamped, { immediate: false })
+}
+
+const WHEEL_THROTTLE_MS = 260
+let lastWheelAt = 0
+
+useEventListener(window, 'keydown', (e: KeyboardEvent) => {
+  if (!show.value) return
+  if (isDesktopBusy()) return
+  if (e.key === 'Escape') {
+    show.value = false
+    return
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    goToIndex(currentIdx.value - 1)
+    return
+  }
+  if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    goToIndex(currentIdx.value + 1)
+  }
+})
+
+useEventListener(previewWrapper, 'wheel', (e: WheelEvent) => {
+  if (!show.value) return
+  if (isDesktopBusy()) return
+  if (!e.deltaY) return
+  const now = Date.now()
+  if (now - lastWheelAt < WHEEL_THROTTLE_MS) return
+  lastWheelAt = now
+  if (e.deltaY > 0) {
+    goToIndex(currentIdx.value + 1)
+  } else {
+    goToIndex(currentIdx.value - 1)
+  }
+})
+
+const MOUSE_DRAG_THRESHOLD = 5
+const mouseDownPos = ref<{ x: number; y: number } | null>(null)
+useEventListener(previewWrapper, 'mousedown', (e: MouseEvent) => {
+  mouseDownPos.value = { x: e.clientX, y: e.clientY }
+})
+const isToolbarTarget = (target: Element) => {
+  if (target.closest('.cover-wrapper')) return true
+  if (target.closest('.view-original-btn')) return true
+  if (target.closest('.live-photo-label')) return true
+  if (target.closest('.cache-debug-badge')) return true
+  if (target.closest('.preview-bottom-actions')) return true
+  if (target.closest('.footer-nav')) return true
+  return false
+}
+
+useEventListener(previewWrapper, 'click', (e: MouseEvent) => {
+  if (!show.value) return
+  if (isDesktopBusy()) return
+  const target = e.target as Element | null
+  if (!target) return
+  const start = mouseDownPos.value
+  mouseDownPos.value = null
+  if (start) {
+    const dx = Math.abs(e.clientX - start.x)
+    const dy = Math.abs(e.clientY - start.y)
+    if (dx >= MOUSE_DRAG_THRESHOLD || dy >= MOUSE_DRAG_THRESHOLD) return
+  }
+  if (isTapTarget(target)) {
+    showMoreOperate.value = !showMoreOperate.value
+    return
+  }
+  if (isDesktop.value && !isToolbarTarget(target)) {
+    show.value = false
+  }
+})
 
 const restorePhotos = () => {
   photoListStore?.restorePhotos?.([activeImage.value._id])

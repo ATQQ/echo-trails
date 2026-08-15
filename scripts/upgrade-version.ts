@@ -32,6 +32,11 @@ async function main() {
   // Check arguments
   const args = process.argv.slice(2);
   const isAutoPatch = args.includes('--patch');
+  let autoPre = '';
+  const preIndex = args.indexOf('--pre');
+  if (preIndex !== -1 && args[preIndex + 1]) {
+    autoPre = args[preIndex + 1];
+  }
   let autoDesc = '';
   const descIndex = args.indexOf('--desc');
   if (descIndex !== -1 && args[descIndex + 1]) {
@@ -46,6 +51,9 @@ async function main() {
   let newVersion;
   if (isAutoPatch) {
     newVersion = patch;
+  } else if (autoPre) {
+    // Auto prerelease: e.g. --pre rc → prepatch with rc identifier
+    newVersion = semver.inc(currentVersion, 'prepatch', autoPre);
   } else {
     const response = await prompts({
       type: 'select',
@@ -55,6 +63,7 @@ async function main() {
         { title: `Patch (${patch})`, value: patch },
         { title: `Minor (${minor})`, value: minor },
         { title: `Major (${major})`, value: major },
+        { title: 'Prerelease (rc / beta / alpha)', value: 'prerelease' },
         { title: 'Custom', value: 'custom' },
       ],
     });
@@ -64,6 +73,64 @@ async function main() {
     if (!newVersion) {
       console.log('Operation cancelled.');
       process.exit(0);
+    }
+
+    if (newVersion === 'prerelease') {
+      // Select prerelease identifier (rc / beta / alpha)
+      const identifierRes = await prompts({
+        type: 'select',
+        name: 'value',
+        message: 'Select prerelease identifier',
+        choices: [
+          { title: 'rc (Release Candidate)', value: 'rc' },
+          { title: 'beta', value: 'beta' },
+          { title: 'alpha', value: 'alpha' },
+        ],
+      });
+      const identifier = identifierRes.value;
+      if (!identifier) {
+        console.log('Operation cancelled.');
+        process.exit(0);
+      }
+
+      // Select base version (prepatch / preminor / premajor / next)
+      const prepatch = semver.inc(currentVersion, 'prepatch', identifier);
+      const preminor = semver.inc(currentVersion, 'preminor', identifier);
+      const premajor = semver.inc(currentVersion, 'premajor', identifier);
+
+      if (!prepatch || !preminor || !premajor) {
+        console.error('Error: Failed to compute prerelease versions.');
+        process.exit(1);
+      }
+
+      const baseChoices: { title: string; value: string }[] = [
+        { title: `Pre-patch (${prepatch})`, value: prepatch },
+        { title: `Pre-minor (${preminor})`, value: preminor },
+        { title: `Pre-major (${premajor})`, value: premajor },
+      ];
+
+      // If current version is already a prerelease, offer to increment
+      if (semver.prerelease(currentVersion)) {
+        const prereleaseNext = semver.inc(currentVersion, 'prerelease', identifier);
+        if (prereleaseNext) {
+          baseChoices.unshift({
+            title: `Next prerelease (${prereleaseNext})`,
+            value: prereleaseNext,
+          });
+        }
+      }
+
+      const baseRes = await prompts({
+        type: 'select',
+        name: 'value',
+        message: 'Select base version',
+        choices: baseChoices,
+      });
+      newVersion = baseRes.value;
+      if (!newVersion) {
+        console.log('Operation cancelled.');
+        process.exit(0);
+      }
     }
 
     if (newVersion === 'custom') {

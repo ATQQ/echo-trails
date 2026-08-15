@@ -30,7 +30,7 @@
       <van-empty description="没有匹配的相册" />
     </div>
     <div v-else class="album-list">
-      <van-grid :gutter="10" :column-num="3" :border="false" class="small-card-grid">
+      <van-grid :gutter="10" :column-num="columnNum" :border="false" class="small-card-grid">
         <van-grid-item v-for="_album in filteredAlbumList" :key="_album._id">
           <div
             role="button"
@@ -81,6 +81,18 @@ import { getAlbums } from '@/service';
 import { computed, ref, watch } from 'vue';
 import { preventBack } from '@/lib/router';
 import { sortAlbums } from '@/lib/albumSort';
+import { useResponsive } from '@/composables/useResponsive';
+
+const { width } = useResponsive()
+
+const columnNum = computed(() => {
+  if (width.value >= 1920) return 8
+  if (width.value >= 1600) return 7
+  if (width.value >= 1280) return 6
+  if (width.value >= 900) return 5
+  if (width.value >= 480) return 4
+  return 3
+})
 
 const {
   currentAlbumId,
@@ -172,6 +184,8 @@ const handleSaveAlbumSelect = () => {
 }
 </script>
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.scss' as *;
+
 :global(.album-picker-sheet .van-action-sheet__content) {
   height: min(82vh, 680px);
   display: flex;
@@ -253,9 +267,11 @@ const handleSaveAlbumSelect = () => {
 .small-card-grid {
   padding-bottom: 4px;
 
-  :deep(.van-grid-item) {
-    flex-basis: 33.333333% !important;
-    max-width: 33.333333% !important;
+  @include mobile-only {
+    :deep(.van-grid-item) {
+      flex-basis: 33.333333% !important;
+      max-width: 33.333333% !important;
+    }
   }
 
   :deep(.van-grid-item__content) {

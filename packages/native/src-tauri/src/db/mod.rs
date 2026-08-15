@@ -90,20 +90,9 @@ pub async fn init(app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Create all tables and indexes. Returns Ok on success, Err with details on failure.
-async fn create_schema(app: &tauri::AppHandle) -> Result<(), String> {
-    let state: tauri::State<'_, TursoDb> = app.state();
-    let conn = state.0.connect().map_err(|e| e.to_string())?;
-
-    // Enable WAL mode and set busy timeout for better concurrency
-    conn.execute("PRAGMA journal_mode=WAL", ())
-        .await
-        .map_err(|e| e.to_string())?;
-    conn.execute("PRAGMA busy_timeout=5000", ())
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let stmts = [
+/// Returns all schema creation SQL statements (tables + indexes) in order.
+pub fn schema_statements() -> &'static [&'static str] {
+    &[
         // Legacy KV cache table
         "CREATE TABLE IF NOT EXISTS kv_cache (
             key TEXT PRIMARY KEY,
@@ -235,16 +224,46 @@ async fn create_schema(app: &tauri::AppHandle) -> Result<(), String> {
             created_at TEXT DEFAULT (datetime('now'))
         )",
         "CREATE INDEX IF NOT EXISTS idx_sync_log_status ON sync_log(status)",
-    ];
+    ]
+}
 
-    for stmt in &stmts {
-        conn.execute(*stmt, ())
-            .await
-            .map_err(|e| format!("Failed to execute '{}': {}", stmt, e))?;
+/// Execute schema creation on a given connection. Each statement is executed
+/// independently — a failure on one statement is logged but does NOT abort the
+/// rest, so a single bad statement won't prevent all other tables from being
+/// created.
+pub async fn create_schema_with_conn(conn: &turso::Connection) -> Result<(), String> {
+    // PRAGMA journal_mode=WAL 返回一行，必须用 query 执行（turso 0.5.3 的 execute
+    // 不允许返回行，否则报 "unexpected row during execution"）
+    let _ = conn.query("PRAGMA journal_mode=WAL", ()).await;
+    // busy_timeout 不返回行，可以安全用 execute
+    let _ = conn.execute("PRAGMA busy_timeout=5000", ()).await;
+
+    let mut errors: Vec<String> = Vec::new();
+    for stmt in schema_statements() {
+        if let Err(e) = conn.execute(*stmt, ()).await {
+            let msg = format!("Failed to execute '{}': {}", stmt, e);
+            log::error!("{}", msg);
+            errors.push(msg);
+        }
     }
 
-    info!("All tables and indexes created successfully");
-    Ok(())
+    if errors.is_empty() {
+        info!("All tables and indexes created successfully");
+        Ok(())
+    } else {
+        Err(format!(
+            "Schema creation completed with {} error(s): {}",
+            errors.len(),
+            errors.join("; ")
+        ))
+    }
+}
+
+/// Create all tables and indexes. Returns Ok on success, Err with details on failure.
+async fn create_schema(app: &tauri::AppHandle) -> Result<(), String> {
+    let state: tauri::State<'_, TursoDb> = app.state();
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+    create_schema_with_conn(&conn).await
 }
 
 // ==================== Helper functions ====================
@@ -346,6 +365,24 @@ pub async fn ensure_album_folders_table(conn: &turso::Connection) -> Result<(), 
 
 // ==================== Legacy KV cache commands ====================
 
+const KV_CACHE_CREATE_SQL: &str = "CREATE TABLE IF NOT EXISTS kv_cache (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)";
+
+async fn ensure_kv_cache_table(conn: &turso::Connection) -> Result<(), String> {
+    conn.execute(KV_CACHE_CREATE_SQL, ())
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn is_missing_kv_cache_error(err: &str) -> bool {
+    let lower = err.to_ascii_lowercase();
+    lower.contains("no such table") && lower.contains("kv_cache")
+}
+
 #[tauri::command]
 pub async fn db_set_cache(
     state: tauri::State<'_, TursoDb>,
@@ -353,14 +390,23 @@ pub async fn db_set_cache(
     value: String,
 ) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO kv_cache (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP",
-        (key, value),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    Ok(())
+    let sql = "INSERT INTO kv_cache (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP";
+    match conn.execute(sql, (key.clone(), value.clone())).await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let msg = e.to_string();
+            if is_missing_kv_cache_error(&msg) {
+                ensure_kv_cache_table(&conn).await?;
+                conn.execute(sql, (key, value))
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(())
+            } else {
+                Err(msg)
+            }
+        }
+    }
 }
 
 #[tauri::command]
@@ -369,10 +415,19 @@ pub async fn db_get_cache(
     key: String,
 ) -> Result<Option<String>, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
-    let mut rows = conn
-        .query("SELECT value FROM kv_cache WHERE key = ?1", (key,))
-        .await
-        .map_err(|e| e.to_string())?;
+    let sql = "SELECT value FROM kv_cache WHERE key = ?1";
+    let mut rows = match conn.query(sql, (key.clone(),)).await {
+        Ok(r) => r,
+        Err(e) => {
+            let msg = e.to_string();
+            if is_missing_kv_cache_error(&msg) {
+                ensure_kv_cache_table(&conn).await?;
+                conn.query(sql, (key,)).await.map_err(|e| e.to_string())?
+            } else {
+                return Err(msg);
+            }
+        }
+    };
 
     if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row.get_value(0).map_err(|e| e.to_string())?;
@@ -389,13 +444,19 @@ pub async fn db_get_all_cache_info(
     state: tauri::State<'_, TursoDb>,
 ) -> Result<Vec<CacheInfo>, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
-    let mut rows = conn
-        .query(
-            "SELECT key, LENGTH(value) as size FROM kv_cache",
-            (),
-        )
-        .await
-        .map_err(|e| e.to_string())?;
+    let sql = "SELECT key, LENGTH(value) as size FROM kv_cache";
+    let mut rows = match conn.query(sql, ()).await {
+        Ok(r) => r,
+        Err(e) => {
+            let msg = e.to_string();
+            if is_missing_kv_cache_error(&msg) {
+                ensure_kv_cache_table(&conn).await?;
+                conn.query(sql, ()).await.map_err(|e| e.to_string())?
+            } else {
+                return Err(msg);
+            }
+        }
+    };
 
     let mut result = Vec::new();
     while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
@@ -418,8 +479,40 @@ pub async fn db_delete_cache(
     key: String,
 ) -> Result<(), String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM kv_cache WHERE key = ?1", (key,))
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    let sql = "DELETE FROM kv_cache WHERE key = ?1";
+    match conn.execute(sql, (key.clone(),)).await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let msg = e.to_string();
+            if is_missing_kv_cache_error(&msg) {
+                ensure_kv_cache_table(&conn).await?;
+                conn.execute(sql, (key,))
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(())
+            } else {
+                Err(msg)
+            }
+        }
+    }
+}
+
+/// 清空整个 kv_cache 表（用于切换模式/地址时清理残留缓存）
+#[tauri::command]
+pub async fn db_clear_all_cache(state: tauri::State<'_, TursoDb>) -> Result<(), String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+    let sql = "DELETE FROM kv_cache";
+    match conn.execute(sql, ()).await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let msg = e.to_string();
+            if is_missing_kv_cache_error(&msg) {
+                ensure_kv_cache_table(&conn).await?;
+                conn.execute(sql, ()).await.map_err(|e| e.to_string())?;
+                Ok(())
+            } else {
+                Err(msg)
+            }
+        }
+    }
 }

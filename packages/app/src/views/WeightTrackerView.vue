@@ -1114,6 +1114,8 @@ onBeforeUnmount(() => {
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.scss' as *;
+
 .weight-tracker {
   min-height: 100vh;
   background: #f5f8fc;
@@ -1964,6 +1966,167 @@ button {
   }
 }
 
+@include desktop {
+  :global(html) {
+    scrollbar-gutter: stable;
+  }
+
+  .weight-tracker {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    position: relative;
+    background: #f5f8fc;
+    min-height: 100vh;
+  }
+
+  .screen {
+    min-height: 100vh;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .home-hero {
+    min-height: 220px;
+    padding: calc(28px + env(safe-area-inset-top)) clamp(24px, 5vw, 64px) 72px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+
+    h1 {
+      font-size: 22px;
+    }
+
+    p {
+      font-size: 13px;
+    }
+  }
+
+  .home-content {
+    padding: 0 clamp(24px, 5vw, 64px) 40px;
+    margin-top: -48px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+    grid-template-areas:
+      "metric  trend"
+      "action  trend"
+      "overview trend"
+      "records records";
+    gap: 20px 24px;
+    align-items: start;
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .home-content .metric-grid {
+    grid-area: metric;
+    margin: 0;
+  }
+
+  .home-content .primary-action {
+    grid-area: action;
+    margin: 0;
+  }
+
+  .home-content .overview-panel {
+    grid-area: overview;
+    margin-top: 0;
+  }
+
+  .home-content .trend-panel {
+    grid-area: trend;
+    margin-top: 0;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-content .home-record-panel {
+    grid-area: records;
+    margin-top: 0;
+    min-height: 420px;
+  }
+
+  .metric-card {
+    min-height: 168px;
+  }
+
+  .current-card strong {
+    font-size: clamp(48px, 5vw, 68px);
+  }
+
+  .mini-chart {
+    height: 320px;
+    flex: 1;
+  }
+
+  .large-chart {
+    height: 360px;
+  }
+
+  .page-header {
+    height: 68px;
+    padding: 0 clamp(24px, 5vw, 64px);
+
+    h1 {
+      font-size: 20px;
+    }
+  }
+
+  .stats-content {
+    padding: 20px clamp(24px, 5vw, 64px) 40px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-areas:
+      "range-tabs range-tabs"
+      "chart      records";
+    gap: 20px 24px;
+    align-items: start;
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: calc(100vh - 68px - 96px);
+  }
+
+  .stats-content .range-tabs {
+    grid-area: range-tabs;
+    max-width: 360px;
+    height: 42px;
+  }
+
+  .stats-content .stats-chart-card {
+    grid-area: chart;
+    margin-top: 0;
+  }
+
+  .stats-content .record-list-panel {
+    grid-area: records;
+    margin-top: 0;
+    min-height: 480px;
+  }
+
+  .weight-tabbar {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    bottom: 18px;
+    width: min(420px, calc(100% - 32px));
+    transform: translateX(-50%);
+    height: 66px;
+  }
+
+  .record-row {
+    padding: 12px 4px;
+
+    span {
+      font-size: 14px;
+    }
+  }
+}
+
 :deep(.family-sheet-popup) {
   height: 100vh !important;
   height: 100svh !important;
@@ -2092,18 +2255,5 @@ button {
   box-shadow: 0 -10px 24px rgba(30, 64, 111, 0.08);
   box-sizing: border-box;
   flex-shrink: 0;
-}
-
-@media (min-width: 560px) {
-  .weight-tracker {
-    max-width: 430px;
-    margin: 0 auto;
-    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
-  }
-
-  .weight-tabbar {
-    left: calc(50% - 203px);
-    right: calc(50% - 203px);
-  }
 }
 </style>

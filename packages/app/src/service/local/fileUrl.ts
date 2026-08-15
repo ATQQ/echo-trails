@@ -10,6 +10,13 @@ async function getCachedBitifulConfig() {
   return bitifulConfigCache
 }
 
+/**
+ * 重置 Bitiful 配置的模块级缓存（切换模式/地址后调用，避免返回旧配置）
+ */
+export function resetBitifulConfigCache() {
+  bitifulConfigCache = null
+}
+
 export async function buildFileUrl(s3Key: string, style?: string, queryParams?: string): Promise<string> {
   if (!s3Key) return ''
   if (s3Key.startsWith('http') || s3Key.startsWith('/') || s3Key.startsWith('blob:')) return s3Key

@@ -14,7 +14,21 @@ import { useTTLStorage } from '@/composables/useTTLStorage';
 import { useRecentAlbums } from '@/composables/useRecentAlbums';
 import { useTagStyles, type TagStyle } from '@/composables/useTagStyles';
 import { useScrollRestore } from '@/composables/useScrollRestore';
+import { useResponsive } from '@/composables/useResponsive';
 import { notifyAlbumsChanged, onAlbumsChanged } from '@/lib/albumEvents';
+
+defineOptions({ name: 'AlbumView' })
+
+const { width: viewportWidth, isDesktop } = useResponsive()
+
+const smallCardColumns = computed(() => {
+  if (!isDesktop.value) return 3
+  if (viewportWidth.value >= 1920) return 8
+  if (viewportWidth.value >= 1600) return 7
+  if (viewportWidth.value >= 1280) return 6
+  if (viewportWidth.value >= 900) return 5
+  return 4
+})
 
 const scrollContainer = ref<any>(null)
 useScrollRestore(scrollContainer)
@@ -138,7 +152,9 @@ const displayAlbumList = computed(() => {
 
   return {
     large: sortAlbums(albumList.value.large),
-    allSmall: sortedSmall.slice(0, 6),
+    allSmall: isDesktop.value
+      ? sortedSmall.slice(0, smallCardColumns.value * 2)
+      : sortedSmall.slice(0, 6),
     tagGroups
   }
 })
@@ -310,7 +326,7 @@ preventBack(showAddModal)
 </script>
 
 <template>
-  <div class="app-wrapper">
+  <div class="album-view-wrapper">
     <van-pull-refresh v-model="loading" @refresh="handleRefresh" ref="scrollContainer" class="pull-refresh-container" @scroll="handleScroll">
     <PageTitle title="相册" :info="false">
       <template v-if="albumHomeMemorials.length" #center>
@@ -367,7 +383,7 @@ preventBack(showAddModal)
             <h2>全部相册</h2>
             <van-icon name="arrow" />
           </div>
-          <van-grid :gutter="10" :column-num="3" :border="false" class="small-card-grid">
+          <van-grid :gutter="10" :column-num="smallCardColumns" :border="false" class="small-card-grid">
             <van-grid-item v-for="album in displayAlbumList.allSmall" :key="album._id">
               <div class="small-card" @click.stop.prevent="goToDetail(album._id)"
                    @contextmenu="handleContextMenu($event, album)"
@@ -421,8 +437,10 @@ preventBack(showAddModal)
 </template>
 
 <style scoped lang="scss">
-.app-wrapper {
-  height: 100vh;
+@use '@/styles/breakpoints.scss' as *;
+
+.album-view-wrapper {
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -446,6 +464,15 @@ preventBack(showAddModal)
 
 .album {
   padding-bottom: var(--footer-area-height);
+
+  @include desktop {
+    padding: 0 24px 32px;
+    box-sizing: border-box;
+  }
+
+  @include large-desktop {
+    padding: 0 32px 32px;
+  }
 }
 
 .add-position {
@@ -458,6 +485,30 @@ preventBack(showAddModal)
   overflow: hidden;
   height: 100vw;
   width: 100%;
+
+  @include desktop {
+    height: auto;
+    aspect-ratio: 16 / 9;
+    margin: 0 -24px;
+    width: calc(100% + 48px);
+    max-height: 480px;
+    border-radius: 0;
+
+    :deep(.van-grid-item__content) {
+      padding: 0;
+    }
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+  }
+
+  @include large-desktop {
+    margin: 0 -32px;
+    width: calc(100% + 64px);
+  }
 
   .title-desc {
     position: absolute;
@@ -555,6 +606,10 @@ preventBack(showAddModal)
       width: 32vw;
       aspect-ratio: 1 / 1.15;
 
+      @include desktop {
+        width: 200px;
+      }
+
       .title-desc {
         position: absolute;
         bottom: 0;
@@ -582,6 +637,10 @@ preventBack(showAddModal)
     &.portrait {
       width: 62vw;
       aspect-ratio: 3 / 4;
+
+      @include desktop {
+        width: 320px;
+      }
 
       .title-desc {
         position: absolute;
@@ -613,10 +672,6 @@ preventBack(showAddModal)
 }
 
 .small-card-grid {
-  :deep(.van-grid-item) {
-    flex-basis: 33.333333% !important;
-    max-width: 33.333333% !important;
-  }
   :deep(.van-grid-item__content) {
     padding: 0;
     background-color: transparent;
@@ -631,6 +686,16 @@ preventBack(showAddModal)
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+
+  @include desktop {
+    border-radius: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+  }
 
   :deep(.van-image) {
     border-radius: 12px;
@@ -677,6 +742,20 @@ preventBack(showAddModal)
   width: 100%;
   height: 100vw;
   margin-bottom: 16px;
+
+  @include desktop {
+    aspect-ratio: 16 / 9;
+    height: auto;
+    max-height: 480px;
+    margin: 0 -24px;
+    width: calc(100% + 48px);
+    border-radius: 0;
+  }
+
+  @include large-desktop {
+    margin: 0 -32px;
+    width: calc(100% + 64px);
+  }
 }
 
 .skeleton-grid {

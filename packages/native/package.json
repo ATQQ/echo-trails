@@ -6,9 +6,11 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "npm run pre:build && tauri dev",
+    "dev:desktop": "npm run pre:build && tauri dev",
     "dev:android": "npm run pre:build && tauri android dev",
     "build:android": "npm run pre:build && tauri android build --target aarch64 --split-per-abi --apk true --aab true && bun run ../../scripts/rename-android-apk.ts && bun run ../../scripts/update-apk-md5.ts",
     "build:android:universal": "npm run pre:build && tauri android build && bun run ../../scripts/rename-android-apk.ts && bun run ../../scripts/update-apk-md5.ts",
+    "build:desktop": "npm run pre:build && tauri build",
     "pre:build": "node scripts/preset-build.js"
   },
   "dependencies": {
@@ -21,7 +23,9 @@
     "@tauri-apps/plugin-os": "^2.2.0",
     "@tauri-apps/plugin-shell": "^2",
     "@tauri-apps/plugin-store": "^2.4.2",
-    "@tauri-apps/plugin-clipboard-manager": "^2.3.2"
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+    "@tauri-apps/plugin-updater": "^2",
+    "@tauri-apps/plugin-process": "^2"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6"

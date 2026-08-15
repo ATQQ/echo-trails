@@ -13,17 +13,32 @@ import { checkUpdate as checkUpdateApi } from "@/service";
 import { isAutoCheckUpdateEnabled } from '@/composables/useAutoCheckUpdate';
 import NotificationBanner from '@/components/NotificationBanner/NotificationBanner.vue';
 import MainLayout from '@/components/MainLayout.vue';
+import SideNav from '@/components/SideNav/SideNav.vue';
 import { useFooterStore } from '@/stores/footer';
+import { useAuthStore } from '@/stores/auth';
+import { useResponsive } from '@/composables/useResponsive';
+import { useSideNavCollapsed } from '@/composables/useSideNavCollapsed';
+import { useVConsole } from '@/composables/useVConsole';
 
 const route = useRoute();
 const footerStore = useFooterStore();
+const authStore = useAuthStore();
+const { isDesktop } = useResponsive();
+const { collapsed: sideNavCollapsed } = useSideNavCollapsed();
 const showNav = computed(() => route.meta.nav === true)
-const isSwipePage = computed(() => ['/home', '/'].includes(route.path))
+const isSwipePage = computed(() => !isDesktop.value && ['/home', '/'].includes(route.path))
+const showSideNav = computed(() => isDesktop.value && route.name !== 'login' && authStore.isLoggedIn)
+const isTauriDesktop = computed(() => isTauri && isDesktop.value)
+const isSideNavCollapsed = computed(() => showSideNav.value && sideNavCollapsed.value)
 const isAlbumScrolled = ref(false)
 const showAlbumBlur = computed(() => route.path === '/' && isAlbumScrolled.value)
 const getRouteViewKey = (viewRoute: RouteLocationNormalizedLoaded) => {
   if (viewRoute.matched.some(record => record.path === '/asset')) {
     return 'asset-layout'
+  }
+
+  if (isDesktop.value) {
+    return viewRoute.fullPath
   }
 
   return ['/home', '/'].includes(viewRoute.path) ? 'main-layout' : viewRoute.fullPath
@@ -103,6 +118,38 @@ const handleBannerClick = () => {
 
 const doCheckUpdate = async () => {
   try {
+    // 桌面端（Tauri）：用 tauri-plugin-updater API 实现应用内自动更新
+    if (isTauri && isDesktop.value) {
+      const { checkDesktopUpdate, downloadAndInstallDesktopUpdate } = await import('@/lib/updater')
+      const update = await checkDesktopUpdate()
+      if (update) {
+        updateInfoRef.value = {
+          hasUpdate: true,
+          currentVersion: appVersion.value,
+          latestVersion: update.version,
+          description: update.body || '',
+          downloadUrl: '',
+          forceUpdate: false,
+          md5: '',
+        }
+        bannerTitle.value = '发现新版本 - 点击开始下载'
+        bannerMessage.value = `v${update.version} ${update.body || ''}`
+        bannerDuration.value = 6000
+        bannerAction.value = async () => {
+          try {
+            showToast('正在下载并安装更新...')
+            // 下载 + 签名校验 + 安装，完成后自动 relaunch
+            await downloadAndInstallDesktopUpdate()
+          } catch (e) {
+            showToast('更新失败: ' + e)
+          }
+        }
+        showBanner.value = true
+      }
+      return
+    }
+
+    // Android / Web：现有逻辑（Native check_update 命令 / 服务端接口）
     // 获取当前平台
     let platform = 'macos';
     if (isTauri) {
@@ -150,31 +197,61 @@ const doCheckUpdate = async () => {
   }
 };
 
+// 拦截非输入元素上的 Backspace，防止触发浏览器/Tauri WebView 的 history.back()
+// 焦点在 input/textarea/contenteditable 上时正常删除字符
+const handleBackspaceNavigation = (e: KeyboardEvent) => {
+  if (e.key !== 'Backspace') return
+  const target = e.target as HTMLElement | null
+  if (!target) return
+  const tag = target.tagName
+  // 输入类元素允许默认删除行为
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return
+  // 其余元素阻止默认的 history.back()
+  e.preventDefault()
+}
+
 onMounted(() => {
   window.addEventListener('album-scroll-state', handleAlbumScrollState)
+  window.addEventListener('keydown', handleBackspaceNavigation)
   window?.hideLoadingScreen?.()
+  // 初始化 vConsole 调试控制台（依据设置页调试面板的开关状态）
+  useVConsole()
   if(!isTauri || !isAutoCheckUpdateEnabled.value) return;
   doCheckUpdate();
 })
 
+watch([showSideNav, isSideNavCollapsed], ([hasSideNav, collapsedValue]) => {
+  if (typeof document === 'undefined') return
+  document.body.classList.toggle('body-has-side-nav', hasSideNav)
+  document.body.classList.toggle('body-side-nav-collapsed', collapsedValue)
+}, { immediate: true })
+
 onBeforeUnmount(() => {
   window.removeEventListener('album-scroll-state', handleAlbumScrollState)
+  window.removeEventListener('keydown', handleBackspaceNavigation)
 })
 </script>
 
 <template>
-  <div class="app-wrapper" ref="appWrapperRef">
-    <router-view v-slot="{ Component, route }">
-      <transition :name="showNav ? '' : 'van-fade'" mode="out-in">
-        <KeepAlive :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
-          <component :is="isSwipePage ? MainLayout : Component" :key="getRouteViewKey(route)"></component>
+  <div class="app-wrapper" :class="{ 'is-desktop': isDesktop, 'has-side-nav': showSideNav, 'is-side-nav-collapsed': isSideNavCollapsed, 'is-tauri-desktop': isTauriDesktop }" ref="appWrapperRef">
+    <div v-if="isTauriDesktop" class="app-drag-region" data-tauri-drag-region></div>
+    <SideNav v-if="showSideNav" />
+    <div class="app-main">
+      <router-view v-slot="{ Component, route }">
+        <KeepAlive v-if="isDesktop" :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
+          <component :is="Component" :key="getRouteViewKey(route)"></component>
         </KeepAlive>
-      </transition>
-    </router-view>
+        <transition v-else :name="showNav ? '' : 'van-fade'" mode="out-in">
+          <KeepAlive :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
+            <component :is="isSwipePage ? MainLayout : Component" :key="getRouteViewKey(route)"></component>
+          </KeepAlive>
+        </transition>
+      </router-view>
+    </div>
   </div>
-  <div v-if="showAlbumBlur" class="album-top-blur-mask" aria-hidden="true"></div>
-  <!-- 底部菜单 -->
-  <footer-nav v-show="showNav && footerStore.isVisible"></footer-nav>
+  <div v-if="showAlbumBlur && !isDesktop" class="album-top-blur-mask" aria-hidden="true"></div>
+  <!-- 底部菜单（仅移动端） -->
+  <footer-nav v-show="showNav && footerStore.isVisible && !isDesktop"></footer-nav>
 
   <!-- Notification Banner -->
   <NotificationBanner
@@ -197,11 +274,92 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-.app-wrapper > *:first-child {
+.app-drag-region {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  z-index: 9999;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.app-wrapper > *:first-child:not(.app-drag-region) {
   flex: 1;
   overflow-y: auto; /* Default to scrollable */
   width: 100%;
   height: 100%;
+}
+
+.app-wrapper.has-side-nav {
+  flex-direction: row;
+  --side-nav-width: 200px;
+}
+
+.app-wrapper.has-side-nav.is-side-nav-collapsed {
+  --side-nav-width: 64px;
+}
+
+body.body-has-side-nav {
+  --side-nav-width: 200px;
+}
+
+body.body-has-side-nav.body-side-nav-collapsed {
+  --side-nav-width: 64px;
+}
+
+body.body-has-side-nav .van-dropdown-item {
+  left: var(--side-nav-width, 0px);
+  width: calc(100vw - var(--side-nav-width, 0px));
+  transition: left 0.2s ease, width 0.2s ease;
+}
+
+body.body-has-side-nav .van-nav-bar--fixed {
+  left: var(--side-nav-width, 0px);
+  width: calc(100vw - var(--side-nav-width, 0px));
+  transition: left 0.2s ease, width 0.2s ease;
+}
+
+.app-wrapper.has-side-nav > *:first-child:not(.app-drag-region) {
+  flex: 0 0 auto;
+  overflow-y: auto;
+  width: auto;
+  height: 100%;
+}
+
+.app-wrapper.has-side-nav .app-main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-wrapper.is-desktop {
+  --footer-area-height: 0px;
+}
+
+.app-wrapper.is-desktop .app-main,
+.app-wrapper.is-desktop .app-main * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-wrapper.is-desktop .app-main::-webkit-scrollbar,
+.app-wrapper.is-desktop *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.app-wrapper .app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 html,

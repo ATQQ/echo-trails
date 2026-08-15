@@ -2,11 +2,12 @@
 import { showConfirmDialog, showSuccessToast } from 'vant'
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watchEffect, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useLocalStorage } from '@vueuse/core'
+import { useLocalStorage, useMediaQuery } from '@vueuse/core'
 import { getWeightDiff, getTimeDiffDes } from '@/lib/weight-utils'
 import { getWeightList, addWeight, updateWeight, deleteWeight, type WeightRecord } from '@/service/weight'
 import { useFamily } from '@/composables/useFamily'
 import FamilySelector from '@/components/FamilySelector/FamilySelector.vue'
+import AddButton from '@/components/AddButton/AddButton.vue'
 import dayjs from 'dayjs'
 import { createChart, ColorType, LineSeries } from 'lightweight-charts'
 import { preventBack } from '@/lib/router'
@@ -29,6 +30,8 @@ watchEffect(() => {
 })
 
 const themeColor = ref('#1989fa')
+
+const isDesktop = useMediaQuery('(min-width: 480px)')
 
 const router = useRouter()
 function handleBack() {
@@ -339,7 +342,10 @@ onUnmounted(() => {
 
 const handleResize = () => {
   if (chart && chartContainer.value) {
-    chart.applyOptions({ width: chartContainer.value.clientWidth })
+    chart.applyOptions({
+      width: chartContainer.value.clientWidth,
+      height: window.innerWidth >= 480 ? 320 : 220
+    })
   }
 }
 
@@ -372,7 +378,7 @@ watchEffect(async () => {
         textColor: '#969799',
       },
       width: chartContainer.value.clientWidth,
-      height: 220,
+      height: window.innerWidth >= 480 ? 320 : 220,
       grid: {
         vertLines: { visible: false },
         horzLines: { color: '#f0f0f0' },
@@ -427,7 +433,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
+  <div class="weight-view">
     <van-nav-bar class="safe-padding-top" fixed title="体重记录" left-text="返回" left-arrow @click-left="handleBack" />
     <!-- 选人 -->
     <header class="family-select-wrapper safe-padding-top">
@@ -451,7 +457,7 @@ onMounted(() => {
         <span :class="t.symbol" />
         <span class="res">{{ t.res }}</span>
       </p>
-      <div ref="chartContainer" style="width: 100%; height: 220px" />
+      <div ref="chartContainer" class="chart-container" />
       <van-divider :style="{ color: '#1989fa', borderColor: '#1989fa', padding: '0 16px' }">
         体重记录（{{ isKG ? 'kg' : '斤' }}）
         <van-switch v-model="isKG" :size="18" inactive-color="#e8ffee" />
@@ -476,17 +482,15 @@ onMounted(() => {
       </div>
     </main>
     <!-- 添加记录 -->
-    <div class="add-record" @click="handleAddRecord">
-      <van-icon name="plus" size="20" />
-    </div>
+    <AddButton class="add-record" @click="handleAddRecord" />
     <!-- 添加记录弹窗 -->
     <van-popup
       v-model:show="showAddRecord"
-      position="bottom"
-      class="safe-padding-top"
+      :position="isDesktop ? 'center' : 'bottom'"
+      :class="['safe-padding-top', { 'desktop-record-popup': isDesktop }]"
       round
       closeable
-      :style="{ height: '100%' }"
+      :style="isDesktop ? { width: '480px', maxHeight: '90vh', height: 'auto', borderRadius: '16px' } : { height: '100%' }"
       @click-close-icon="clearWeightInputSelection"
       @click-overlay="clearWeightInputSelection"
       @close="handleAddRecordPopupClose"
@@ -562,6 +566,13 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.scss' as *;
+
+.chart-container {
+  width: 100%;
+  height: 220px;
+}
+
 .current-time {
   padding-top: 2rem;
   text-align: center;
@@ -632,18 +643,8 @@ onMounted(() => {
   justify-content: space-between;
 }
 
-.add-record {
-  position: fixed;
-  right: 2rem;
-  bottom: 2.5rem;
-  width: 3rem;
-  height: 3rem;
-  color: #fff;
+:deep(.add-record.add-btn--primary) {
   background-color: v-bind(themeColor);
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .record-popup {
@@ -753,6 +754,70 @@ onMounted(() => {
 .family-select-wrapper {
   position: relative;
   margin-top: 46px;
+}
+
+@include desktop {
+  .weight-view main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .family-select-wrapper {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .current-weight {
+    font-size: 2.4rem;
+  }
+
+  .chart-container {
+    height: 320px !important;
+  }
+
+  .weight-list {
+    max-width: 960px;
+    margin: 0 auto;
+    height: auto;
+    padding-bottom: 32px;
+
+    :deep(.van-list) {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px 12px;
+    }
+
+    :deep(.van-swipe-cell) {
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    :deep(.van-list__placeholder),
+    :deep(.van-list__finished-text),
+    :deep(.van-list__loading) {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .record-popup {
+    padding: 24px 24px 24px;
+    height: auto;
+  }
+
+  .record-submit {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    margin-top: 16px;
+  }
+
+  .record-popup-header {
+    padding: 0 40px 12px 0;
+  }
 }
 </style>
 <style>
