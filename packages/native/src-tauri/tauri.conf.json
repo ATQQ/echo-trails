@@ -53,7 +53,12 @@
       "icons/192x192.png",
       "icons/icon.ico",
       "icons/icon.icns"
-    ]
+    ],
+    "windows": {
+      "wix": {
+        "language": "zh-CN"
+      }
+    }
   },
   "plugins": {
     "updater": {
