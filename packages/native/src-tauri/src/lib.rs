@@ -54,6 +54,7 @@ pub fn run() {
             save_to_pictures,
             upload_token,
             upload_file,
+            download_url,
             download_apk,
             open_apk,
             check_update,
@@ -123,6 +124,19 @@ pub fn run() {
             db_bp_add,
             db_bp_update,
             db_bp_delete,
+            // Todo CRUD (四象限待办)
+            db_todo_list,
+            db_todo_create,
+            db_todo_update,
+            db_todo_toggle,
+            db_todo_delete,
+            // Drive File CRUD (云盘)
+            db_drive_file_list,
+            db_drive_file_create_folder,
+            db_drive_file_create,
+            db_drive_file_rename,
+            db_drive_file_move,
+            db_drive_file_delete,
             // Usage Record
             db_usage_record_add,
             db_usage_record_list,
