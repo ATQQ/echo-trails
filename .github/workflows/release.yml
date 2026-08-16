@@ -375,6 +375,31 @@ jobs:
             Write-Host "Bundle dir not found: $bundleDir"
           }
 
+      - name: Rename updater artifacts to ASCII names
+        # GitHub Release 会剔除 asset 文件名中的非 ASCII 字符（如中文 productName 生成的
+        # 记忆的回响.app.tar.gz → app.tar.gz），导致 latest.json 中的原始中文 URL 404；
+        # 同时 darwin 两平台产物同名会互相覆盖。这里统一重命名为带平台后缀的 ASCII 名。
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE_DIR="packages/native/src-tauri/target/${{ matrix.target }}/release/bundle"
+          case "${{ matrix.updater_platform }}" in
+            darwin-aarch64) DST_NAME="EchoTrails_aarch64.app.tar.gz" ;;
+            darwin-x86_64)  DST_NAME="EchoTrails_x64.app.tar.gz" ;;
+            windows-x86_64) DST_NAME="EchoTrails_x64-setup.exe" ;;
+            linux-x86_64)   DST_NAME="EchoTrails_amd64.AppImage" ;;
+          esac
+          SRC=$(find "$BUNDLE_DIR/${{ matrix.updater_dir }}" -name "${{ matrix.updater_glob }}" -not -name "*.sig" | head -1)
+          if [ -z "$SRC" ]; then
+            echo "ERROR: updater artifact not found in $BUNDLE_DIR/${{ matrix.updater_dir }}"
+            exit 1
+          fi
+          DST="$BUNDLE_DIR/${{ matrix.updater_dir }}/$DST_NAME"
+          mv "$SRC" "$DST"
+          mv "$SRC.sig" "$DST.sig"
+          echo "Renamed updater artifact:"
+          echo "  $SRC -> $DST"
+
       - name: Publish desktop artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:

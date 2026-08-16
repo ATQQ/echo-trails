@@ -5,19 +5,15 @@
   "platforms": {
     "windows-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVdFRkZyQy9zdVpHb09vSmg2NmFPMmJ5M0ZhU09pc1BzbGNOSVlGUU9qRndDcG05TGhiYnhkUDZpb3FoTnVFc0VJa1BrKzA1a2p5MURNZk1jRERuNlFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODUxNzU3CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOC4zX3g2NC1zZXR1cC5leGUKUTF0Y0hQclNDN1p4c0g4ekpQVmc2dG1iZUlSTTRNK1lMZ3V1Tjc0ZS93WTJNcG5IaGh2Ny9lbTJqbm1mWXJpUUxxRTk5L3pDd3R5WFU0Y1QvSUhJQnc9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/记忆的回响_0.8.3_x64-setup.exe"
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/EchoTrails_x64-setup.exe"
     },
     "linux-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVpqSkdjNndENTdneEh2a0JMSTdWWWhDY3Vpd1I2VFF6SlhqcnozTlNFVGdUQkZib1hvMXNKeVhZQ3lxeld4R05xZHc0S01ab0p0UVp5Mm9yeFBTOXc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODUxNDE0CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOC4zX2FtZDY0LkFwcEltYWdlCmpIeDA2NjY1bW9xYlZ5YWx3cmozbFc2eEZZb2pmZ0VDYkZiMXpzREZOdWRGSVVZbjUyb3VqMkZUN3VjbDNWZHFHN2J4TFVGTmVOYTlpaSt5VXFsV0RBPT0K",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/记忆的回响_0.8.3_amd64.AppImage"
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/EchoTrails_amd64.AppImage"
     },
     "darwin-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVNlRlR2bEM2dEZGQWNQYzRHY0JtNmFjd2h2K20wbGdZclFsUDJudnhLSDZMcWo0MEpydEN5NWU1RG84bXBIaTFjaTRINTlwcktMUU0weXVadnRGSndZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODUxNjkwCWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKOVpUZUhxdXRWdSttRTVCLzhoK29TZVJNSThvbkYxd3RQVkNCamNZbis1Wm9EVTVGRVhoUjFPYnFBSW5DY1pOQXRiKzhIdHA2cjFraVJRUkRFMHdERFE9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/记忆的回响.app.tar.gz"
-    },
-    "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVptTmUyNlljZnJnYUFDcDlpOWxkWGV6dnpVRlQ3cTQ4aVFkU2ZOeHRYUEpJNkJkTHNTL2N5aEEwQjlXcDdLcmJHS2xOWDgyeFVBM2hQWEUwRGVSd0FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODUxMzk2CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKeUVqbWJZM0x2Qk9xTWEyT3ZmTXVQVWZDU280MFFOMU0yL202eUQrVXlGZkErbUFxQ0E4WGZwcFN6dy9IZzMrUzZVRXZ0SUlvYWM3QU1aSGxTVVVwQXc9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/记忆的回响.app.tar.gz"
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/EchoTrails_x64.app.tar.gz"
     }
   },
   "android": {
