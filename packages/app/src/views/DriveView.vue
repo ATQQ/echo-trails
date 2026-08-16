@@ -153,6 +153,7 @@ import {
   type DriveBreadcrumb,
 } from '@/service/driveFile';
 import { getUploadUrl, uploadFile } from '@/service';
+import { randomUUID } from '@/lib/util';
 import { preventBack } from '@/lib/router';
 import { isTauri } from '@/constants';
 import { openUrl } from '@tauri-apps/plugin-opener';
@@ -472,7 +473,7 @@ const uploadOne = async (file: File) => {
   const toast = showLoadingToast({ message: `上传中：${file.name}`, forbidClick: true, duration: 0 });
   try {
     const safeName = file.name.replace(/[\\/]/g, '_');
-    const key = `drive/${crypto.randomUUID()}/${safeName}`;
+    const key = `drive/${randomUUID()}/${safeName}`;
     const uploadUrl = await getUploadUrl(key);
     await uploadFile(file, uploadUrl);
     await createDriveFile({

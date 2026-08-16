@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
 import { MEMORIAL_PRESET_COVERS } from '@/constants/memorialCovers'
 import { normalizeMemorial } from '@/lib/memorial'
+import { randomUUID } from '@/lib/util'
 import { buildCoverUrl, buildFileUrl, buildPreviewUrl } from './fileUrl'
 
 async function enrichPhotoUrls(row: any): Promise<any> {
@@ -148,7 +149,7 @@ export async function addFileInfo(body: any) {
     liveDuration: body.liveDuration ?? 0,
   })
   const added = await invoke<any>('db_photo_add', {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     isLiked: body.likedMode || false,
     type: body.type || 'image/jpeg',
     lastModified: body.lastModified ? new Date(body.lastModified).toISOString() : new Date().toISOString(),
@@ -505,7 +506,7 @@ export async function createMemorial(data: any) {
     createdAt: data.createdAt || now,
   })
   const result = await invoke<any>('db_memorial_create', {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     data: memorialData,
   })
   return { ...result, _id: result.id || result._id }
