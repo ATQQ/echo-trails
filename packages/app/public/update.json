@@ -28,7 +28,8 @@
       "version": "0.8.6",
       "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.6.apk",
       "forceUpdate": false,
-      "description": "feat: 支持文件预览"
+      "description": "feat: 支持文件预览",
+      "md5": "c8c4bb0fdb0506c9f052a6d78cf29aea"
     },
     {
       "version": "0.8.5",
