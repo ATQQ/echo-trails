@@ -34,6 +34,49 @@ function compareVersion(v1: string, v2: string): number {
   return 0;
 }
 
+// 探测安装包下载地址是否可用
+// 优先 HEAD 请求；若服务不支持 HEAD（405/501），回退为带 Range 的 GET 请求探测
+// 与 App 端 Rust 实现的探测行为保持一致
+async function isDownloadAvailable(url: string): Promise<boolean> {
+  const headController = new AbortController();
+  const headTimeoutId = setTimeout(() => headController.abort(), 3000); // 3s timeout
+  try {
+    const headResponse = await fetch(url, {
+      method: 'HEAD',
+      signal: headController.signal
+    });
+
+    // 状态 2xx 视为可用
+    if (headResponse.ok) return true;
+
+    // 服务不支持 HEAD（405 Method Not Allowed / 501 Not Implemented），回退为 Range GET 探测
+    if (headResponse.status === 405 || headResponse.status === 501) {
+      const getController = new AbortController();
+      const getTimeoutId = setTimeout(() => getController.abort(), 3000); // 3s timeout
+      try {
+        const getResponse = await fetch(url, {
+          method: 'GET',
+          headers: { 'Range': 'bytes=0-0' },
+          signal: getController.signal
+        });
+        // 2xx 或 206（Partial Content）视为可用
+        return getResponse.ok || getResponse.status === 206;
+      } finally {
+        clearTimeout(getTimeoutId);
+      }
+    }
+
+    // 其它状态视为不可用
+    return false;
+  } catch (e) {
+    // 异常或超时均视为不可用
+    console.error(`Failed to check download availability for ${url}`, e);
+    return false;
+  } finally {
+    clearTimeout(headTimeoutId);
+  }
+}
+
 export default function appRouter(app: Hono) {
   // 检查更新接口 - 公开接口，不需要鉴权
   // 此接口现在负责：
@@ -145,7 +188,17 @@ export default function appRouter(app: Hono) {
        })
     }
 
-    const hasUpdate = compareVersion(latestVersionInfo.version, currentVersion) > 0;
+    let hasUpdate = compareVersion(latestVersionInfo.version, currentVersion) > 0;
+
+    // 元数据可能先于安装包上传到达（downloadUrl 指向的安装包尚不存在）
+    // 返回 hasUpdate=true 前先探测安装包是否可下载，探测不可用则置为无更新
+    // 避免前端提示升级但下载 404（与 App 端 Rust 实现行为保持一致）
+    if (hasUpdate && latestVersionInfo.downloadUrl) {
+      const available = await isDownloadAvailable(latestVersionInfo.downloadUrl);
+      if (!available) {
+        hasUpdate = false;
+      }
+    }
 
     // 构造最终返回给前端的数据
     const result = {

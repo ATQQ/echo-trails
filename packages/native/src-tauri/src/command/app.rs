@@ -239,6 +239,39 @@ fn extract_platform_latest(data: &serde_json::Value, platform: &str) -> Option<V
     }
 }
 
+// 探测安装包资源是否已可下载（version.json 元数据可能先于 APK 构建上传到达，此时 download_url 会 404）
+// 优先发 HEAD 请求；若服务器不支持 HEAD（405/501）则回退为 Range GET 探测
+async fn is_download_available(client: &reqwest::Client, download_url: &str) -> bool {
+    // HEAD 探测：2xx 视为资源存在（client 已配置 3s 超时，且 reqwest 默认跟随重定向）
+    match client.head(download_url).send().await {
+        Ok(resp) => {
+            let status = resp.status();
+            if status.is_success() {
+                return true;
+            }
+            // 服务器不支持 HEAD（405 Method Not Allowed / 501 Not Implemented），回退 GET 探测
+            if status.as_u16() == 405 || status.as_u16() == 501 {
+                return match client
+                    .get(download_url)
+                    .header("Range", "bytes=0-0")
+                    .send()
+                    .await
+                {
+                    // 2xx 或 206 Partial Content 均视为资源存在
+                    Ok(range_resp) => {
+                        range_resp.status().is_success() || range_resp.status().as_u16() == 206
+                    }
+                    Err(_) => false,
+                };
+            }
+            // 其它状态（404/403 等）视为不可用
+            false
+        }
+        // 网络错误 / 超时均视为不可用
+        Err(_) => false,
+    }
+}
+
 #[tauri::command]
 pub async fn check_update(current_version: String, platform: String) -> Result<UpdateInfo, String> {
     let client = reqwest::Client::builder()
@@ -269,10 +302,19 @@ pub async fn check_update(current_version: String, platform: String) -> Result<U
 
                         match extract_platform_latest(&data, &platform) {
                             Some(latest_info) => {
-                                // 发现新版本：立即采用并停止轮询
+                                // 发现新版本：先探测安装包是否已可下载，可用才采用并停止轮询
                                 if compare_version(&latest_info.version, &current_version) > 0 {
-                                    found_latest = Some(latest_info);
-                                    break;
+                                    if latest_info.download_url.is_empty() {
+                                        // 无下载链接时保持原有行为：直接采用
+                                        found_latest = Some(latest_info);
+                                        break;
+                                    }
+                                    if is_download_available(&client, &latest_info.download_url).await {
+                                        found_latest = Some(latest_info);
+                                        break;
+                                    }
+                                    // 元数据先于安装包上传（资源尚不可下载），跳过该版本源继续尝试
+                                    continue;
                                 }
                                 // 当前 URL 无新版本，作为兜底保存（继续尝试后续 URL）
                                 if found_latest.is_none() {
