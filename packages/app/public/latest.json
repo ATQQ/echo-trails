@@ -1,30 +1,30 @@
 {
-  "version": "0.8.2",
-  "notes": "桌面端多平台构建",
-  "pub_date": "2026-08-15T07:49:28.025Z",
+  "version": "0.8.3",
+  "notes": "feat: 支持云盘",
+  "pub_date": "2026-08-16T03:43:18.450Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVN3TzRoRGNJcTFsZVNPN0hHaHBETEJROWQ3c2lpQXNmMUtlNmlSM25EdENnSGdQVThDWWg0OG9YVkVManh3dTN5NkFNblp6TkNNcW5IenJ0ZzBFNmcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NzgwMTI5CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOC4yX3g2NC1zZXR1cC5leGUKcWpBZnRicDNXTUk4cVpvUE51enVZSUN3L0pxL0UxYnFHRVg1YUZlQ25uVm0rWlFlaWlBczhVaTdVWVlBVU8yYndUamFzampNRXcvTGNWNkRkL1IxREE9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2/记忆的回响_0.8.2_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVdFRkZyQy9zdVpHb09vSmg2NmFPMmJ5M0ZhU09pc1BzbGNOSVlGUU9qRndDcG05TGhiYnhkUDZpb3FoTnVFc0VJa1BrKzA1a2p5MURNZk1jRERuNlFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODUxNzU3CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOC4zX3g2NC1zZXR1cC5leGUKUTF0Y0hQclNDN1p4c0g4ekpQVmc2dG1iZUlSTTRNK1lMZ3V1Tjc0ZS93WTJNcG5IaGh2Ny9lbTJqbm1mWXJpUUxxRTk5L3pDd3R5WFU0Y1QvSUhJQnc9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/记忆的回响_0.8.3_x64-setup.exe"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWJrOVN6S0NNaG5rTENPRlBPdjhWMjh4OFgzMGNsM3pQc01MdFBIQWVEdUM3VzVpajI4SlV3eHNjM251Zmx3WW4veHVCWTRvMDFDL2Z5aXZXTlEyN1FnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Nzc5NTE2CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOC4yX2FtZDY0LkFwcEltYWdlCnM3MERYTmxseXJKQm41ZmFzVGRsQXRSNEV0TGd0OGpXbW0xS3BmZFhUMDBWYVh4bWRMZk5XYm1pOW9PR0xJZmRlZUVkWHR5TlBqNFdEQXNhRTlNNEJRPT0K",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2/记忆的回响_0.8.2_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVpqSkdjNndENTdneEh2a0JMSTdWWWhDY3Vpd1I2VFF6SlhqcnozTlNFVGdUQkZib1hvMXNKeVhZQ3lxeld4R05xZHc0S01ab0p0UVp5Mm9yeFBTOXc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODUxNDE0CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOC4zX2FtZDY0LkFwcEltYWdlCmpIeDA2NjY1bW9xYlZ5YWx3cmozbFc2eEZZb2pmZ0VDYkZiMXpzREZOdWRGSVVZbjUyb3VqMkZUN3VjbDNWZHFHN2J4TFVGTmVOYTlpaSt5VXFsV0RBPT0K",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/记忆的回响_0.8.3_amd64.AppImage"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWRUcHMyY3pJUDhvSUFNdGVWT0FzN3lKQ2IwTEdHTVdsU3FDaVR0YXdWbm1nNGpFK1FveXVnNXpWalFhRTY0VDVqUmpPejVTN1FWWGMyN0FsL2JVVHdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Nzc5NDc4CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKdFlVQ3NTOEJrNHVLYzFPYnJiNkZ4M2VkbUpFcysybWgvalhzaW9zR3luTy9kb0NYQjlnMGkreWVqNmhuejFBTStHamsyRXZXTGtrU0tKNnJUOCsvQXc9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2/记忆的回响.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVNlRlR2bEM2dEZGQWNQYzRHY0JtNmFjd2h2K20wbGdZclFsUDJudnhLSDZMcWo0MEpydEN5NWU1RG84bXBIaTFjaTRINTlwcktMUU0weXVadnRGSndZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODUxNjkwCWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKOVpUZUhxdXRWdSttRTVCLzhoK29TZVJNSThvbkYxd3RQVkNCamNZbis1Wm9EVTVGRVhoUjFPYnFBSW5DY1pOQXRiKzhIdHA2cjFraVJRUkRFMHdERFE9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/记忆的回响.app.tar.gz"
     },
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVRsaTB4YUEyVjVJMTBSUDRJbUkxZXlBYk5yU3NNcGpxVlcydGppVkxtRDVyanp4S0tnbDdYRXBOTzhnamRvMytDTFZPcFBubzhTWVRvN0pJajZNM0F3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Nzc5NDI0CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKZmZzejJtaVFjYzF5L0lrbGk2UTRoTDlJWmhVWVR4ZC9Eclo4K1dnRmgvdGVObUhhaUdmdW5OMGdDL1ptd3BVZXRDRlpqNXB0UHpPMnVWQURleUdiQlE9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2/记忆的回响.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVptTmUyNlljZnJnYUFDcDlpOWxkWGV6dnpVRlQ3cTQ4aVFkU2ZOeHRYUEpJNkJkTHNTL2N5aEEwQjlXcDdLcmJHS2xOWDgyeFVBM2hQWEUwRGVSd0FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODUxMzk2CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKeUVqbWJZM0x2Qk9xTWEyT3ZmTXVQVWZDU280MFFOMU0yL202eUQrVXlGZkErbUFxQ0E4WGZwcFN6dy9IZzMrUzZVRXZ0SUlvYWM3QU1aSGxTVVVwQXc9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/记忆的回响.app.tar.gz"
     }
   },
   "android": {
-    "version": "0.8.2",
-    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.2/echo-trails-release-0.8.2.apk",
+    "version": "0.8.3",
+    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.3/echo-trails-release-0.8.3.apk",
     "forceUpdate": false,
-    "description": "桌面端多平台构建",
-    "md5": "7c80855089a144978e158236ec8e1ff1"
+    "description": "feat: 支持云盘",
+    "md5": "1638769b2810c8ac7cdc0afaa7ed90f2"
   }
 }
