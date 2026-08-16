@@ -25,6 +25,12 @@
   ],
   "android": [
     {
+      "version": "0.8.4",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.4.apk",
+      "forceUpdate": false,
+      "description": "fix: 自动更新的问题"
+    },
+    {
       "version": "0.8.3",
       "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.3.apk",
       "forceUpdate": false,
