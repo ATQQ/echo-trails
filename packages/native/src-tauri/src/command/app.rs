@@ -28,60 +28,59 @@ pub async fn download_apk(app_handle: tauri::AppHandle, url: String, version: St
     let file_path_str = file_path.to_string_lossy().to_string();
 
     if file_path.exists() {
-        // If MD5 is provided, verify it
-        if let Some(expected_md5) = &md5 {
-            if !expected_md5.is_empty() {
-                match calculate_md5(&file_path) {
-                    Ok(current_md5) => {
-                        if current_md5.eq_ignore_ascii_case(expected_md5) {
-                             let _ = app_handle.emit("download-progress", ProgressPayload {
-                                progress: 100,
-                                total: 100,
-                                status: "exists".to_string(),
-                            });
-                            return Ok(file_path_str);
-                        } else {
-                            // MD5 mismatch, delete file
-                            let _ = std::fs::remove_file(&file_path);
-                        }
-                    },
-                    Err(_) => {
+        let has_md5 = md5.as_deref().map(|m| !m.is_empty()).unwrap_or(false);
+        if has_md5 {
+            // 有 MD5：校验缓存文件，匹配才直接复用
+            let expected_md5 = md5.as_deref().unwrap();
+            match calculate_md5(&file_path) {
+                Ok(current_md5) => {
+                    if current_md5.eq_ignore_ascii_case(expected_md5) {
+                        let _ = app_handle.emit("download-progress", ProgressPayload {
+                            progress: 100,
+                            total: 100,
+                            status: "exists".to_string(),
+                        });
+                        return Ok(file_path_str);
+                    } else {
+                        // MD5 不匹配（坏缓存），删除重新下载
                         let _ = std::fs::remove_file(&file_path);
                     }
+                },
+                Err(_) => {
+                    let _ = std::fs::remove_file(&file_path);
                 }
-            } else {
-                // If md5 is empty string, skip check (or maybe we should check?)
-                // Assuming empty means no check.
-                let _ = app_handle.emit("download-progress", ProgressPayload {
-                    progress: 100,
-                    total: 100,
-                    status: "exists".to_string(),
-                });
-                return Ok(file_path_str);
             }
         } else {
-            let _ = app_handle.emit("download-progress", ProgressPayload {
-                progress: 100,
-                total: 100,
-                status: "exists".to_string(),
-            });
-            return Ok(file_path_str);
+            // 无 MD5：缓存文件无法校验完整性（可能是上次中断的半截文件），删除重新下载
+            let _ = std::fs::remove_file(&file_path);
         }
     }
 
     let client = reqwest::Client::new();
     let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
     let total_size = res.content_length().unwrap_or(0);
-    
+
     let mut file = std::fs::File::create(&file_path).map_err(|e| e.to_string())?;
     let mut stream = res.bytes_stream();
     let mut downloaded: u64 = 0;
 
     while let Some(item) = stream.next().await {
-        let chunk = item.map_err(|e| e.to_string())?;
-        file.write_all(&chunk).map_err(|e| e.to_string())?;
+        let chunk = match item {
+            Ok(c) => c,
+            Err(e) => {
+                // 下载中断：清理半截文件，避免残留坏缓存导致后续无法重新下载
+                drop(file);
+                let _ = std::fs::remove_file(&file_path);
+                return Err(e.to_string());
+            }
+        };
+        if let Err(e) = file.write_all(&chunk) {
+            drop(file);
+            let _ = std::fs::remove_file(&file_path);
+            return Err(e.to_string());
+        }
         downloaded += chunk.len() as u64;
-        
+
         let _ = app_handle.emit("download-progress", ProgressPayload {
             progress: downloaded,
             total: total_size,
