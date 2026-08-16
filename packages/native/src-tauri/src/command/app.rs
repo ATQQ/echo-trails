@@ -199,12 +199,15 @@ fn compare_version(v1: &str, v2: &str) -> i32 {
 }
 
 const DEFAULT_VERSION_URLS: &[&str] = &[
-    // 首选：GitHub Release 上的 latest.json（tauri updater 标准格式 + android 扩展字段）
+    // 首选：photo 域名的 update.json（APK 下载走 Bitiful CDN，国内访问快）
+    // 注意：本地发版时 update.json 可能先于 APK 上传 CDN 到达，
+    // 由 is_download_available 探测兜底，探测失败会自动回退后面的源
+    "https://photo.sugarat.top/update.json",
+    // 回退：GitHub Release 上的 latest.json（tauri updater 标准格式 + android 扩展字段）
     "https://github.com/ATQQ/echo-trails/releases/latest/download/latest.json",
-    // 回退：仓库 main 分支的 update.json（数组格式，兼容旧客户端）
+    // 再回退：仓库 main 分支的 update.json（数组格式，兼容旧客户端）
     "https://raw.githubusercontent.com/ATQQ/echo-trails/main/packages/app/public/update.json",
     "https://cdn.jsdelivr.net/gh/ATQQ/echo-trails@main/packages/app/public/update.json",
-    "https://photo.sugarat.top/update.json",
 ];
 
 // 从 JSON Value 中提取指定平台的最新版本信息。
