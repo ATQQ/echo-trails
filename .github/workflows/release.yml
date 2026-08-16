@@ -43,6 +43,18 @@ jobs:
           ref: ${{ inputs.tag }}
           fetch-depth: 1
 
+      - name: Verify version matches tag
+        run: |
+          set -e
+          TAG_VERSION="${{ inputs.tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          APP_VERSION=$(node -e "console.log(require('./packages/native/src-tauri/tauri.conf.json').version)")
+          if [ "$APP_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::tauri.conf.json version ($APP_VERSION) != tag ($TAG_VERSION)。请确认 tag 打在版本号已更新的 commit 上。"
+            exit 1
+          fi
+          echo "version OK: $APP_VERSION"
+
       - name: Setup JDK 17
         uses: actions/setup-java@v5
         with:
@@ -324,6 +336,18 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           fetch-depth: 1
+
+      - name: Verify version matches tag
+        run: |
+          set -e
+          TAG_VERSION="${{ inputs.tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          APP_VERSION=$(node -e "console.log(require('./packages/native/src-tauri/tauri.conf.json').version)")
+          if [ "$APP_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::tauri.conf.json version ($APP_VERSION) != tag ($TAG_VERSION)。请确认 tag 打在版本号已更新的 commit 上。"
+            exit 1
+          fi
+          echo "version OK: $APP_VERSION"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
