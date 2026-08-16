@@ -44,6 +44,7 @@ jobs:
           fetch-depth: 1
 
       - name: Verify version matches tag
+        shell: bash
         run: |
           set -e
           TAG_VERSION="${{ inputs.tag }}"
@@ -338,6 +339,7 @@ jobs:
           fetch-depth: 1
 
       - name: Verify version matches tag
+        shell: bash
         run: |
           set -e
           TAG_VERSION="${{ inputs.tag }}"
