@@ -232,7 +232,7 @@ const router = createRouter({
       name: 'files',
       component: () => import('../views/DriveView.vue'),
       meta: {
-        keepAlive: false,
+        keepAlive: true,
         nav: false,
         componentName: 'DriveView'
       }

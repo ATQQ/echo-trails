@@ -72,10 +72,10 @@
           </div>
         </transition>
 
-        <!-- Live Photo 标签 -->
+        <!-- Live Photo 标签：播放中桌面也保持可见，避免 chrome 关掉后无法暂停 -->
         <transition :name="show ? 'van-fade' : ''">
           <div
-            v-show="showMoreOperate && isLivePhoto"
+            v-show="isLivePhoto && (showMoreOperate || livePlaying || liveVideoActive)"
             class="live-photo-label safe-padding-bottom"
             :class="{ 'is-playing': livePlaying }"
             @click.stop="handleLivePhotoLabelClick"
@@ -311,6 +311,10 @@ const endLiveSession = () => {
 }
 
 const handleLivePhotoLabelClick = () => {
+  toggleLivePlay()
+}
+
+const toggleLivePlay = () => {
   if (!isLivePhoto.value) return
   if (liveVideoActive.value) {
     if (livePlaying.value) {
@@ -429,18 +433,22 @@ useEventListener(previewWrapper, 'touchcancel', (e: TouchEvent) => {
   if (isLivePhoto.value) cancelLivePress()
 })
 
-// 桌面端长按支持
+// 桌面端用点击/空格切换播放，不要长按+松开立刻暂停
 useEventListener(previewWrapper, 'mousedown', () => {
-  if (isLivePhoto.value) startLivePress()
+  if (!isLivePhoto.value || isDesktop.value) return
+  liveTouchCount = 1
+  startLivePress()
 })
 useEventListener(previewWrapper, 'mouseup', () => {
-  if (isLivePhoto.value && livePlaying.value) {
+  if (!isLivePhoto.value || isDesktop.value) return
+  if (livePlaying.value) {
     pauseLivePlay()
     return
   }
-  if (isLivePhoto.value) cancelLivePress()
+  cancelLivePress()
 })
 useEventListener(previewWrapper, 'mouseleave', () => {
+  if (isDesktop.value) return
   cancelLivePress()
   if (livePlaying.value) pauseLivePlay()
 })
@@ -688,9 +696,11 @@ preventBack(showAlbumSelect)
 preventBack(showDeleteModeSheet)
 preventBack(showDownloadModeSheet)
 
-const isDesktopBusy = () =>
+const isDialogBusy = () =>
   editMode.value || showAlbumSelect.value || showDownloadModeSheet.value || showDeleteModeSheet.value
-    || livePlaying.value || liveVideoActive.value || isZoomed.value
+
+const isDesktopBusy = () =>
+  isDialogBusy() || livePlaying.value || liveVideoActive.value || isZoomed.value
 
 const goToIndex = (nextIdx: number) => {
   const total = urls.value.length
@@ -705,11 +715,17 @@ let lastWheelAt = 0
 
 useEventListener(window, 'keydown', (e: KeyboardEvent) => {
   if (!show.value) return
-  if (isDesktopBusy()) return
+  if (isDialogBusy()) return
   if (e.key === 'Escape') {
     show.value = false
     return
   }
+  if ((e.key === ' ' || e.code === 'Space') && isLivePhoto.value) {
+    e.preventDefault()
+    toggleLivePlay()
+    return
+  }
+  if (isDesktopBusy()) return
   if (e.key === 'ArrowLeft') {
     e.preventDefault()
     goToIndex(currentIdx.value - 1)
@@ -752,7 +768,7 @@ const isToolbarTarget = (target: Element) => {
 
 useEventListener(previewWrapper, 'click', (e: MouseEvent) => {
   if (!show.value) return
-  if (isDesktopBusy()) return
+  if (isDialogBusy()) return
   const target = e.target as Element | null
   if (!target) return
   const start = mouseDownPos.value
@@ -762,6 +778,11 @@ useEventListener(previewWrapper, 'click', (e: MouseEvent) => {
     const dy = Math.abs(e.clientY - start.y)
     if (dx >= MOUSE_DRAG_THRESHOLD || dy >= MOUSE_DRAG_THRESHOLD) return
   }
+  if (isDesktop.value && isLivePhoto.value && isTapTarget(target)) {
+    toggleLivePlay()
+    return
+  }
+  if (isDesktopBusy()) return
   if (isTapTarget(target)) {
     showMoreOperate.value = !showMoreOperate.value
     return

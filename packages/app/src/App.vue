@@ -238,11 +238,11 @@ onBeforeUnmount(() => {
     <SideNav v-if="showSideNav" />
     <div class="app-main">
       <router-view v-slot="{ Component, route }">
-        <KeepAlive v-if="isDesktop" :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
+        <KeepAlive v-if="isDesktop" :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView', 'DriveView']">
           <component :is="Component" :key="getRouteViewKey(route)"></component>
         </KeepAlive>
         <transition v-else :name="showNav ? '' : 'van-fade'" mode="out-in">
-          <KeepAlive :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView']">
+          <KeepAlive :include="['MainLayout', 'HomeView', 'AlbumView', 'LikeView', 'DiscoveryView', 'AllAlbumView', 'VideoView', 'DriveView']">
             <component :is="isSwipePage ? MainLayout : Component" :key="getRouteViewKey(route)"></component>
           </KeepAlive>
         </transition>

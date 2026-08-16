@@ -198,20 +198,22 @@
     </div>
   </div>
   <script>
+    window.__splashStartedAt = Date.now()
     window.hideLoadingScreen = () => {
-      const loadingScreen = document.getElementById('loading-screen')
-      const app = document.getElementById('app')
-
-      // Hide loading screen
-      loadingScreen.classList.add('fade-out')
-
-      // Show app content
-      app.classList.add('visible')
-
-      // Remove loading screen after animation
-      setTimeout(() => {
-        loadingScreen.style.display = 'none'
-      }, 500)
+      const MIN_VISIBLE_MS = 1800
+      const elapsed = Date.now() - (window.__splashStartedAt || Date.now())
+      const wait = Math.max(0, MIN_VISIBLE_MS - elapsed)
+      const hide = () => {
+        const loadingScreen = document.getElementById('loading-screen')
+        const app = document.getElementById('app')
+        if (loadingScreen) loadingScreen.classList.add('fade-out')
+        if (app) app.classList.add('visible')
+        setTimeout(() => {
+          if (loadingScreen) loadingScreen.style.display = 'none'
+        }, 800)
+      }
+      if (wait > 0) setTimeout(hide, wait)
+      else hide()
     }
   </script>
   <div id="app"></div>

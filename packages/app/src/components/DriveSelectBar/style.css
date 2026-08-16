@@ -1,0 +1,48 @@
+.drive-select-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.drive-select-bar .count {
+  font-size: 13px;
+  color: #323233;
+  white-space: nowrap;
+}
+
+.drive-select-bar .actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drive-select-bar .action {
+  border: none;
+  background: transparent;
+  color: var(--van-primary-color);
+  font-size: 14px;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+
+.drive-select-bar .action:disabled {
+  color: #c8c9cc;
+  cursor: not-allowed;
+}
+
+.drive-select-bar .action.is-danger {
+  color: #ee0a24;
+}
+
+.drive-select-bar .action.is-danger:disabled {
+  color: #c8c9cc;
+}

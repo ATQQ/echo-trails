@@ -6,6 +6,7 @@
         class="live-photo-video"
         :class="{ 'is-visible': active && isFrameReady }"
         :src="videoUrl"
+        muted
         playsinline
         webkit-playsinline
         preload="auto"
@@ -74,47 +75,14 @@ const preloadVideo = () => {
   }
 }
 
-const waitForCanPlay = (video: HTMLVideoElement) => {
-  if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-    return Promise.resolve()
-  }
-  return new Promise<void>((resolve, reject) => {
-    const timeout = window.setTimeout(() => {
-      cleanup()
-      reject(new Error('video preload timeout'))
-    }, 8000)
-
-    const cleanup = () => {
-      window.clearTimeout(timeout)
-      video.removeEventListener('canplay', onReady)
-      video.removeEventListener('loadeddata', onReady)
-      video.removeEventListener('error', onError)
-    }
-
-    const onReady = () => {
-      cleanup()
-      resolve()
-    }
-
-    const onError = () => {
-      cleanup()
-      reject(new Error('video preload failed'))
-    }
-
-    video.addEventListener('canplay', onReady, { once: true })
-    video.addEventListener('loadeddata', onReady, { once: true })
-    video.addEventListener('error', onError, { once: true })
-  })
-}
-
 const playVideo = async () => {
   const video = videoRef.value
   if (!video || !props.videoUrl) return
   try {
+    video.muted = true
     if (props.fromStart) {
       video.currentTime = 0
     }
-    await waitForCanPlay(video)
     await video.play()
   } catch (e) {
     isFrameReady.value = false
@@ -123,7 +91,6 @@ const playVideo = async () => {
       videoUrl: props.videoUrl?.slice(0, 80),
       readyState: video.readyState,
     })
-    emit('ended')
   }
 }
 

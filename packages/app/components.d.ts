@@ -18,6 +18,7 @@ declare module 'vue' {
     AudioCell: typeof import('./src/components/AudioCell/AudioCell.vue')['default']
     AudioList: typeof import('./src/components/AudioList/AudioList.vue')['default']
     BottomActions: typeof import('./src/components/BottomActions/BottomActions.vue')['default']
+    DriveSelectBar: typeof import('./src/components/DriveSelectBar/index.vue')['default']
     EditAlbumCard: typeof import('./src/components/EditAlbumCard/EditAlbumCard.vue')['default']
     FamilySelector: typeof import('./src/components/FamilySelector/FamilySelector.vue')['default']
     FolderEditCard: typeof import('./src/components/FolderEditCard/FolderEditCard.vue')['default']
