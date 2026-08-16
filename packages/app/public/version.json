@@ -18,10 +18,10 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.8.5",
-    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.5.apk",
+    "version": "0.8.6",
+    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.6.apk",
     "forceUpdate": false,
-    "description": "fix: md5",
+    "description": "feat: 支持文件预览",
     "md5": "1ed0060cdba1df13c039814cdf7d6e4c"
   },
   "ios": {

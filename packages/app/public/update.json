@@ -25,6 +25,12 @@
   ],
   "android": [
     {
+      "version": "0.8.6",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.6.apk",
+      "forceUpdate": false,
+      "description": "feat: 支持文件预览"
+    },
+    {
       "version": "0.8.5",
       "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.5.apk",
       "forceUpdate": false,
