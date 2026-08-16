@@ -208,6 +208,21 @@ async function main() {
     console.warn(`Warning: ${cargoTomlPath} not found.`);
   }
 
+  // Cargo.lock 里本地 crate 版本必须跟 Cargo.toml 对齐，否则 CI rust-target cache key 不变，
+  // 会把上几个版本的 bundle 安装包一起还原并上传到新 Release。
+  const cargoLockPath = path.join(rootDir, 'packages/native/src-tauri/Cargo.lock');
+  if (fs.existsSync(cargoLockPath)) {
+    let cargoLock = fs.readFileSync(cargoLockPath, 'utf-8');
+    const lockPkgRegex = /(\[\[package\]\]\nname = "echo-trails"\n)version = "[^"]+"/;
+    if (lockPkgRegex.test(cargoLock)) {
+      cargoLock = cargoLock.replace(lockPkgRegex, `$1version = "${newVersion}"`);
+      fs.writeFileSync(cargoLockPath, cargoLock);
+      console.log(`Updated ${path.relative(rootDir, cargoLockPath)}`);
+    } else {
+      console.warn(`Warning: Could not find echo-trails package in ${cargoLockPath}`);
+    }
+  }
+
   // Update packages/app/public/version.json
   if (fs.existsSync(versionJsonPath)) {
     const versionData = JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));

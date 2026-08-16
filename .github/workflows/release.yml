@@ -104,7 +104,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/native/src-tauri/target
-          key: ${{ runner.os }}-rust-target-${{ hashFiles('packages/native/src-tauri/Cargo.lock') }}
+          key: ${{ runner.os }}-rust-target-${{ inputs.tag }}-${{ hashFiles('packages/native/src-tauri/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-rust-target-
 
@@ -177,6 +177,16 @@ jobs:
 
       - name: Build Android (APK + AAB)
         run: bun run build:android
+
+      - name: Fail if Cargo.lock drifted
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet -- packages/native/src-tauri/Cargo.lock; then
+            echo "::error::构建改写了 Cargo.lock。升版必须在打 tag 前把 lock 一并提交，CI 不会回推。"
+            git diff -- packages/native/src-tauri/Cargo.lock
+            exit 1
+          fi
 
       - name: List release artifacts
         run: ls -lh release || true
@@ -380,9 +390,25 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/native/src-tauri/target
-          key: ${{ runner.os }}-${{ matrix.target }}-rust-target-${{ hashFiles('packages/native/src-tauri/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ matrix.target }}-rust-target-${{ inputs.tag }}-${{ hashFiles('packages/native/src-tauri/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-rust-target-
+
+      - name: Clear stale Tauri bundle artifacts
+        # rust-target cache 含 bundle/。Tauri 不会清空旧版本安装包，publish 通配符会把
+        # 0.8.3/0.8.4 等历史 deb/rpm/msi/nsis 一并传到当前 tag。
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in \
+            "packages/native/src-tauri/target/${{ matrix.target }}/release/bundle" \
+            "packages/native/src-tauri/target/release/bundle"
+          do
+            if [ -d "$dir" ]; then
+              echo "Removing stale bundle dir: $dir"
+              rm -rf "$dir"
+            fi
+          done
 
       - name: Install dependencies (bun)
         run: bun install --frozen-lockfile
@@ -416,6 +442,16 @@ jobs:
           TAURI: "true"
         run: bunx tauri build --target ${{ matrix.target }}
 
+      - name: Fail if Cargo.lock drifted
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet -- packages/native/src-tauri/Cargo.lock; then
+            echo "::error::构建改写了 Cargo.lock。升版必须在打 tag 前把 lock 一并提交，CI 不会回推。"
+            git diff -- packages/native/src-tauri/Cargo.lock
+            exit 1
+          fi
+
       - name: List release artifacts (unix)
         if: runner.os != 'Windows'
         run: |
@@ -448,9 +484,15 @@ jobs:
             windows-x86_64) DST_NAME="EchoTrails_x64-setup.exe" ;;
             linux-x86_64)   DST_NAME="EchoTrails_amd64.AppImage" ;;
           esac
-          SRC=$(find "$BUNDLE_DIR/${{ matrix.updater_dir }}" -name "${{ matrix.updater_glob }}" -not -name "*.sig" | head -1)
+          UPDATER_DIR="$BUNDLE_DIR/${{ matrix.updater_dir }}"
+          TAG_VERSION="${{ inputs.tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          SRC=$(find "$UPDATER_DIR" -name "*${TAG_VERSION}*" -name "${{ matrix.updater_glob }}" -not -name "*.sig" | head -1)
           if [ -z "$SRC" ]; then
-            echo "ERROR: updater artifact not found in $BUNDLE_DIR/${{ matrix.updater_dir }}"
+            SRC=$(find "$UPDATER_DIR" -name "${{ matrix.updater_glob }}" -not -name "*.sig" -not -name "EchoTrails_*" | head -1)
+          fi
+          if [ -z "$SRC" ]; then
+            echo "ERROR: updater artifact not found in $UPDATER_DIR"
             exit 1
           fi
           DST="$BUNDLE_DIR/${{ matrix.updater_dir }}/$DST_NAME"
@@ -488,7 +530,7 @@ jobs:
           BUNDLE_DIR="packages/native/src-tauri/target/${{ matrix.target }}/release/bundle"
           echo "== ${{ matrix.updater_dir }} dir =="
           ls -la "$BUNDLE_DIR/${{ matrix.updater_dir }}" || true
-          ARTIFACT=$(find "$BUNDLE_DIR/${{ matrix.updater_dir }}" -name "${{ matrix.updater_glob }}" -not -name "*.sig" | head -1)
+          ARTIFACT=$(find "$BUNDLE_DIR/${{ matrix.updater_dir }}" -name "EchoTrails_*" -name "${{ matrix.updater_glob }}" -not -name "*.sig" | head -1)
           if [ -z "$ARTIFACT" ]; then
             echo "ERROR: updater artifact not found in $BUNDLE_DIR/${{ matrix.updater_dir }}"
             echo "== bundle tree =="
