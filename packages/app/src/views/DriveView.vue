@@ -213,11 +213,13 @@
       @delete="handleBatchDelete"
       @cancel="exitSelectMode"
     />
+
+    <DriveFilePreview v-model:show="showPreview" :item="previewItem" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onActivated, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, defineComponent, h, onActivated, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { showConfirmDialog, showLoadingToast, showToast, closeToast } from 'vant';
 import dayjs from 'dayjs';
@@ -237,6 +239,8 @@ import { isTauri } from '@/constants';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useDriveUploadStore } from '@/stores/driveUpload';
 import DriveSelectBar from '@/components/DriveSelectBar/index.vue';
+
+const DriveFilePreview = defineAsyncComponent(() => import('@/components/DriveFilePreview/index.vue'));
 
 // 双色文件夹图标（Vant 无 folder 图标，内联 SVG 实现）
 const FolderIcon = defineComponent({
@@ -293,6 +297,8 @@ const showFolderDialog = ref(false);
 const showRenameDialog = ref(false);
 const showMoveDialog = ref(false);
 const showShareDialog = ref(false);
+const showPreview = ref(false);
+const previewItem = ref<DriveFileItem | null>(null);
 
 const actingItem = ref<DriveFileItem | null>(null);
 const folderName = ref('');
@@ -357,6 +363,7 @@ const actions = computed(() => {
     ];
   }
   return [
+    { name: '预览', action: 'preview' },
     { name: '下载', action: 'download' },
     { name: '分享', action: 'share' },
     { name: '重命名', action: 'rename' },
@@ -462,8 +469,13 @@ const handleItemClick = (item: DriveFileItem) => {
   if (item.kind === 'folder') {
     navigateTo(item.id);
   } else {
-    openActionSheet(item);
+    openPreview(item);
   }
+};
+
+const openPreview = (item: DriveFileItem) => {
+  previewItem.value = item;
+  showPreview.value = true;
 };
 
 const openActionSheet = (item: DriveFileItem) => {
@@ -477,6 +489,9 @@ const onActionSelect = (action: any) => {
   if (!item) return;
 
   switch (action.action) {
+    case 'preview':
+      openPreview(item);
+      break;
     case 'download':
       handleDownload(item);
       break;
