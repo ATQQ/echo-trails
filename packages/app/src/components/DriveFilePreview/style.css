@@ -16,12 +16,12 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  padding: calc(var(--safe-area-top, 0px) + 8px) 12px 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid #f2f3f5;
 }
 
 .drive-file-preview.is-mac .drive-file-preview-header {
-  padding-left: 78px;
+  padding: calc(var(--safe-area-top, 30px) + 8px) 12px 10px 78px;
 }
 
 .drive-file-preview-header .back {

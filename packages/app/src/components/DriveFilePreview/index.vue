@@ -3,13 +3,13 @@
     :show="show"
     class="drive-file-preview"
     :class="{ 'is-mac': isMacDesktop }"
-    :z-index="3000"
+    :z-index="10000"
     :lock-scroll="true"
   >
     <div class="drive-file-preview-shell" @click.stop>
       <header class="drive-file-preview-header">
         <van-icon name="arrow-left" size="22" class="back" @click="close" />
-        <span class="title">{{ item?.name || '预览' }}</span>
+        <span class="title" :data-tauri-drag-region="isMacDesktop ? true : undefined">{{ item?.name || '预览' }}</span>
       </header>
       <div class="drive-file-preview-body">
         <div v-if="loading" class="drive-file-preview-status">
