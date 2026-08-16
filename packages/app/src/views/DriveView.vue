@@ -71,7 +71,8 @@
           <van-icon v-if="isSelected(item.id)" name="success" size="12" />
         </div>
         <div class="file-icon">
-          <van-icon :name="getIcon(item).name" :color="getIcon(item).color" size="26" />
+          <FolderIcon v-if="item.kind === 'folder'" :size="26" />
+          <van-icon v-else :name="getIcon(item).name" :color="getIcon(item).color" size="26" />
         </div>
         <div class="file-info">
           <div class="file-name">{{ item.name }}</div>
@@ -151,7 +152,7 @@
         <div class="move-list">
           <div v-if="!moveSubFolders.length" class="empty-tip">没有子文件夹</div>
           <div v-for="folder in moveSubFolders" :key="folder.id" class="file-item" @click="moveBrowseTo(folder.id)">
-            <van-icon name="apps-o" color="#ff976a" size="22" />
+            <FolderIcon :size="22" />
             <span class="file-name">{{ folder.name }}</span>
             <van-icon name="arrow" size="14" color="#c8c9cc" />
           </div>
@@ -171,7 +172,8 @@
       <div class="form-container">
         <div class="form-title">分享链接</div>
         <div class="share-file-name" v-if="shareTargets.length <= 1">
-          <van-icon :name="getIcon(shareTargets[0] ?? actingItem).name" :color="getIcon(shareTargets[0] ?? actingItem).color" size="18" />
+          <FolderIcon v-if="(shareTargets[0] ?? actingItem)?.kind === 'folder'" :size="18" />
+          <van-icon v-else :name="getIcon(shareTargets[0] ?? actingItem).name" :color="getIcon(shareTargets[0] ?? actingItem).color" size="18" />
           {{ shareTargets[0]?.name || actingItem?.name }}
         </div>
         <div v-else class="share-file-name">{{ shareTargets.length }} 个文件</div>
@@ -215,7 +217,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, ref, watch } from 'vue';
+import { computed, defineComponent, h, onActivated, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { showConfirmDialog, showLoadingToast, showToast, closeToast } from 'vant';
 import dayjs from 'dayjs';
@@ -235,6 +237,36 @@ import { isTauri } from '@/constants';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useDriveUploadStore } from '@/stores/driveUpload';
 import DriveSelectBar from '@/components/DriveSelectBar/index.vue';
+
+// 双色文件夹图标（Vant 无 folder 图标，内联 SVG 实现）
+const FolderIcon = defineComponent({
+  name: 'FolderIcon',
+  props: {
+    size: { type: Number, default: 26 },
+  },
+  setup(props) {
+    return () =>
+      h(
+        'svg',
+        {
+          viewBox: '0 0 40 32',
+          width: props.size,
+          height: Math.round((props.size * 32) / 40),
+          'aria-hidden': 'true',
+        },
+        [
+          h('path', {
+            d: 'M2 8a3 3 0 0 1 3-3h9.2a3 3 0 0 1 2.12.88L18.4 8H37a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V8z',
+            fill: '#f7b500',
+          }),
+          h('path', {
+            d: 'M2 14h36v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V14z',
+            fill: '#ffd05b',
+          }),
+        ],
+      );
+  },
+});
 
 defineOptions({
   name: 'DriveView'
