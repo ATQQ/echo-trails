@@ -22,7 +22,7 @@
     "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.5.apk",
     "forceUpdate": false,
     "description": "fix: md5",
-    "md5": "20d6f6c1b1ee5bca000a04f1dd5cc836"
+    "md5": "024acb1fa67577f1238e2ac2f7995082"
   },
   "ios": {
     "version": "0.1.2",
