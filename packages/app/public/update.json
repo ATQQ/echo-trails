@@ -25,6 +25,12 @@
   ],
   "android": [
     {
+      "version": "0.8.3",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.3.apk",
+      "forceUpdate": false,
+      "description": "feat: 支持云盘"
+    },
+    {
       "version": "0.8.2",
       "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.8.2.apk",
       "forceUpdate": false,
