@@ -179,10 +179,25 @@ export async function createAlbumLink(key: string) {
 }
 
 function createLink(key: string, domain: string, token: string, style?: string) {
-  const deadLine = Math.floor(Date.now() / 1000) + 60 * 30; // 链接在未来的 60秒 内有效
   const fileName = `/${key.split('/').map(p => encodeURIComponent(p)).join('/')}` + (style ? `!style:${style}` : '')
+  return signCdnLink(domain, token, fileName, 60 * 30)
+}
+
+function signCdnLink(domain: string, token: string, fileName: string, expiresSeconds: number) {
+  const deadLine = Math.floor(Date.now() / 1000) + expiresSeconds;
   const rawString = token + fileName + deadLine;
   const md5Result = crypto.createHash('md5').update(rawString).digest('hex');
-  const tokenLink = domain + fileName + "?_btf_tk=" + md5Result + "&_ts=" + deadLine;
-  return tokenLink;
+  return domain + fileName + "?_btf_tk=" + md5Result + "&_ts=" + deadLine;
+}
+
+/**
+ * 生成带鉴权的 CDN 直链（文件分享/下载用）
+ * 未配置 CDN 域名或 Token 时返回 null，调用方回退到 S3 预签名
+ */
+export function createCdnLink(key: string, expiresSeconds: number): string | null {
+  if (!bitifulConfig.domain.startsWith('http') || !bitifulConfig.cdnToken) {
+    return null;
+  }
+  const fileName = `/${key.split('/').map(p => encodeURIComponent(p)).join('/')}`;
+  return signCdnLink(bitifulConfig.domain, bitifulConfig.cdnToken, fileName, expiresSeconds);
 }

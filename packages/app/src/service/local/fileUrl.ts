@@ -17,7 +17,12 @@ export function resetBitifulConfigCache() {
   bitifulConfigCache = null
 }
 
-export async function buildFileUrl(s3Key: string, style?: string, queryParams?: string): Promise<string> {
+export async function buildFileUrl(
+  s3Key: string,
+  style?: string,
+  queryParams?: string,
+  expiresSeconds = 60 * 30
+): Promise<string> {
   if (!s3Key) return ''
   if (s3Key.startsWith('http') || s3Key.startsWith('/') || s3Key.startsWith('blob:')) return s3Key
 
@@ -30,7 +35,7 @@ export async function buildFileUrl(s3Key: string, style?: string, queryParams?: 
   const fullKey = fileName + (queryParams ? `?${queryParams}` : '')
 
   if (config.cdnToken) {
-    const deadLine = Math.floor(Date.now() / 1000) + 60 * 30
+    const deadLine = Math.floor(Date.now() / 1000) + expiresSeconds
     const rawString = config.cdnToken + fileName + deadLine
     const md5Result = SparkMD5.hash(rawString)
     const separator = fullKey.includes('?') ? '&' : '?'

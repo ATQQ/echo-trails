@@ -218,6 +218,26 @@ const router = createRouter({
       }
     },
     {
+      path: '/todo',
+      name: 'todo',
+      component: () => import('../views/TodoView.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'TodoView'
+      }
+    },
+    {
+      path: '/files',
+      name: 'files',
+      component: () => import('../views/DriveView.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'DriveView'
+      }
+    },
+    {
       path: '/asset',
       name: 'asset',
       component: () => import('../views/asset/AssetLayout.vue'),

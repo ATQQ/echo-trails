@@ -8,10 +8,12 @@ pub mod album;
 pub mod album_folder;
 pub mod asset;
 pub mod blood_pressure;
+pub mod drive_file;
 pub mod family;
 pub mod memorial;
 pub mod photo;
 pub mod sync;
+pub mod todo;
 pub mod usage_record;
 pub mod weight;
 
@@ -20,10 +22,12 @@ pub use album::*;
 pub use album_folder::*;
 pub use asset::*;
 pub use blood_pressure::*;
+pub use drive_file::*;
 pub use family::*;
 pub use memorial::*;
 pub use photo::*;
 pub use sync::*;
+pub use todo::*;
 pub use usage_record::*;
 pub use weight::*;
 
@@ -205,12 +209,37 @@ pub fn schema_statements() -> &'static [&'static str] {
             remote_id TEXT,
             sync_status TEXT DEFAULT 'local',
             updated_at TEXT DEFAULT (datetime('now')),
+            deleted INTEGER DEFAULT 0,
             target_id TEXT,
             target_type TEXT,
             action_type TEXT,
             data TEXT NOT NULL DEFAULT '{}'
         )",
         "CREATE INDEX IF NOT EXISTS idx_usage_target ON usage_records(target_id)",
+        // Todos (四象限待办)
+        "CREATE TABLE IF NOT EXISTS todos (
+            id TEXT PRIMARY KEY,
+            remote_id TEXT,
+            sync_status TEXT DEFAULT 'local',
+            updated_at TEXT DEFAULT (datetime('now')),
+            deleted INTEGER DEFAULT 0,
+            completed INTEGER DEFAULT 0,
+            quadrant INTEGER DEFAULT 4,
+            data TEXT NOT NULL DEFAULT '{}'
+        )",
+        "CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed)",
+        // Drive files (云盘文件/文件夹)
+        "CREATE TABLE IF NOT EXISTS drive_files (
+            id TEXT PRIMARY KEY,
+            remote_id TEXT,
+            sync_status TEXT DEFAULT 'local',
+            updated_at TEXT DEFAULT (datetime('now')),
+            deleted INTEGER DEFAULT 0,
+            parent_id TEXT,
+            kind TEXT,
+            data TEXT NOT NULL DEFAULT '{}'
+        )",
+        "CREATE INDEX IF NOT EXISTS idx_drive_files_parent ON drive_files(parent_id)",
         // Sync log
         "CREATE TABLE IF NOT EXISTS sync_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

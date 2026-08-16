@@ -17,6 +17,16 @@ pub struct PresignPutObjectParams<'a> {
     pub expires_seconds: u32,
 }
 
+pub struct PresignGetObjectParams<'a> {
+    pub key: &'a str,
+    pub bucket: &'a str,
+    pub region: &'a str,
+    pub endpoint: &'a str,
+    pub access_key: &'a str,
+    pub secret_key: &'a str,
+    pub expires_seconds: u32,
+}
+
 pub fn presign_put_object_url(
     params: PresignPutObjectParams<'_>,
     now: DateTime<Utc>,
@@ -68,6 +78,60 @@ pub fn presign_put_object_url(
         canonical_query_string(&query_pairs[..5]),
         signature,
         canonical_query_string(&query_pairs[5..])
+    ))
+}
+
+/// 生成 S3 GET 预签名下载链接（分享/下载用）
+pub fn presign_get_object_url(
+    params: PresignGetObjectParams<'_>,
+    now: DateTime<Utc>,
+) -> Result<String, String> {
+    let endpoint = normalize_endpoint(params.endpoint)?;
+    let host = host_header(&endpoint)?;
+    let date = now.format("%Y%m%d").to_string();
+    let amz_date = now.format("%Y%m%dT%H%M%SZ").to_string();
+    let credential_scope = format!("{}/{}/{}/{}", date, params.region, SERVICE, TERMINATOR);
+    let credential = format!("{}/{}", params.access_key, credential_scope);
+    let canonical_uri = format!(
+        "/{}/{}",
+        uri_encode(params.bucket, true),
+        uri_encode(params.key, false)
+    );
+
+    let query_pairs = [
+        ("X-Amz-Algorithm", ALGORITHM.to_string()),
+        ("X-Amz-Credential", credential),
+        ("X-Amz-Date", amz_date),
+        ("X-Amz-Expires", params.expires_seconds.to_string()),
+        ("X-Amz-SignedHeaders", "host".to_string()),
+        ("x-id", "GetObject".to_string()),
+    ];
+    let canonical_query = canonical_query_string(&query_pairs);
+    let canonical_request = format!(
+        "GET\n{}\n{}\nhost:{}\n\nhost\n{}",
+        canonical_uri, canonical_query, host, UNSIGNED_PAYLOAD
+    );
+    let string_to_sign = format!(
+        "{}\n{}\n{}\n{}",
+        ALGORITHM,
+        query_pairs[2].1,
+        credential_scope,
+        sha256_hex(canonical_request.as_bytes())
+    );
+    let signature = sign(
+        params.secret_key,
+        &date,
+        params.region,
+        string_to_sign.as_bytes(),
+    );
+
+    Ok(format!(
+        "{}{}?{}&X-Amz-Signature={}&{}",
+        endpoint_base(&endpoint, &host),
+        canonical_uri,
+        canonical_query_string(&query_pairs[..4]),
+        signature,
+        canonical_query_string(&query_pairs[4..])
     ))
 }
 
@@ -236,5 +300,42 @@ mod tests {
         params.endpoint = "https://s3.bitiful.net/base";
 
         assert!(presign_put_object_url(params, fixed_now()).is_err());
+    }
+
+    fn get_params<'a>(key: &'a str) -> PresignGetObjectParams<'a> {
+        PresignGetObjectParams {
+            key,
+            bucket: "example-bucket",
+            region: "cn-east-1",
+            endpoint: "https://s3.bitiful.net",
+            access_key: "AKIDEXAMPLE",
+            secret_key: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+            expires_seconds: 604800,
+        }
+    }
+
+    #[test]
+    fn presigns_get_url_with_custom_expiry() {
+        let url = presign_get_object_url(get_params("drive/a/b.zip"), fixed_now()).unwrap();
+
+        assert!(url.starts_with("https://s3.bitiful.net/example-bucket/drive/a/b.zip?"));
+        assert!(url.contains("X-Amz-Algorithm=AWS4-HMAC-SHA256"));
+        assert!(url.contains("X-Amz-Expires=604800"));
+        assert!(url.contains("x-id=GetObject"));
+        // 签名为 64 位十六进制
+        let signature = url
+            .split("X-Amz-Signature=")
+            .nth(1)
+            .and_then(|rest| rest.split('&').next())
+            .unwrap();
+        assert_eq!(signature.len(), 64);
+        assert!(signature.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn presigns_get_url_special_characters() {
+        let url = presign_get_object_url(get_params("中文 空格+(1)#%.zip"), fixed_now()).unwrap();
+
+        assert!(url.starts_with("https://s3.bitiful.net/example-bucket/%E4%B8%AD%E6%96%87%20%E7%A9%BA%E6%A0%BC%2B%281%29%23%25.zip?"));
     }
 }

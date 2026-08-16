@@ -8,10 +8,17 @@ use futures_util::StreamExt;
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_fs::OpenOptions;
 use tauri_plugin_fs::FilePath;
-use super::s3_presign::{presign_put_object_url, PresignPutObjectParams};
+use super::s3_presign::{presign_get_object_url, presign_put_object_url, PresignGetObjectParams, PresignPutObjectParams};
 
 #[derive(Serialize, Deserialize)]
 pub struct UploadTokenResponse {
+    url: String,
+    code: i32,
+    message: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DownloadUrlResponse {
     url: String,
     code: i32,
     message: Option<String>,
@@ -70,6 +77,58 @@ pub async fn upload_token(
     )?;
 
     Ok(UploadTokenResponse {
+        url,
+        code: 0,
+        message: None,
+    })
+}
+
+/// 生成本地签名的 S3 GET 下载/分享直链
+#[tauri::command]
+pub async fn download_url(
+    key: String,
+    bucket: String,
+    region: String,
+    endpoint: String,
+    access_key: String,
+    secret_key: String,
+    expires_seconds: Option<u32>,
+) -> Result<DownloadUrlResponse, String> {
+    if endpoint.is_empty() {
+        return Err("Endpoint is empty. Please configure your S3 endpoint.".to_string());
+    }
+    if bucket.is_empty() {
+        return Err("Bucket is empty. Please configure your S3 bucket.".to_string());
+    }
+    if access_key.is_empty() || secret_key.is_empty() {
+        return Err("Access key or secret key is empty. Please configure your S3 credentials.".to_string());
+    }
+
+    let parsed_endpoint = if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
+        endpoint.clone()
+    } else {
+        format!("https://{}", endpoint)
+    };
+
+    if Url::parse(&parsed_endpoint).is_err() {
+        return Err(format!("Invalid endpoint URL: '{}'. Please check your S3 endpoint configuration.", parsed_endpoint));
+    }
+
+    let region_value = if region.is_empty() { "us-east-1".to_string() } else { region.clone() };
+    let url = presign_get_object_url(
+        PresignGetObjectParams {
+            key: &key,
+            bucket: &bucket,
+            region: &region_value,
+            endpoint: &parsed_endpoint,
+            access_key: &access_key,
+            secret_key: &secret_key,
+            expires_seconds: expires_seconds.unwrap_or(3600),
+        },
+        chrono::Utc::now(),
+    )?;
+
+    Ok(DownloadUrlResponse {
         url,
         code: 0,
         message: None,

@@ -92,6 +92,8 @@ async fn test_create_schema_creates_all_tables() {
         "weights",
         "blood_pressures",
         "usage_records",
+        "todos",
+        "drive_files",
         "sync_log",
     ];
 

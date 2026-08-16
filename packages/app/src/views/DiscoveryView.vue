@@ -13,7 +13,7 @@
 
     <div class="section-title">健康管理</div>
     <van-grid :column-num="gridColumnNum" :gutter="10" clickable>
-      <van-grid-item v-for="item in healthApps" :key="item.text" @click="handleClick(item)">
+      <van-grid-item v-for="item in visibleHealthApps" :key="item.text" @click="handleClick(item)">
         <div class="grid-item-content">
           <div class="icon-wrapper">
             <van-icon :name="item.icon" :color="item.color" size="28" />
@@ -28,7 +28,7 @@
 
     <div class="section-title">娱乐媒体</div>
     <van-grid :column-num="gridColumnNum" :gutter="10" clickable>
-      <van-grid-item v-for="item in mediaApps" :key="item.text" @click="handleClick(item)">
+      <van-grid-item v-for="item in visibleMediaApps" :key="item.text" @click="handleClick(item)">
         <div class="grid-item-content">
           <div class="icon-wrapper">
             <van-icon :name="item.icon" :color="item.color" size="28" />
@@ -42,8 +42,8 @@
     </van-grid>
 
     <div class="section-title">其他工具</div>
-    <van-grid :column-num="gridColumnNum" :gutter="10" clickable>
-      <van-grid-item v-for="item in otherApps" :key="item.text" @click="handleClick(item)">
+    <van-grid :column-num="4" :gutter="10" clickable>
+      <van-grid-item v-for="item in visibleOtherApps" :key="item.text" @click="handleClick(item)">
         <div class="grid-item-content">
           <div class="icon-wrapper">
             <van-icon :name="item.icon" :color="item.color" size="28" />
@@ -137,10 +137,14 @@ const mediaApps = ref<AppItem[]>([
 const otherApps = ref<AppItem[]>([
   { text: '资产', icon: 'gold-coin-o', color: '#ffd700', url: '/asset' },
   { text: '纪念日', icon: 'calendar-o', color: '#f2826a', url: '/memorial' },
-  { text: '交流', icon: 'chat-o', color: '#07c160' },
-  { text: '待办事项', icon: 'todo-list-o', color: '#6739b6' },
-  { text: '更多', icon: 'ellipsis', color: '#969799' },
+  { text: '文件', icon: 'description', color: '#1989fa', url: '/files' },
+  { text: '待办事项', icon: 'todo-list-o', color: '#6739b6', url: '/todo' },
 ]);
+
+// 隐藏未上线（无 url）入口
+const visibleHealthApps = computed(() => healthApps.value.filter((item) => item.url));
+const visibleMediaApps = computed(() => mediaApps.value.filter((item) => item.url));
+const visibleOtherApps = computed(() => otherApps.value.filter((item) => item.url));
 
 const handleClick = (item: AppItem) => {
   if (item.url) {
