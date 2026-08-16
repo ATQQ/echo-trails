@@ -1,30 +1,26 @@
 {
-  "version": "0.8.4",
-  "notes": "fix: 自动更新的问题",
-  "pub_date": "2026-08-16T07:43:59.462Z",
+  "version": "0.8.5",
+  "notes": "fix: md5",
+  "pub_date": "2026-08-16T08:27:56.182Z",
   "platforms": {
-    "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVdFRkZyQy9zdVpHb09vSmg2NmFPMmJ5M0ZhU09pc1BzbGNOSVlGUU9qRndDcG05TGhiYnhkUDZpb3FoTnVFc0VJa1BrKzA1a2p5MURNZk1jRERuNlFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODUxNzU3CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOC4zX3g2NC1zZXR1cC5leGUKUTF0Y0hQclNDN1p4c0g4ekpQVmc2dG1iZUlSTTRNK1lMZ3V1Tjc0ZS93WTJNcG5IaGh2Ny9lbTJqbm1mWXJpUUxxRTk5L3pDd3R5WFU0Y1QvSUhJQnc9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.4/EchoTrails_x64-setup.exe"
-    },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWJSSnQ1Y2FVcTFSMDdRazlqcGxhYlR1MzliclNzVVhJa0YzRUhac0tZQkhKcTVqalBqSFFndHYzOW1BUUhiMmRFM25XTnIrOEhkdnc3Zm1oa2I1T1E4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODY2MTI5CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOC40X2FtZDY0LkFwcEltYWdlCkRQdGJzYVNQWlh0eE00ZWkxSjJ4dXRWYzk4WkRVdjVWM2UzNWkrN01YdVlSMmVYT2dwMWg5eUIvWUdBUWRzQnRhUXdCU2pJVXNxT1FwMXJaYmZKQURBPT0K",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.4/EchoTrails_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWR2dE44a2sxY1NWdlBUdlhRVTR5VEp3K0FPWUYwOVorcHdYOWc0RHJkVzVabnpzYTlvVUdzUGVBU3ZieG13OUQyT1JDY3pCUmJTWkx1Nnl4ckhsOHdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODY4NzYyCWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOC41X2FtZDY0LkFwcEltYWdlCnd6NnZtTjNWcUxUV1pkcFllMmNva3c1QUlNNU9ycTVmMDFQajM5VU1SUmtRc2tad1lWVGhvYXd3My82K0Q3L1hRTlZ5ZG91UUVwVUxEenZFNElwYkN3PT0K",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.5/EchoTrails_amd64.AppImage"
     },
     "darwin-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVhLU1BkTDF1bVBRUHkvMUZPbjhUM2Y1QTk1UExyL0s2SDZwUnp6ZWFGWmovUXBya2hZa2FBUE01d09tektLK1BvNWtPUVcra0RmdTZoWVBPZkhsNlFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODY2MDczCWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKUTVySU8vMXVwRE1DNFpCOHovZEtHSVNYSWdRUTZaOFFDNCtKQU8ySEJScUpDelgxa1hmcnBBUkNVN3cxRytWZ1UyMUlOQXhSVGNhVnBXTkVxbHJPQlE9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.4/EchoTrails_x64.app.tar.gz"
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.5/EchoTrails_x64.app.tar.gz"
     },
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWJCNjFCaHFFWXFpM2dzYXJCQS9mclFtK3BrZVY5NnBOWlNDUFN5T0dsUll0a2tRamladlNQdDEvcXQvR1F1R3JzNU5rbXh0YmNsQUtSRFUzK0tNYVFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODY2MDY2CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKcWxRL1pFYWNpcVpiZ3phSHV5RW95SFhlK0RodDI2R3Q2aDg2VVBDMU5WaXBJSHVqbCtNNnJtbHY5QmF2L2l3Zzl6R0RvNkhoWmM3aDJsMTZEby9EQlE9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.4/EchoTrails_aarch64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVJBSWE4dmw5YmRrUitaT1JYNmpmcThKcXhSeXozME8ydVVMYmNUZktZdUFEVW5hRmtPTXhOWmIxaXZrVE01WjJ5M1FOc0c5YlEyUjl4WGplb0E1d2dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2ODY4NjE1CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKVnN0L1JNQnNNOHd5aUplQ3ZxdkU0WWdESHFOMDVZRzAvWlNiT2lxSzZ4TVFrS2R0aXR2V2NRUDlzTlR2VTRZK2ZPM29yaUg2VXZzN1h0TXFjbUZlREE9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.5/EchoTrails_aarch64.app.tar.gz"
     }
   },
   "android": {
-    "version": "0.8.4",
-    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.4/echo-trails-release-0.8.4.apk",
+    "version": "0.8.5",
+    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.8.5/echo-trails-release-0.8.5.apk",
     "forceUpdate": false,
-    "description": "fix: 自动更新的问题",
-    "md5": "30abc2f0c232e7251b4e20b27e29a04a"
+    "description": "fix: md5",
+    "md5": "024acb1fa67577f1238e2ac2f7995082"
   }
 }
