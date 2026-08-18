@@ -672,9 +672,26 @@ preventBack(showAddModal)
 }
 
 .small-card-grid {
+  padding: 0 10px;
+
+  :deep(.van-grid-item) {
+    flex-basis: 33.333333% !important;
+    max-width: 33.333333% !important;
+    min-width: 0;
+  }
+
   :deep(.van-grid-item__content) {
     padding: 0;
     background-color: transparent;
+  }
+
+  @include desktop {
+    padding: 0;
+
+    :deep(.van-grid-item) {
+      flex-basis: calc(100% / v-bind(smallCardColumns)) !important;
+      max-width: calc(100% / v-bind(smallCardColumns)) !important;
+    }
   }
 }
 
