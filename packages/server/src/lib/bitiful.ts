@@ -1,4 +1,4 @@
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Store } from './store';
 import * as fs from 'fs';
@@ -200,4 +200,16 @@ export function createCdnLink(key: string, expiresSeconds: number): string | nul
   }
   const fileName = `/${key.split('/').map(p => encodeURIComponent(p)).join('/')}`;
   return signCdnLink(bitifulConfig.domain, bitifulConfig.cdnToken, fileName, expiresSeconds);
+}
+
+/**
+ * 删除 S3 对象（用于回收站彻底删除）
+ * 单个对象删除，失败时抛出异常，调用方自行 catch
+ */
+export async function deleteS3Object(key: string): Promise<void> {
+  const cmd = new DeleteObjectCommand({
+    Bucket: bitifulConfig.bucket,
+    Key: key,
+  });
+  await bitifulS3Manager.getClient().send(cmd);
 }

@@ -74,8 +74,8 @@ export const useDriveUploadStore = defineStore('driveUpload', () => {
     }
   }
 
-  const enqueue = (files: File[], parentId: string) => {
-    for (const file of files) {
+  const enqueueItems = (items: { file: File; parentId: string }[]) => {
+    for (const { file, parentId } of items) {
       const task: DriveUploadTask = {
         id: randomUUID(),
         name: file.name.replace(/[\\/]/g, '_'),
@@ -89,6 +89,10 @@ export const useDriveUploadStore = defineStore('driveUpload', () => {
       tasks.value = [task, ...tasks.value]
       limit(() => runUpload(task))
     }
+  }
+
+  const enqueue = (files: File[], parentId: string) => {
+    enqueueItems(files.map((file) => ({ file, parentId })))
   }
 
   const retry = (id: string) => {
@@ -113,6 +117,7 @@ export const useDriveUploadStore = defineStore('driveUpload', () => {
     finishedFor,
     pruneFinished,
     enqueue,
+    enqueueItems,
     retry,
     remove,
   }

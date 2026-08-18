@@ -1,7 +1,7 @@
 pub mod app;
 pub mod common;
 pub mod media;
-mod s3_presign;
+pub mod s3_presign;
 pub mod upload;
 
 pub use app::*;

@@ -66,6 +66,42 @@ export async function deleteDriveFile(id: string) {
   return invoke('db_drive_file_delete', { id })
 }
 
+// ==================== 回收站 ====================
+
+export async function fetchTrashFiles() {
+  const result = await invoke<any>('db_drive_file_trash_list')
+  return (result.data?.items || []).map(mapDriveFile) as DriveFileItem[]
+}
+
+export async function restoreDriveFile(id: string) {
+  return invoke('db_drive_file_restore', { id })
+}
+
+// 彻底删除：本地模式将 S3 配置传入 Rust，由 Rust 端完成 S3 对象删除 + DB 物理删除
+export async function purgeDriveFile(id: string) {
+  const config = await getBitifulConfigLocal()
+  return invoke('db_drive_file_purge', {
+    id,
+    bucket: config?.bucket || null,
+    region: config?.region || null,
+    endpoint: config?.endpoint || null,
+    accessKey: config?.accessKey || null,
+    secretKey: config?.secretKey || null,
+  })
+}
+
+// 清空回收站
+export async function purgeAllDriveFiles() {
+  const config = await getBitifulConfigLocal()
+  return invoke('db_drive_file_purge_all', {
+    bucket: config?.bucket || null,
+    region: config?.region || null,
+    endpoint: config?.endpoint || null,
+    accessKey: config?.accessKey || null,
+    secretKey: config?.secretKey || null,
+  })
+}
+
 /**
  * 本地模式生成分享/下载直链：
  * 1. 配置了 CDN 域名时优先使用 CDN 鉴权直链（有效期可自定义）

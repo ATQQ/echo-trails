@@ -8,7 +8,7 @@ use futures_util::StreamExt;
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_fs::OpenOptions;
 use tauri_plugin_fs::FilePath;
-use super::s3_presign::{presign_get_object_url, presign_put_object_url, PresignGetObjectParams, PresignPutObjectParams};
+use super::s3_presign::{presign_delete_object_url, presign_get_object_url, presign_put_object_url, PresignDeleteObjectParams, PresignGetObjectParams, PresignPutObjectParams};
 
 #[derive(Serialize, Deserialize)]
 pub struct UploadTokenResponse {
@@ -133,6 +133,65 @@ pub async fn download_url(
         code: 0,
         message: None,
     })
+}
+
+/// 删除 S3 对象（回收站彻底删除用）
+/// 通过 DELETE 预签名 URL 执行，无需直接凭证暴露给前端
+#[tauri::command]
+pub async fn delete_object(
+    key: String,
+    bucket: String,
+    region: String,
+    endpoint: String,
+    access_key: String,
+    secret_key: String,
+) -> Result<(), String> {
+    if endpoint.is_empty() {
+        return Err("Endpoint is empty. Please configure your S3 endpoint.".to_string());
+    }
+    if bucket.is_empty() {
+        return Err("Bucket is empty. Please configure your S3 bucket.".to_string());
+    }
+    if access_key.is_empty() || secret_key.is_empty() {
+        return Err("Access key or secret key is empty. Please configure your S3 credentials.".to_string());
+    }
+
+    let parsed_endpoint = if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
+        endpoint.clone()
+    } else {
+        format!("https://{}", endpoint)
+    };
+
+    if Url::parse(&parsed_endpoint).is_err() {
+        return Err(format!("Invalid endpoint URL: '{}'. Please check your S3 endpoint configuration.", parsed_endpoint));
+    }
+
+    let region_value = if region.is_empty() { "us-east-1".to_string() } else { region.clone() };
+    let url = presign_delete_object_url(
+        PresignDeleteObjectParams {
+            key: &key,
+            bucket: &bucket,
+            region: &region_value,
+            endpoint: &parsed_endpoint,
+            access_key: &access_key,
+            secret_key: &secret_key,
+            expires_seconds: 3600,
+        },
+        chrono::Utc::now(),
+    )?;
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .delete(&url)
+        .send()
+        .await
+        .map_err(|e| format!("S3 delete request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Err(format!("S3 delete failed with status: {}", resp.status()));
+    }
+
+    Ok(())
 }
 
 #[tauri::command]

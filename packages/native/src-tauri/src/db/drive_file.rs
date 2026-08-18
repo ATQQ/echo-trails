@@ -354,6 +354,340 @@ pub async fn db_drive_file_delete(state: State<'_, TursoDb>, id: String) -> Resu
     Ok(())
 }
 
+// ==================== 回收站 ====================
+
+// 收集文件夹自身及其所有后代 id（回收站恢复/彻底删除用，不过滤 deleted 标记）
+async fn collect_descendant_ids_for_trash(
+    conn: &turso::Connection,
+    root_id: &str,
+) -> Result<Vec<String>, String> {
+    let mut ids = vec![root_id.to_string()];
+    let mut frontier = vec![root_id.to_string()];
+    for _ in 0..50 {
+        if frontier.is_empty() {
+            break;
+        }
+        let mut params: Vec<TursoValue> = Vec::new();
+        let placeholders = frontier
+            .iter()
+            .map(|id| {
+                params.push(TursoValue::Text(id.clone()));
+                format!("?{}", params.len())
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        // 注意：不带 deleted = 0 过滤，收集所有后代（含已软删）
+        let sql = format!(
+            "SELECT id FROM {} WHERE parent_id IN ({})",
+            DRIVE_TABLE, placeholders
+        );
+        let mut rows = conn.query(&sql, params).await.map_err(|e| e.to_string())?;
+        let mut next = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+            let id = row
+                .get_value(0)
+                .map_err(|e| e.to_string())?
+                .as_text()
+                .map_or("".to_string(), |v| v.to_string());
+            if !id.is_empty() {
+                next.push(id);
+            }
+        }
+        ids.extend(next.iter().cloned());
+        frontier = next;
+    }
+    Ok(ids)
+}
+
+// 回收站列表：仅顶级软删项（被软删且父目录未被软删，避免后代重复展示）
+#[tauri::command]
+pub async fn db_drive_file_trash_list(state: State<'_, TursoDb>) -> Result<JsonValue, String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+
+    let mut rows = conn
+        .query(
+            &format!(
+                "SELECT * FROM {} WHERE deleted = 1 AND (parent_id = '' OR parent_id NOT IN (SELECT id FROM {} WHERE deleted = 1)) ORDER BY updated_at DESC",
+                DRIVE_TABLE, DRIVE_TABLE
+            ),
+            (),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut items = Vec::new();
+    while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+        let val = row_to_json(&row)?;
+        items.push(merge_drive_row(&val));
+    }
+
+    Ok(json!({ "code": 0, "data": { "items": items } }))
+}
+
+// 恢复（递归恢复所有后代）
+#[tauri::command]
+pub async fn db_drive_file_restore(state: State<'_, TursoDb>, id: String) -> Result<(), String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+
+    let row = match get_row_by_id(&conn, &id).await? {
+        Some(v) => v,
+        None => return Err("Drive file not found".to_string()),
+    };
+
+    let kind = row.get("kind").and_then(|v| v.as_str()).unwrap_or("");
+    let ids = if kind == "folder" {
+        collect_descendant_ids_for_trash(&conn, &id).await?
+    } else {
+        vec![id]
+    };
+
+    let mut params: Vec<TursoValue> = Vec::new();
+    let placeholders = ids
+        .iter()
+        .map(|v| {
+            params.push(TursoValue::Text(v.clone()));
+            format!("?{}", params.len())
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "UPDATE {} SET deleted = 0, updated_at = datetime('now') WHERE id IN ({})",
+        DRIVE_TABLE, placeholders
+    );
+    conn.execute(&sql, params).await.map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+// 彻底删除（DB 物理删除 + S3 对象删除，S3 失败不阻塞 DB 清理）
+// S3 配置全部提供时才尝试删 S3 对象，否则仅 DB 清理
+#[tauri::command]
+pub async fn db_drive_file_purge(
+    state: State<'_, TursoDb>,
+    id: String,
+    bucket: Option<String>,
+    region: Option<String>,
+    endpoint: Option<String>,
+    access_key: Option<String>,
+    secret_key: Option<String>,
+) -> Result<JsonValue, String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+
+    let row = match get_row_by_id(&conn, &id).await? {
+        Some(v) => v,
+        None => return Err("Drive file not found".to_string()),
+    };
+
+    let kind = row.get("kind").and_then(|v| v.as_str()).unwrap_or("");
+    let ids = if kind == "folder" {
+        collect_descendant_ids_for_trash(&conn, &id).await?
+    } else {
+        vec![id]
+    };
+
+    // 收集所有 file 的 key（folder 无 key）
+    let mut keys: Vec<String> = Vec::new();
+    {
+        let mut params: Vec<TursoValue> = Vec::new();
+        let placeholders = ids
+            .iter()
+            .map(|v| {
+                params.push(TursoValue::Text(v.clone()));
+                format!("?{}", params.len())
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT data FROM {} WHERE id IN ({}) AND kind = 'file'",
+            DRIVE_TABLE, placeholders
+        );
+        let mut rows = conn.query(&sql, params).await.map_err(|e| e.to_string())?;
+        while let Some(r) = rows.next().await.map_err(|e| e.to_string())? {
+            if let Ok(data_val) = r.get_value(0) {
+                if let Some(data_str) = data_val.as_text() {
+                    if let Ok(data_json) = serde_json::from_str::<JsonValue>(data_str) {
+                        if let Some(k) = data_json.get("key").and_then(|v| v.as_str()) {
+                            if !k.is_empty() {
+                                keys.push(k.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // S3 对象删除（配置完整时）
+    let mut s3_failed = 0u32;
+    if let (Some(bucket), Some(region), Some(endpoint), Some(access_key), Some(secret_key)) =
+        (bucket, region, endpoint, access_key, secret_key)
+    {
+        if !bucket.is_empty()
+            && !endpoint.is_empty()
+            && !access_key.is_empty()
+            && !secret_key.is_empty()
+        {
+            let region_value = if region.is_empty() {
+                "us-east-1".to_string()
+            } else {
+                region
+            };
+            for key in &keys {
+                match crate::command::s3_presign::presign_delete_object_url(
+                    crate::command::s3_presign::PresignDeleteObjectParams {
+                        key,
+                        bucket: &bucket,
+                        region: &region_value,
+                        endpoint: &endpoint,
+                        access_key: &access_key,
+                        secret_key: &secret_key,
+                        expires_seconds: 3600,
+                    },
+                    chrono::Utc::now(),
+                ) {
+                    Ok(url) => {
+                        let client = reqwest::Client::new();
+                        match client.delete(&url).send().await {
+                            Ok(resp) if resp.status().is_success() => {}
+                            _ => {
+                                s3_failed += 1;
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        s3_failed += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    // DB 物理删除
+    let mut params: Vec<TursoValue> = Vec::new();
+    let placeholders = ids
+        .iter()
+        .map(|v| {
+            params.push(TursoValue::Text(v.clone()));
+            format!("?{}", params.len())
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!("DELETE FROM {} WHERE id IN ({})", DRIVE_TABLE, placeholders);
+    conn.execute(&sql, params).await.map_err(|e| e.to_string())?;
+
+    Ok(json!({
+        "code": 0,
+        "message": if s3_failed > 0 {
+            format!("部分云端文件清理失败：{} 个", s3_failed)
+        } else {
+            "success".to_string()
+        }
+    }))
+}
+
+// 清空回收站（彻底删除所有软删记录 + S3 对象）
+#[tauri::command]
+pub async fn db_drive_file_purge_all(
+    state: State<'_, TursoDb>,
+    bucket: Option<String>,
+    region: Option<String>,
+    endpoint: Option<String>,
+    access_key: Option<String>,
+    secret_key: Option<String>,
+) -> Result<JsonValue, String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+
+    // 收集所有软删 file 的 key
+    let mut keys: Vec<String> = Vec::new();
+    {
+        let mut rows = conn
+            .query(
+                &format!(
+                    "SELECT data FROM {} WHERE deleted = 1 AND kind = 'file'",
+                    DRIVE_TABLE
+                ),
+                (),
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        while let Some(r) = rows.next().await.map_err(|e| e.to_string())? {
+            if let Ok(data_val) = r.get_value(0) {
+                if let Some(data_str) = data_val.as_text() {
+                    if let Ok(data_json) = serde_json::from_str::<JsonValue>(data_str) {
+                        if let Some(k) = data_json.get("key").and_then(|v| v.as_str()) {
+                            if !k.is_empty() {
+                                keys.push(k.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // S3 对象删除（配置完整时）
+    let mut s3_failed = 0u32;
+    if let (Some(bucket), Some(region), Some(endpoint), Some(access_key), Some(secret_key)) =
+        (bucket, region, endpoint, access_key, secret_key)
+    {
+        if !bucket.is_empty()
+            && !endpoint.is_empty()
+            && !access_key.is_empty()
+            && !secret_key.is_empty()
+        {
+            let region_value = if region.is_empty() {
+                "us-east-1".to_string()
+            } else {
+                region
+            };
+            for key in &keys {
+                match crate::command::s3_presign::presign_delete_object_url(
+                    crate::command::s3_presign::PresignDeleteObjectParams {
+                        key,
+                        bucket: &bucket,
+                        region: &region_value,
+                        endpoint: &endpoint,
+                        access_key: &access_key,
+                        secret_key: &secret_key,
+                        expires_seconds: 3600,
+                    },
+                    chrono::Utc::now(),
+                ) {
+                    Ok(url) => {
+                        let client = reqwest::Client::new();
+                        match client.delete(&url).send().await {
+                            Ok(resp) if resp.status().is_success() => {}
+                            _ => {
+                                s3_failed += 1;
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        s3_failed += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    // DB 物理删除所有软删记录
+    conn.execute(
+        &format!("DELETE FROM {} WHERE deleted = 1", DRIVE_TABLE),
+        (),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(json!({
+        "code": 0,
+        "message": if s3_failed > 0 {
+            format!("部分云端文件清理失败：{} 个", s3_failed)
+        } else {
+            "success".to_string()
+        }
+    }))
+}
+
 fn row_to_json(row: &turso::Row) -> Result<JsonValue, String> {
     let mut map = serde_json::Map::new();
     let keys = [

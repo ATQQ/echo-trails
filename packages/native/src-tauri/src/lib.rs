@@ -55,6 +55,7 @@ pub fn run() {
             upload_token,
             upload_file,
             download_url,
+            delete_object,
             download_apk,
             open_apk,
             check_update,
@@ -137,6 +138,10 @@ pub fn run() {
             db_drive_file_rename,
             db_drive_file_move,
             db_drive_file_delete,
+            db_drive_file_trash_list,
+            db_drive_file_restore,
+            db_drive_file_purge,
+            db_drive_file_purge_all,
             // Usage Record
             db_usage_record_add,
             db_usage_record_list,

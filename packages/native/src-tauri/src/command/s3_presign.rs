@@ -27,6 +27,16 @@ pub struct PresignGetObjectParams<'a> {
     pub expires_seconds: u32,
 }
 
+pub struct PresignDeleteObjectParams<'a> {
+    pub key: &'a str,
+    pub bucket: &'a str,
+    pub region: &'a str,
+    pub endpoint: &'a str,
+    pub access_key: &'a str,
+    pub secret_key: &'a str,
+    pub expires_seconds: u32,
+}
+
 pub fn presign_put_object_url(
     params: PresignPutObjectParams<'_>,
     now: DateTime<Utc>,
@@ -109,6 +119,61 @@ pub fn presign_get_object_url(
     let canonical_query = canonical_query_string(&query_pairs);
     let canonical_request = format!(
         "GET\n{}\n{}\nhost:{}\n\nhost\n{}",
+        canonical_uri, canonical_query, host, UNSIGNED_PAYLOAD
+    );
+    let string_to_sign = format!(
+        "{}\n{}\n{}\n{}",
+        ALGORITHM,
+        query_pairs[2].1,
+        credential_scope,
+        sha256_hex(canonical_request.as_bytes())
+    );
+    let signature = sign(
+        params.secret_key,
+        &date,
+        params.region,
+        string_to_sign.as_bytes(),
+    );
+
+    Ok(format!(
+        "{}{}?{}&X-Amz-Signature={}&{}",
+        endpoint_base(&endpoint, &host),
+        canonical_uri,
+        canonical_query_string(&query_pairs[..4]),
+        signature,
+        canonical_query_string(&query_pairs[4..])
+    ))
+}
+
+/// 生成 S3 DELETE 预签名链接（回收站彻底删除用）
+/// 签名算法与 GET 一致，仅 method 改为 DELETE，x-id 为 DeleteObject
+pub fn presign_delete_object_url(
+    params: PresignDeleteObjectParams<'_>,
+    now: DateTime<Utc>,
+) -> Result<String, String> {
+    let endpoint = normalize_endpoint(params.endpoint)?;
+    let host = host_header(&endpoint)?;
+    let date = now.format("%Y%m%d").to_string();
+    let amz_date = now.format("%Y%m%dT%H%M%SZ").to_string();
+    let credential_scope = format!("{}/{}/{}/{}", date, params.region, SERVICE, TERMINATOR);
+    let credential = format!("{}/{}", params.access_key, credential_scope);
+    let canonical_uri = format!(
+        "/{}/{}",
+        uri_encode(params.bucket, true),
+        uri_encode(params.key, false)
+    );
+
+    let query_pairs = [
+        ("X-Amz-Algorithm", ALGORITHM.to_string()),
+        ("X-Amz-Credential", credential),
+        ("X-Amz-Date", amz_date),
+        ("X-Amz-Expires", params.expires_seconds.to_string()),
+        ("X-Amz-SignedHeaders", "host".to_string()),
+        ("x-id", "DeleteObject".to_string()),
+    ];
+    let canonical_query = canonical_query_string(&query_pairs);
+    let canonical_request = format!(
+        "DELETE\n{}\n{}\nhost:{}\n\nhost\n{}",
         canonical_uri, canonical_query, host, UNSIGNED_PAYLOAD
     );
     let string_to_sign = format!(

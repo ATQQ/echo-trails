@@ -68,6 +68,29 @@ export async function deleteDriveFile(id: string) {
   return res
 }
 
+// ==================== 回收站 ====================
+
+export async function fetchTrashFiles(): Promise<DriveFileItem[]> {
+  if (isLocalMode()) return local.fetchTrashFiles()
+  const res: any = await api.get('drive-file/trash-list').json()
+  return res.code === 0 ? (res.data.items || []) : []
+}
+
+export async function restoreDriveFile(id: string) {
+  if (isLocalMode()) return local.restoreDriveFile(id)
+  return api.post('drive-file/restore', { json: { id } }).json()
+}
+
+export async function purgeDriveFile(id: string) {
+  if (isLocalMode()) return local.purgeDriveFile(id)
+  return api.delete('drive-file/purge', { json: { id } }).json()
+}
+
+export async function purgeAllDriveFiles() {
+  if (isLocalMode()) return local.purgeAllDriveFiles()
+  return api.delete('drive-file/purge-all').json()
+}
+
 export async function getShareUrl(item: DriveFileItem, expires = 86400): Promise<string> {
   if (isLocalMode()) return local.getShareUrl(item.key, expires)
   const res: any = await api.get('drive-file/share', { searchParams: { id: item.id, expires } }).json()

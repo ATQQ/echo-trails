@@ -238,6 +238,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/files/trash',
+      name: 'files-trash',
+      component: () => import('../views/DriveTrashView.vue'),
+      meta: {
+        keepAlive: true,
+        nav: false,
+        componentName: 'DriveTrashView'
+      }
+    },
+    {
       path: '/asset',
       name: 'asset',
       component: () => import('../views/asset/AssetLayout.vue'),

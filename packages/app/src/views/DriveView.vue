@@ -8,7 +8,9 @@
       placeholder
     >
       <template #right>
-        <span v-if="!selectMode" class="nav-select" @click="enterSelectMode()">选择</span>
+        <span v-if="!selectMode" class="nav-action" @click="openCreateFolder">新建文件夹</span>
+        <span v-if="!selectMode" class="nav-trash" @click="goTrash">回收站</span>
+        <span v-if="!selectMode" class="nav-select" @click="enterSelectMode()">多选</span>
       </template>
     </van-nav-bar>
 
@@ -62,6 +64,7 @@
         class="file-item"
         :class="{ 'is-selected': isSelected(item.id) }"
         @click="handleItemClick(item)"
+        @contextmenu="openContextMenu($event, item)"
         @touchstart="handleItemTouchStart(item)"
         @touchend="handleItemTouchEnd"
         @touchcancel="handleItemTouchEnd"
@@ -98,18 +101,38 @@
     </div>
     <van-empty v-else description="目录为空，点击右下角按钮上传文件或新建文件夹" />
 
-    <!-- 新增入口：上传（主） + 新建文件夹（次） -->
+    <!-- 新增入口：上传（菜单选择） -->
     <div class="fab-group" v-show="!showFolderDialog && !selectMode">
-      <div class="fab-btn fab-btn--plain" @click="openCreateFolder">
-        <van-icon name="add-o" size="16" />
-      </div>
-      <div class="fab-btn fab-btn--primary" @click="triggerUpload">
-        <van-icon name="upgrade" size="16" />
+      <div class="fab-btn fab-btn--primary" :class="{ 'is-busy': folderUploading }" @click="triggerUploadMenu">
+        <van-icon :name="folderUploading ? 'loading' : 'plus'" size="16" :class="{ 'van-icon-spin': folderUploading }" />
       </div>
     </div>
 
     <!-- 操作面板 -->
     <van-action-sheet v-model:show="showActions" :actions="actions" cancel-text="取消" @select="onActionSelect" />
+
+    <!-- 桌面端右键上下文菜单：定位到鼠标位置，遮罩捕获外部点击/右键关闭 -->
+    <template v-if="contextMenu">
+      <div class="context-menu-mask" @click="closeContextMenu" @contextmenu.prevent="closeContextMenu"></div>
+      <div
+        class="context-menu"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+        @click.stop
+      >
+        <div
+          v-for="action in contextMenuActions"
+          :key="action.action"
+          class="context-menu-item"
+          :class="{ 'is-danger': action.color === '#ee0a24' }"
+          @click="onContextMenuSelect(action)"
+        >
+          {{ action.name }}
+        </div>
+      </div>
+    </template>
+
+    <!-- 上传方式选择面板 -->
+    <van-action-sheet v-model:show="showUploadMenu" :actions="uploadActions" cancel-text="取消" @select="onUploadActionSelect" />
 
     <!-- 新建文件夹（居中弹窗） -->
     <van-dialog
@@ -203,6 +226,16 @@
 
     <!-- 上传 input -->
     <input ref="fileInputRef" type="file" multiple class="hidden-input" @change="onFileChange" />
+    <!-- 上传文件夹 input：webkitdirectory 让用户选择整个目录 -->
+    <input
+      ref="folderInputRef"
+      type="file"
+      webkitdirectory
+      directory
+      multiple
+      class="hidden-input"
+      @change="onFolderChange"
+    />
 
     <DriveSelectBar
       :visible="selectMode"
@@ -219,7 +252,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, defineComponent, h, onActivated, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, defineComponent, h, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { showConfirmDialog, showLoadingToast, showToast, closeToast } from 'vant';
 import dayjs from 'dayjs';
@@ -238,7 +271,10 @@ import { preventBack } from '@/lib/router';
 import { isTauri } from '@/constants';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useDriveUploadStore } from '@/stores/driveUpload';
+import { useResponsive } from '@/composables/useResponsive';
 import DriveSelectBar from '@/components/DriveSelectBar/index.vue';
+
+const { isDesktop } = useResponsive();
 
 const DriveFilePreview = defineAsyncComponent(() => import('@/components/DriveFilePreview/index.vue'));
 
@@ -293,6 +329,7 @@ const visibleItems = computed(() => {
 const submitting = ref(false);
 
 const showActions = ref(false);
+const showUploadMenu = ref(false);
 const showFolderDialog = ref(false);
 const showRenameDialog = ref(false);
 const showMoveDialog = ref(false);
@@ -303,6 +340,10 @@ const previewItem = ref<DriveFileItem | null>(null);
 const actingItem = ref<DriveFileItem | null>(null);
 const folderName = ref('');
 const renameName = ref('');
+
+// 桌面端右键上下文菜单
+const contextMenu = ref<{ x: number; y: number } | null>(null);
+const contextItem = ref<DriveFileItem | null>(null);
 
 // 移动弹窗的浏览状态
 const moveBrowseId = ref('');
@@ -317,6 +358,8 @@ const shareTargets = ref<DriveFileItem[]>([]);
 const movingItems = ref<DriveFileItem[]>([]);
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const folderInputRef = ref<HTMLInputElement | null>(null);
+const folderUploading = ref(false);
 
 const selectMode = ref(false);
 const selectedIds = ref<string[]>([]);
@@ -335,6 +378,7 @@ const canMoveItemHere = (item: DriveFileItem) =>
 const canMoveHere = computed(() => movingItems.value.some(canMoveItemHere));
 
 preventBack(showActions);
+preventBack(showUploadMenu);
 preventBack(showFolderDialog);
 preventBack(showRenameDialog);
 preventBack(showMoveDialog);
@@ -351,6 +395,10 @@ const onClickLeft = () => {
     return;
   }
   router.back();
+};
+
+const goTrash = () => {
+  router.push('/files/trash');
 };
 
 const actions = computed(() => {
@@ -376,6 +424,30 @@ const applyList = (result: { items: DriveFileItem[]; breadcrumb: DriveBreadcrumb
   items.value = result.items;
   breadcrumb.value = result.breadcrumb;
   uploadStore.pruneFinished(result.items);
+};
+
+// 上传方式：移动端仅"上传文件"，桌面端追加"上传文件夹"（webkitdirectory 移动端支持差）
+const uploadActions = computed(() => {
+  const list: { name: string; action: string }[] = [{ name: '上传文件', action: 'file' }];
+  if (isDesktop) {
+    list.push({ name: '上传文件夹', action: 'folder' });
+  }
+  return list;
+});
+
+const triggerUploadMenu = () => {
+  if (folderUploading.value) return;
+  if (uploadActions.value.length === 1) {
+    triggerUpload();
+  } else {
+    showUploadMenu.value = true;
+  }
+};
+
+const onUploadActionSelect = (action: any) => {
+  showUploadMenu.value = false;
+  if (action.action === 'file') triggerUpload();
+  else if (action.action === 'folder') triggerUploadFolder();
 };
 
 // 子目录预加载缓存：parentId -> 目录数据
@@ -418,6 +490,15 @@ const refresh = async (showSpinner = true) => {
 
 onMounted(() => {
   refresh();
+  window.addEventListener('keydown', onContextMenuKeydown);
+  document.addEventListener('scroll', onContextMenuScrollOrBlur, true);
+  window.addEventListener('blur', onContextMenuScrollOrBlur);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onContextMenuKeydown);
+  document.removeEventListener('scroll', onContextMenuScrollOrBlur, true);
+  window.removeEventListener('blur', onContextMenuScrollOrBlur);
 });
 
 let skipActivateRefresh = true;
@@ -539,6 +620,55 @@ const onActionSelect = (action: any) => {
       handleDelete(item);
       break;
   }
+};
+
+// ==================== 桌面端右键上下文菜单 ====================
+
+// 复用 actions（folder/file 分支），在最前追加「多选」项
+const contextMenuActions = computed(() => {
+  if (!contextItem.value) return [];
+  return [{ name: '多选', action: 'multiselect' }, ...actions.value];
+});
+
+const openContextMenu = (e: MouseEvent, item: DriveFileItem) => {
+  if (!isDesktop.value) return; // 仅桌面端
+  e.preventDefault();
+  actingItem.value = item; // 让 actions computed 正确返回 folder/file 分支
+  contextItem.value = item;
+  const menuW = 160;
+  const menuH = contextMenuActions.value.length * 44 + 8;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let x = e.clientX;
+  let y = e.clientY;
+  if (x + menuW > vw - 8) x = e.clientX - menuW; // 超右边界向左展开
+  if (y + menuH > vh - 8) y = e.clientY - menuH; // 超下边界向上展开
+  if (x < 8) x = 8;
+  if (y < 8) y = 8;
+  contextMenu.value = { x, y };
+};
+
+const closeContextMenu = () => {
+  contextMenu.value = null;
+  contextItem.value = null;
+};
+
+const onContextMenuSelect = (action: any) => {
+  const item = contextItem.value;
+  closeContextMenu();
+  if (!item) return;
+  if (action.action === 'multiselect') {
+    enterSelectMode(item.id);
+    return;
+  }
+  onActionSelect(action);
+};
+
+const onContextMenuKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && contextMenu.value) closeContextMenu();
+};
+const onContextMenuScrollOrBlur = () => {
+  if (contextMenu.value) closeContextMenu();
 };
 
 const handleDownload = async (item: DriveFileItem) => {
@@ -825,6 +955,112 @@ const onFileChange = (event: Event) => {
   uploadStore.enqueue(files, currentParentId.value);
 };
 
+const triggerUploadFolder = () => {
+  if (folderUploading.value) return;
+  folderInputRef.value?.click();
+};
+
+// 上传整个文件夹：解析 webkitRelativePath，串行创建不存在的目录，再入队上传文件
+const uploadFolderFiles = async (files: File[], rootParentId: string) => {
+  if (!files.length) return;
+  // 每个文件携带 webkitRelativePath，形如 "TopDir/sub/file.txt"
+  const annotated = files.map((file) => ({
+    file,
+    rel: file.webkitRelativePath || file.name,
+  }));
+
+  // 收集所有需要创建的目录路径（去掉顶层文件名段）
+  const dirSet = new Set<string>();
+  for (const { rel } of annotated) {
+    const segs = rel.split('/').filter(Boolean);
+    for (let i = 1; i < segs.length; i++) {
+      dirSet.add(segs.slice(0, i).join('/'));
+    }
+  }
+  // 按深度从浅到深排序，确保父目录先创建
+  const dirs = [...dirSet].sort(
+    (a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b),
+  );
+
+  // 复用现有同名文件夹，避免重复创建
+  const folderCache = new Map<string, string>(); // `${parentId}/${name}` -> folderId
+  try {
+    const seed = await fetchDriveFiles(rootParentId);
+    for (const it of seed.items) {
+      if (it.kind === 'folder') folderCache.set(`${rootParentId}/${it.name}`, it.id);
+    }
+  } catch (e) {
+    console.warn('[Drive] seed folder list failed', e);
+  }
+
+  const ensureFolder = async (parentId: string, name: string): Promise<string | null> => {
+    const key = `${parentId}/${name}`;
+    const cached = folderCache.get(key);
+    if (cached) return cached;
+    try {
+      const created = (await createFolder(name, parentId)) as DriveFileItem | undefined;
+      const id = created?.id;
+      if (!id) return null;
+      folderCache.set(key, id);
+      return id;
+    } catch (e) {
+      console.error('[Drive] create folder failed', e);
+      return null;
+    }
+  };
+
+  const pathToId = new Map<string, string>();
+  let failedDirCount = 0;
+  for (const path of dirs) {
+    const segs = path.split('/');
+    const parentPath = segs.slice(0, -1).join('/');
+    const parentId = parentPath ? (pathToId.get(parentPath) ?? rootParentId) : rootParentId;
+    const name = segs[segs.length - 1];
+    const id = await ensureFolder(parentId, name);
+    if (!id) {
+      failedDirCount += 1;
+      continue;
+    }
+    pathToId.set(path, id);
+  }
+
+  // 为每个文件确定所属目录 id 并入队
+  const items: { file: File; parentId: string }[] = [];
+  for (const { file, rel } of annotated) {
+    const segs = rel.split('/').filter(Boolean);
+    const dirPath = segs.slice(0, -1).join('/');
+    const parentId = dirPath ? (pathToId.get(dirPath) ?? rootParentId) : rootParentId;
+    items.push({ file, parentId });
+  }
+
+  if (items.length) {
+    uploadStore.enqueueItems(items);
+    showToast(
+      `已开始上传 ${items.length} 个文件${failedDirCount ? `，${failedDirCount} 个目录创建失败` : ''}`,
+    );
+  } else {
+    showToast('没有可上传的文件');
+  }
+};
+
+const onFolderChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files || []);
+  input.value = '';
+  if (!files.length) return;
+  folderUploading.value = true;
+  try {
+    await uploadFolderFiles(files, currentParentId.value);
+    invalidateCache();
+    await refresh(false);
+  } catch (e) {
+    console.error('[Drive] upload folder failed:', e);
+    showToast(e instanceof Error ? e.message : '上传文件夹失败');
+  } finally {
+    folderUploading.value = false;
+  }
+};
+
 // ==================== 工具函数 ====================
 
 const getIconByMime = (mime = '') => {
@@ -869,23 +1105,31 @@ const formatDate = (ts: number) => dayjs(ts).format('YYYY-MM-DD HH:mm');
     padding-bottom: calc(72px + env(safe-area-inset-bottom));
   }
 
-  .nav-select {
+  .nav-select,
+  .nav-action,
+  .nav-trash {
     font-size: 14px;
     color: var(--van-primary-color);
     cursor: pointer;
+  }
+
+  .nav-action,
+  .nav-trash {
+    margin-right: 16px;
   }
 
   :deep(.van-nav-bar__placeholder > .van-nav-bar--fixed) {
     padding-top: var(--safe-area-top);
   }
 
-  // 右下角悬浮按钮组（上传 + 新建文件夹），本页无底部 tabbar
+  // 右下角悬浮按钮组（上传文件 + 上传文件夹 + 新建文件夹），纵向排列
   .fab-group {
     position: fixed;
     right: 20px;
     bottom: calc(24px + env(safe-area-inset-bottom));
     z-index: 1;
     display: flex;
+    flex-direction: column;
     gap: 10px;
 
     @include desktop {
@@ -933,6 +1177,20 @@ const formatDate = (ts: number) => dayjs(ts).format('YYYY-MM-DD HH:mm');
       border: 1px solid var(--van-primary-color);
       box-sizing: border-box;
     }
+
+    &.is-busy {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .van-icon-spin {
+    animation: van-icon-spin 1s linear infinite;
+  }
+
+  @keyframes van-icon-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
   .dialog-body {
@@ -1237,6 +1495,40 @@ const formatDate = (ts: number) => dayjs(ts).format('YYYY-MM-DD HH:mm');
 
   .hidden-input {
     display: none;
+  }
+
+  // 桌面端右键上下文菜单
+  .context-menu-mask {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+  }
+
+  .context-menu {
+    position: fixed;
+    z-index: 10001;
+    min-width: 160px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    padding: 4px 0;
+    user-select: none;
+
+    .context-menu-item {
+      padding: 10px 16px;
+      font-size: 14px;
+      color: #323233;
+      cursor: pointer;
+      white-space: nowrap;
+
+      &:hover {
+        background: #f2f7ff;
+      }
+
+      &.is-danger {
+        color: #ee0a24;
+      }
+    }
   }
 }
 </style>

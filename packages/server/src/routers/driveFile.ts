@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { DriveFile } from "../db/driveFile";
-import { bitifulS3Manager, bitifulConfig, createCdnLink } from "../lib/bitiful";
+import { bitifulS3Manager, bitifulConfig, createCdnLink, deleteS3Object } from "../lib/bitiful";
 
 function formatDriveFileResponse(f: any) {
   return {
@@ -43,6 +43,21 @@ async function collectDescendantIds(username: string, rootId: string) {
   for (let i = 0; i < 50 && frontier.length; i++) {
     const children = await DriveFile.find(
       { username, parentId: { $in: frontier }, deleted: false },
+      ['_id']
+    );
+    frontier = children.map(c => c._id.toString());
+    ids.push(...frontier);
+  }
+  return ids;
+}
+
+// 收集文件夹自身及其所有后代 id（回收站恢复/彻底删除用，不过滤 deleted 标记）
+async function collectDescendantIdsForTrash(username: string, rootId: string) {
+  const ids = [rootId];
+  let frontier = [rootId];
+  for (let i = 0; i < 50 && frontier.length; i++) {
+    const children = await DriveFile.find(
+      { username, parentId: { $in: frontier } },
       ['_id']
     );
     frontier = children.map(c => c._id.toString());
@@ -190,6 +205,80 @@ export default function driveFileRouter(router: Hono<BlankEnv, BlankSchema, "/">
     );
 
     return ctx.json({ code: 0, message: 'success' });
+  });
+
+  // ==================== 回收站 ====================
+
+  // 回收站列表：仅顶级软删项（被软删且父目录未被软删，避免后代重复展示）
+  router.get('trash-list', async (ctx) => {
+    const username = ctx.get('username');
+    const allDeleted = await DriveFile.find({ username, deleted: true })
+      .sort({ updatedAt: -1 });
+    const deletedIdSet = new Set(allDeleted.map((it: any) => it._id.toString()));
+    const items = allDeleted.filter((it: any) => !it.parentId || !deletedIdSet.has(it.parentId));
+    return ctx.json({ code: 0, data: { items: items.map(formatDriveFileResponse) } });
+  });
+
+  // 恢复（递归恢复所有后代）
+  router.post('restore', async (ctx) => {
+    const { id } = await ctx.req.json();
+    const username = ctx.get('username');
+    const operator = ctx.get('operator');
+
+    const item = await DriveFile.findOne({ _id: id, username });
+    if (!item) return ctx.json({ code: 1, message: 'not found' });
+
+    const ids = item.kind === 'folder'
+      ? await collectDescendantIdsForTrash(username, id)
+      : [id];
+
+    await DriveFile.updateMany(
+      { _id: { $in: ids }, username },
+      { deleted: false, updatedBy: operator }
+    );
+
+    return ctx.json({ code: 0, message: 'success' });
+  });
+
+  // 彻底删除（DB 物理删除 + S3 对象删除，S3 失败不阻塞 DB 清理）
+  router.delete('purge', async (ctx) => {
+    const { id } = await ctx.req.json();
+    const username = ctx.get('username');
+
+    const item = await DriveFile.findOne({ _id: id, username });
+    if (!item) return ctx.json({ code: 1, message: 'not found' });
+
+    const ids = item.kind === 'folder'
+      ? await collectDescendantIdsForTrash(username, id)
+      : [id];
+
+    // 收集所有 file 的 key（folder 无 key），批量删 S3
+    const files = await DriveFile.find(
+      { _id: { $in: ids }, username, kind: 'file', key: { $ne: '' } },
+      ['key']
+    );
+    let s3Failed = 0;
+    await Promise.all(files.map(f => deleteS3Object(f.key!).catch(() => { s3Failed++; })));
+
+    await DriveFile.deleteMany({ _id: { $in: ids }, username });
+
+    return ctx.json({ code: 0, message: s3Failed > 0 ? `部分云端文件清理失败：${s3Failed} 个` : 'success' });
+  });
+
+  // 清空回收站（彻底删除当前用户所有软删记录）
+  router.delete('purge-all', async (ctx) => {
+    const username = ctx.get('username');
+
+    const files = await DriveFile.find(
+      { username, deleted: true, kind: 'file', key: { $ne: '' } },
+      ['key']
+    );
+    let s3Failed = 0;
+    await Promise.all(files.map(f => deleteS3Object(f.key!).catch(() => { s3Failed++; })));
+
+    await DriveFile.deleteMany({ username, deleted: true });
+
+    return ctx.json({ code: 0, message: s3Failed > 0 ? `部分云端文件清理失败：${s3Failed} 个` : 'success' });
   });
 
   // Share link (presigned GET url)
