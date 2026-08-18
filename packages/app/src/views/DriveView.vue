@@ -9,8 +9,7 @@
     >
       <template #right>
         <span v-if="!selectMode" class="nav-action" @click="openCreateFolder">新建文件夹</span>
-        <span v-if="!selectMode" class="nav-trash" @click="goTrash">回收站</span>
-        <span v-if="!selectMode" class="nav-select" @click="enterSelectMode()">多选</span>
+        <van-icon v-if="!selectMode" name="delete-o" size="20" class="nav-trash" @click="goTrash" />
       </template>
     </van-nav-bar>
 
@@ -426,10 +425,10 @@ const applyList = (result: { items: DriveFileItem[]; breadcrumb: DriveBreadcrumb
   uploadStore.pruneFinished(result.items);
 };
 
-// 上传方式：移动端仅"上传文件"，桌面端追加"上传文件夹"（webkitdirectory 移动端支持差）
+// 上传方式：默认仅"上传文件"；Tauri 桌面客户端追加"上传文件夹"（webkitdirectory 在移动端/浏览器支持差）
 const uploadActions = computed(() => {
   const list: { name: string; action: string }[] = [{ name: '上传文件', action: 'file' }];
-  if (isDesktop) {
+  if (isTauri && isDesktop) {
     list.push({ name: '上传文件夹', action: 'folder' });
   }
   return list;
@@ -1105,17 +1104,18 @@ const formatDate = (ts: number) => dayjs(ts).format('YYYY-MM-DD HH:mm');
     padding-bottom: calc(72px + env(safe-area-inset-bottom));
   }
 
-  .nav-select,
-  .nav-action,
-  .nav-trash {
+  .nav-action {
     font-size: 14px;
     color: var(--van-primary-color);
     cursor: pointer;
+    margin-right: 16px;
   }
 
-  .nav-action,
   .nav-trash {
-    margin-right: 16px;
+    color: #323233;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
   }
 
   :deep(.van-nav-bar__placeholder > .van-nav-bar--fixed) {

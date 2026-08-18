@@ -404,22 +404,47 @@ async fn collect_descendant_ids_for_trash(
 pub async fn db_drive_file_trash_list(state: State<'_, TursoDb>) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
 
+    // 拉取所有软删项，Rust 端过滤掉父目录也被软删的后代（避免子查询兼容性问题）
     let mut rows = conn
         .query(
             &format!(
-                "SELECT * FROM {} WHERE deleted = 1 AND (parent_id = '' OR parent_id NOT IN (SELECT id FROM {} WHERE deleted = 1)) ORDER BY updated_at DESC",
-                DRIVE_TABLE, DRIVE_TABLE
+                "SELECT * FROM {} WHERE deleted = 1 ORDER BY updated_at DESC",
+                DRIVE_TABLE
             ),
             (),
         )
         .await
         .map_err(|e| e.to_string())?;
 
-    let mut items = Vec::new();
+    let mut all: Vec<JsonValue> = Vec::new();
     while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let val = row_to_json(&row)?;
-        items.push(merge_drive_row(&val));
+        all.push(merge_drive_row(&val));
     }
+
+    // 收集所有软删项 id
+    let deleted_ids: std::collections::HashSet<String> = all
+        .iter()
+        .map(|v| {
+            v.get("id")
+                .and_then(|x| x.as_str())
+                .map(|s| s.to_string())
+                .unwrap_or_default()
+        })
+        .collect();
+
+    // 顶级软删项：parent_id 为空，或父目录不在软删集合中
+    let items: Vec<JsonValue> = all
+        .into_iter()
+        .filter(|v| {
+            let parent_id = v
+                .get("parentId")
+                .and_then(|x| x.as_str())
+                .or_else(|| v.get("parent_id").and_then(|x| x.as_str()))
+                .unwrap_or("");
+            parent_id.is_empty() || !deleted_ids.contains(parent_id)
+        })
+        .collect();
 
     Ok(json!({ "code": 0, "data": { "items": items } }))
 }
