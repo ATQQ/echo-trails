@@ -137,7 +137,7 @@ const mediaApps = ref<AppItem[]>([
 const otherApps = ref<AppItem[]>([
   { text: '资产', icon: 'gold-coin-o', color: '#ffd700', url: '/asset' },
   { text: '纪念日', icon: 'calendar-o', color: '#f2826a', url: '/memorial' },
-  { text: '文件', icon: 'description', color: '#1989fa', url: '/files' },
+  { text: '云盘', icon: 'cluster-o', color: '#1989fa', url: '/files' },
   { text: '待办事项', icon: 'todo-list-o', color: '#6739b6', url: '/todo' },
 ]);
 

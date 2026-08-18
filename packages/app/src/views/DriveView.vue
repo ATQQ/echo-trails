@@ -378,13 +378,36 @@ const applyList = (result: { items: DriveFileItem[]; breadcrumb: DriveBreadcrumb
   uploadStore.pruneFinished(result.items);
 };
 
+// 子目录预加载缓存：parentId -> 目录数据
+const childrenCache = new Map<string, { items: DriveFileItem[]; breadcrumb: DriveBreadcrumb[] }>();
+
+const preloadChildren = (folderItems: DriveFileItem[]) => {
+  for (const item of folderItems) {
+    if (item.kind !== 'folder') continue;
+    if (childrenCache.has(item.id)) continue;
+    fetchDriveFiles(item.id)
+      .then((result) => {
+        childrenCache.set(item.id, result);
+      })
+      .catch(() => {
+        // 预加载失败静默忽略，点击时再实时拉取
+      });
+  }
+};
+
+const invalidateCache = () => {
+  childrenCache.clear();
+};
+
 const refresh = async (showSpinner = true) => {
   if (showSpinner && !items.value.length && !visibleTasks.value.length) {
     loading.value = true;
   }
   try {
     const result = await fetchDriveFiles(currentParentId.value);
+    childrenCache.set(currentParentId.value, result);
     applyList(result);
+    preloadChildren(result.items);
   } catch (e) {
     console.error('[Drive] load failed:', e);
     showToast('加载失败');
@@ -407,6 +430,7 @@ onActivated(() => {
 });
 
 watch(() => uploadStore.revision, () => {
+  invalidateCache();
   refresh(false);
 });
 
@@ -414,7 +438,13 @@ const navigateTo = (id: string) => {
   if (id === currentParentId.value) return;
   exitSelectMode();
   currentParentId.value = id;
-  refresh();
+  const cached = childrenCache.get(id);
+  if (cached) {
+    applyList(cached);
+    refresh(false); // 静默重新校验，确保数据最新
+  } else {
+    refresh();
+  }
 };
 
 const isSelected = (id: string) => selectedIds.value.includes(id);
@@ -610,6 +640,7 @@ const handleRename = async () => {
   try {
     await renameDriveFile(item.id, renameName.value.trim());
     showRenameDialog.value = false;
+    invalidateCache();
     await refresh();
   } catch (e) {
     console.error('[Drive] rename failed:', e);
@@ -685,6 +716,7 @@ const handleMove = async () => {
       showToast('移动成功');
     }
     exitSelectMode();
+    invalidateCache();
     await refresh(false);
   } finally {
     submitting.value = false;
@@ -702,6 +734,7 @@ const handleDelete = (item: DriveFileItem) => {
     try {
       await deleteDriveFile(item.id);
       showToast('已删除');
+      invalidateCache();
       await refresh(false);
     } catch (e) {
       console.error('[Drive] delete failed:', e);
@@ -746,6 +779,7 @@ const handleBatchDelete = async () => {
     showToast('已删除');
   }
   exitSelectMode();
+  invalidateCache();
   await refresh(false);
 };
 
@@ -765,6 +799,7 @@ const onFolderBeforeClose = async (action: string) => {
   submitting.value = true;
   try {
     await createFolder(name, currentParentId.value);
+    invalidateCache();
     await refresh();
     return true;
   } catch (e) {

@@ -16,7 +16,8 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  padding: 10px 12px;
+  padding: calc(10px + constant(safe-area-inset-top)) 12px 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
   border-bottom: 1px solid #f2f3f5;
 }
 
