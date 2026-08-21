@@ -14,6 +14,8 @@
     "deploy:server": "bun run scripts/deploy-server.ts",
     "update:md5": "bun run scripts/update-apk-md5.ts",
     "release:git": "bun run scripts/git-release.ts",
+    "release:trigger": "bun run scripts/gh-release.ts trigger",
+    "release:download": "bun run scripts/gh-release.ts download",
     "release:latest-json": "bun run scripts/generate-latest-json.ts",
     "upload:apk": "bun --env-file=.bitiful.env.local run scripts/upload-apk-to-s3.ts",
     "dev:server": "bun --filter server dev",
