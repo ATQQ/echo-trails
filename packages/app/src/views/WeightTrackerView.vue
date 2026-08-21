@@ -166,7 +166,7 @@ const overviewData = computed(() => {
   return result
 })
 
-const homeTrendDailyRecords = computed(() => normalizeDailyRecords(records.value))
+const homeTrendDailyRecords = computed(() => normalizeDailyRecords(records.value).slice().reverse())
 
 const homeChartFitWidth = computed(() => Math.max(300, homeChartViewportWidth.value))
 
@@ -399,6 +399,10 @@ function formatRecordDate(date: string | Date) {
 function formatRecordWeekday(date: string | Date) {
   const weekdayMap = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
   return weekdayMap[dayjs(date).day()]
+}
+
+function formatRecordTime(date: string | Date) {
+  return dayjs(date).format('HH:mm')
 }
 
 function formatFullDate(date: string | Date) {
@@ -851,7 +855,7 @@ onBeforeUnmount(() => {
           <van-list v-else v-model:loading="listLoading" :finished="listFinished" finished-text="没有更多了" :immediate-check="false" @load="onLoadRecords">
             <button v-for="record in sortedRecords" :key="record._id || String(record.date)" class="record-row" type="button" @click="openRecordAction(record)">
               <span class="record-main">
-                <span>{{ formatRecordDate(record.date) }} <em>{{ formatRecordWeekday(record.date) }}</em></span>
+                <span>{{ formatRecordDate(record.date) }} <em>{{ formatRecordTime(record.date) }} {{ formatRecordWeekday(record.date) }}</em></span>
                 <small v-if="record.tips">{{ record.tips }}</small>
               </span>
               <strong>{{ formatRecordWeight(record.weight, 2) }} {{ isKG ? 'kg' : '斤' }}</strong>
@@ -922,7 +926,7 @@ onBeforeUnmount(() => {
           <van-list v-else v-model:loading="listLoading" :finished="listFinished" finished-text="没有更多了" :immediate-check="false" @load="onLoadRecords">
             <button v-for="record in sortedRecords" :key="record._id || String(record.date)" class="record-row" type="button" @click="openRecordAction(record)">
               <span class="record-main">
-                <span>{{ formatRecordDate(record.date) }} <em>{{ formatRecordWeekday(record.date) }}</em></span>
+                <span>{{ formatRecordDate(record.date) }} <em>{{ formatRecordTime(record.date) }} {{ formatRecordWeekday(record.date) }}</em></span>
                 <small v-if="record.tips">{{ record.tips }}</small>
               </span>
               <strong>{{ formatRecordWeight(record.weight, 1) }} {{ isKG ? 'kg' : '斤' }}</strong>
