@@ -175,6 +175,8 @@ const loadAlbum = async (_loading = false) => {
     throw e
   } finally {
     loading.value = false
+    // 首页数据加载完成（无论有无数据），立即隐藏 loading 屏
+    window?.hideLoadingScreen?.()
   }
 }
 
@@ -202,6 +204,8 @@ onActivated(() => {
     showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
     saveCache()
     delete (window as any).__PREFETCHED_ALBUMS__
+    // 预请求命中，立即隐藏 loading 屏
+    window?.hideLoadingScreen?.()
   } else {
     // 尝试加载缓存
     const loaded = loadCache()
@@ -212,6 +216,8 @@ onActivated(() => {
     } else {
       // 缓存加载成功，更新empty状态
       showEmpty.value = !albumList.value.large?.length && !albumList.value.small?.length
+      // 缓存命中即有数据，立即隐藏 loading 屏
+      window?.hideLoadingScreen?.()
 
       // 异步更新一下数据，不设置全局 loading，避免闪烁
       loadAlbum(false).catch(e => {

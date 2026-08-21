@@ -213,7 +213,8 @@ const handleBackspaceNavigation = (e: KeyboardEvent) => {
 onMounted(() => {
   window.addEventListener('album-scroll-state', handleAlbumScrollState)
   window.addEventListener('keydown', handleBackspaceNavigation)
-  window?.hideLoadingScreen?.()
+  // 兜底：5s 后若首页仍未触发隐藏（如登录页/非相册路由），强制隐藏 loading
+  setTimeout(() => window?.hideLoadingScreen?.(), 5000)
   // 初始化 vConsole 调试控制台（依据设置页调试面板的开关状态）
   useVConsole()
   if(!isTauri || !isAutoCheckUpdateEnabled.value) return;
