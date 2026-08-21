@@ -10,6 +10,7 @@ export interface FooterItem {
   activeColor?: string
   replace?: boolean
   to?: string // Some items might use 'to' directly if no special handling needed, but we standardize on path
+  svg?: string // 自定义内联 SVG 图标（存在时优先于 icon 渲染）
 }
 
 export const useFooterStore = defineStore('footer', () => {

@@ -16,7 +16,8 @@
       <van-grid-item v-for="item in visibleHealthApps" :key="item.text" @click="handleClick(item)">
         <div class="grid-item-content">
           <div class="icon-wrapper">
-            <van-icon :name="item.icon" :color="item.color" size="28" />
+            <span v-if="item.svg" class="custom-icon" :style="{ color: item.color }" v-html="item.svg"></span>
+            <van-icon v-else :name="item.icon" :color="item.color" size="28" />
             <span v-if="!item.url" class="dev-tag">待上线</span>
           </div>
           <span class="grid-text">{{ item.text }}</span>
@@ -31,7 +32,8 @@
       <van-grid-item v-for="item in visibleMediaApps" :key="item.text" @click="handleClick(item)">
         <div class="grid-item-content">
           <div class="icon-wrapper">
-            <van-icon :name="item.icon" :color="item.color" size="28" />
+            <span v-if="item.svg" class="custom-icon" :style="{ color: item.color }" v-html="item.svg"></span>
+            <van-icon v-else :name="item.icon" :color="item.color" size="28" />
             <span v-if="!item.url" class="dev-tag">待上线</span>
           </div>
           <span class="grid-text">{{ item.text }}</span>
@@ -46,7 +48,8 @@
       <van-grid-item v-for="item in visibleOtherApps" :key="item.text" @click="handleClick(item)">
         <div class="grid-item-content">
           <div class="icon-wrapper">
-            <van-icon :name="item.icon" :color="item.color" size="28" />
+            <span v-if="item.svg" class="custom-icon" :style="{ color: item.color }" v-html="item.svg"></span>
+            <van-icon v-else :name="item.icon" :color="item.color" size="28" />
             <span v-if="!item.url" class="dev-tag">待上线</span>
           </div>
           <span class="grid-text">{{ item.text }}</span>
@@ -117,6 +120,7 @@ interface AppItem {
   icon: string;
   color: string;
   url?: string;
+  svg?: string;
 }
 
 const healthApps = computed<AppItem[]>(() => [
@@ -134,10 +138,13 @@ const mediaApps = ref<AppItem[]>([
   { text: '音频', icon: 'music-o', color: '#ff976a', url: '/audio' },
 ]);
 
+// 云盘图标：白云 SVG（颜色跟随 color 属性，与现有 vant 图标风格统一为 outline）
+const cloudSvg = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" stroke="currentColor" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33c0 .088.014.175.027.262A4.5 4.5 0 002.25 15z"/></svg>`;
+
 const otherApps = ref<AppItem[]>([
   { text: '资产', icon: 'gold-coin-o', color: '#ffd700', url: '/asset' },
   { text: '纪念日', icon: 'calendar-o', color: '#f2826a', url: '/memorial' },
-  { text: '云盘', icon: 'cluster-o', color: '#1989fa', url: '/files' },
+  { text: '云盘', icon: 'cluster-o', color: '#1989fa', url: '/files', svg: cloudSvg },
   { text: '待办事项', icon: 'todo-list-o', color: '#6739b6', url: '/todo' },
 ]);
 
@@ -178,7 +185,8 @@ const toggleFooter = (item: AppItem) => {
       path: url,
       activeIcon: item.icon, // reusing the same icon
       activeColor: item.color,
-      replace: false
+      replace: false,
+      svg: item.svg
     });
     if (success) {
       showToast('已添加到底部导航');
@@ -240,6 +248,21 @@ const toggleFooter = (item: AppItem) => {
     display: flex;
     flex-direction: column;
     align-items: center;
+  }
+
+  .custom-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    line-height: 0;
+
+    :deep(svg) {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
   }
 
   .dev-tag {

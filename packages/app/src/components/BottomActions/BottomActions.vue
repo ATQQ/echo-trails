@@ -13,19 +13,27 @@ const { menus } = defineProps<{
     active?: boolean
     color?: string
     replace?: boolean
+    svg?: string
   }[],
 }>()
 
 const route = useRoute();
 
 const isMatch = (menu: any) => route.path === (menu.to || menu.path)
+
+const iconColor = (menu: any) => (isMatch(menu) || menu.active) ? menu.activeColor : menu.color
 </script>
 <template>
   <footer class="footer-nav safe-padding-bottom">
     <van-grid :column-num="menus.length" :border="false">
-      <van-grid-item v-for="menu in menus" :key="menu.icon" :icon="isMatch(menu) ? menu.activeIcon : menu.icon"
-        :text="menu.text" :to="menu.to" :replace="menu.replace" :icon-color="(isMatch(menu) || menu.active) ? menu.activeColor : menu.color"
-        @click="menu.handleClick" />
+      <van-grid-item v-for="menu in menus" :key="menu.icon"
+        :text="menu.text" :to="menu.to" :replace="menu.replace"
+        @click="menu.handleClick">
+        <template #icon>
+          <span v-if="menu.svg" class="custom-icon" :style="{ color: iconColor(menu) }" v-html="menu.svg"></span>
+          <van-icon v-else :name="isMatch(menu) ? menu.activeIcon : menu.icon" :color="iconColor(menu)" />
+        </template>
+      </van-grid-item>
     </van-grid>
   </footer>
 
@@ -48,6 +56,21 @@ const isMatch = (menu: any) => route.path === (menu.to || menu.path)
 
   :deep(.van-grid-item__content) {
     padding: 6px 0 2px 0;
+  }
+
+  .custom-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    line-height: 0;
+
+    :deep(svg) {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
   }
 }
 </style>
