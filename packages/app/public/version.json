@@ -18,10 +18,10 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.9.0",
-    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.0.apk",
+    "version": "0.9.1",
+    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.1.apk",
     "forceUpdate": false,
-    "description": "feat: 云盘功能优化",
+    "description": "Maintenance update",
     "md5": "aacf46810a875b06df426ce281ac54db"
   },
   "ios": {

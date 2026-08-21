@@ -1,4 +1,116 @@
 # Changelog
+## 0.9.1
+
+### Feature
+- 新增体重记录时间展示并优化趋势图排序
+- 为导航和网格项新增自定义内联 SVG 图标支持
+
+### Bug Fixes
+- 修复多场景下加载屏无法正常隐藏的问题
+
+## 0.9.0
+
+### Feature
+- 添加回收站功能及桌面端优化
+
+### Bug Fixes
+- 适配安卓Tauri WebView的安全区域内边距
+
+### Refactor
+- add preload cache and safe-area padding
+
+### Other
+- 调整相册页面小卡片网格布局适配不同屏幕
+
+## 0.8.6
+
+### Feature
+- 实现文件选择、批量操作与上传管理功能
+- 替换文件图标为自定义文件夹图标
+- add file preview function for drive files
+
+### Bug Fixes
+- update z-index and improve macOS drag region support
+
+## 0.8.5
+
+### Refactor
+- 重构APK下载校验逻辑，优化缓存处理
+
+### Build
+- add version check for release workflow
+- 为版本校验步骤添加bash shell指定
+
+## 0.8.4
+
+### Bug Fixes
+- 检查安装包可用性后再提示更新
+
+### Build
+- 修复更新产物文件名导致的404问题
+
+### Chore
+- 更新依赖版本并调整版本检查源顺序
+
+## 0.8.3
+
+### Feature
+- 新增四象限待办与云盘文件管理功能
+
+### Bug Fixes
+- 兼容非安全上下文环境生成UUID
+
+### Documentation
+- update README support feature checklist
+
+### Build
+- add Release workflow for multi-platform builds
+
+## 0.8.2
+
+### Chore
+- simplify release workflow and update tauri configuration
+
+## 0.8.2-beta.0
+
+### Feature
+- add desktop app support and refine cross-platform logic
+- add responsive layout support for desktop and large screens
+- add keyboard and mouse wheel shortcuts, improve desktop interaction
+- add audio browsing and playback feature
+- add local video cache support
+- 实现桌面端自动更新功能，重构更新逻辑
+- add vConsole debug switch and auth store
+- add clear all cache support and improve config switching flow
+- add Kite configuration files and update deployment scripts
+- enhance desktop build support for Linux and update workflows
+
+### Bug Fixes
+- 调整本地开发IP与桌面端相册页面样式
+- 拦截非输入元素的Backspace键防止误触发后退
+- 在独立 job 中基于 main 创建 APK MD5 PR
+- 用 BMP ICO 修 Windows 构建，Linux updater 改用 AppImage
+
+### Refactor
+- add desktop layout support and responsive design
+- 优化页面样式与组件配置
+- 统一复用添加按钮组件并优化桌面端样式
+- 实现相册网格响应式布局
+- 重构桌面端布局适配逻辑
+- 优化桌面端布局与开发配置
+- 改用ref让currentMode成为响应式变量
+
+### Build
+- 移除aab包的上传配置
+- add desktop build scripts and improve release workflow
+
+### Chore
+- update build scripts and workflows for improved desktop support
+
+### Other
+- style & refactor: 优化侧边栏折叠状态适配与弹窗样式
+- 重构侧边导航适配与页面布局
+
 ## 0.8.1
 
 ### Bug Fixes

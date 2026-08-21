@@ -25,6 +25,12 @@
   ],
   "android": [
     {
+      "version": "0.9.1",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.1.apk",
+      "forceUpdate": false,
+      "description": "Maintenance update"
+    },
+    {
       "version": "0.9.0",
       "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.0.apk",
       "forceUpdate": false,
