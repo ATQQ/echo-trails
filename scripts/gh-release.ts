@@ -86,7 +86,7 @@ async function downloadAssets() {
     const choices = assets.map((asset: any) => ({
       title: `${asset.name} (${(asset.size / 1024 / 1024).toFixed(2)} MB)`,
       value: asset.name,
-      selected: true
+      selected: false
     }));
 
     const response = await prompts({
