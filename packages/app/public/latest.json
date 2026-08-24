@@ -1,30 +1,30 @@
 {
-  "version": "0.9.1",
+  "version": "0.9.2",
   "notes": "Maintenance update",
-  "pub_date": "2026-08-21T10:02:52.654Z",
+  "pub_date": "2026-08-24T09:07:10.832Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWJIaFlRK0xGWTZEcnViQnFBYkUrUVBMcVBOL3JkbStkL0pSamw3cmFIK3JLSXNJeVplcnFJN3Z1aEJLdEd6MElZeGdQdjlCS1p5WTVVbncxYkxkemdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MzA2Mzk1CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS4xX3g2NC1zZXR1cC5leGUKNkpjWm5nMHZqSEtyNXY1Yld2LzdtZVZWTkdGQ2xFQ081U0JoRmk5THZObmlzVkVTSGwraUxRcUgzaENNeC9VdzRKa3V3RWsxMmlJdmhlL3hYeEdiQ2c9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.1/EchoTrails_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVd4cUJick1WdXFZdnkreXYyZTRJOGMwclFPKzZPODArcVlOaDh2eUhVeDdydC82U093Y3p5YTVVTWtDaTROaC9VQ1h3NXNvbUNtR0h1ZzdvdlpKaUE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NTYyMzgwCWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS4yX3g2NC1zZXR1cC5leGUKYlpMakpiOGkzS2FxdXZxdnpKNHRzUE5XbDJOQ1R6Y1B1bHFpRUxkOEsxRkwvUTUzT20rSmV2ZXRjK2JqZkhRU0ZHQVArZ2cvN3JoVlNTOEdJdUNHQlE9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.2/EchoTrails_x64-setup.exe"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWJuMUg0K2Z1R2dOVDdxWFp1aklmSUNWL2tGWExJYm9aaFdIVmp2YUthdTZCRWVuUm12U1RocTVCMzNMckhzZUdlNm05SjcyeTJ2NXJ5U0NmV0ZrZ1FJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MzA2MTI4CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS4xX2FtZDY0LkFwcEltYWdlCi9qU2FaYngxUVZSN2tJaVRXQmRyUGxsQURnT0o0ZjA1WDZ3NmFRa0twc3dPZTBrcU1hWlhTemRtQjhPejlpVW9zQVRsY0cwanIxTE9qTkFEWno4SURnPT0K",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.1/EchoTrails_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVY2MWRKRlJxTWU0U2hIaEJIM0M0c2RxTHZaMEZpbE9GMjJRaEV3dXhxMVJzOTQ2cm5UdkJrU3dHbmRUbUp2bU1TN0tMcTA5WThsZThqWk9PdXViZGdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NTYyMzAzCWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS4yX2FtZDY0LkFwcEltYWdlCjBSZDJzUGxxSnRyMTUyT3RqeEtnNTV5azdHbnJLU25xOWcxVC9TM0ViclhDdjhUTWw0OWtUWVJaNGdwcEdLM3JqVXU0blBUeCtocFI2Nm1RWWgzdkRnPT0K",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.2/EchoTrails_amd64.AppImage"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVdDMkpiY2ordm5mSEtUWXBsRmtCV3NPY1VDU0xMam5zRDEzQjdlc3ZVNHZuVFlTR1FkcStmUlBiSjRad1FYRHl5ZWFjMWFzK2MwcWJnekUxSmUzclFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MzA2NDI0CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKcDVScExLQ3BkdWZMeWV6dmpXMWtTTExMYU9lL3ZSZGZXZ0VrY1hpTnZYd2ROR1dKS3lZOWhWUzcyVGUvT2FUTFhnTFRsM3lvdWhzOENWNmtXOGZhQ1E9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.1/EchoTrails_x64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVEvZ1RCeC9VcTNKVnRtdzlzVC9WbkJVdlEzL1g3M1NrNW5rcGN6RkRTY1piWHlDTXRXVEhrU0xNTGtmTjhXejN1TnkxSkliREl4NG1LdDNTOXhZL3dnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NTYyMjc0CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKWDhkK3psWnh4NkROb1VEMjRBL3RKS1hYdTVYQ2t5T1d6RlhicThuRk84K2p6aUx2K0UrYUJRcFNRVW54RlNqT3JNRGxrTllva21ZTU42RFUvdXlVQlE9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.2/EchoTrails_x64.app.tar.gz"
     },
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVlEUEZOWVJSVURKV3djQjgwZGF2Ui84UzZodHBvaU11OC85cnBxc0RkZkd1eTA4cFJpczdid2hSQVJYV1lQQmFPWTdkM09SU3lFVTB1Z0h0Z0V1Unc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MzA2MDM2CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKeTN3eVhTR3QzZkJtVTg4Z3dVV0VIazFmME5ta2xyWnB5MjF0eFBvRngrc3Y0V0VRWUJlOUZoS3ZWWlpmc0Z2K09KQ2dEcEJwL3VJV0wyY0pkYnVsRFE9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.1/EchoTrails_aarch64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWVtNllPREgrNnhpUzRRVWMwVFg4b2hQRkg4ZHZPSngvcG1JcUE1elRXMTVEYVlHSjlscFJ4UzVjbmc5SnFRY0NiSnJUMWFjd1hZOGg5c3g4M0ZyK3dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3NTYyMTkwCWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKeUF0UTMzQ0luWkg3SmwyMndIR25oRmlReTNQV0x1ZVlxUTZqWVo0VFdnemNwUXJPRkwwRC9ZV3BZblo4enRtbDZuaG1xc3QycUJ3THBKcHJIUURVQXc9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.2/EchoTrails_aarch64.app.tar.gz"
     }
   },
   "android": {
-    "version": "0.9.1",
-    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.1/echo-trails-release-0.9.1.apk",
+    "version": "0.9.2",
+    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.2/echo-trails-release-0.9.2.apk",
     "forceUpdate": false,
     "description": "Maintenance update",
-    "md5": "a7e1db5e436b9f1d1e4a1138df2fc73c"
+    "md5": "84040b9d289156a6a595ca04dbc0a9f4"
   }
 }
