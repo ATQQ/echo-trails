@@ -405,6 +405,8 @@ const onStatusBeforeClose = async (action: string) => {
 
 .todo-view {
   min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background-color: #f7f8fa;
   padding-bottom: 40px;
   box-sizing: border-box;
@@ -456,10 +458,12 @@ const onStatusBeforeClose = async (action: string) => {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    min-height: 180px;
+    min-height: calc(50vh - 80px);
+    max-height: calc(50vh - 80px);
 
     @include desktop {
       min-height: 320px;
+      max-height: none;
     }
 
     .quadrant-header {

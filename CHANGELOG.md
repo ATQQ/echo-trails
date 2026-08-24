@@ -1,4 +1,17 @@
 # Changelog
+## 0.9.2
+
+### Feature
+- 新增 GitHub Release 触发与下载脚本
+- 添加代办任务状态管理与自定义状态支持
+
+### Bug Fixes
+- 修改资产下载提示的默认选中状态
+
+### Chore
+- sync APK md5@v0.9.1
+- sync latest.json@v0.9.1
+
 ## 0.9.1
 
 ### Feature
