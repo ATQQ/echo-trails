@@ -12,9 +12,10 @@ import usageRecordRouter from "./usageRecord";
 import memorialRouter from "./memorial";
 import albumFolderRouter from "./albumFolder";
 import todoRouter from "./todo";
+import todoStatusRouter from "./todoStatus";
 import driveFileRouter from "./driveFile";
 
-const routers = [appRouter, fileRouter, albumRouter, albumFolderRouter, configRouter, userRouter, weightRouter, familyRouter, bloodPressureRouter, assetRouter, usageRecordRouter, memorialRouter, todoRouter, driveFileRouter]
+const routers = [appRouter, fileRouter, albumRouter, albumFolderRouter, configRouter, userRouter, weightRouter, familyRouter, bloodPressureRouter, assetRouter, usageRecordRouter, memorialRouter, todoRouter, todoStatusRouter, driveFileRouter]
 export default function mountedRouter(app: any) {
   routers.forEach(router => {
     const child = new Hono()

@@ -7,6 +7,7 @@ const TODO_FIELDS = [
   'note',
   'quadrant',
   'dueDate',
+  'status',
 ] as const;
 
 type TodoPayload = Partial<Record<typeof TODO_FIELDS[number], any>>;
@@ -28,6 +29,7 @@ function formatTodoResponse(t: any) {
     note: t.note || '',
     quadrant: t.quadrant,
     completed: !!t.completed,
+    status: t.status || 'todo',
     dueDate: t.dueDate || '',
     completedAt: t.completedAt ? new Date(t.completedAt).getTime() : null,
     createdAt: new Date(t.createdAt).getTime(),
@@ -66,6 +68,7 @@ export default function todoRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       title: payload.title,
       note: payload.note || '',
       quadrant,
+      status: payload.status || 'todo',
       dueDate: payload.dueDate || '',
       username,
       createdBy: operator,
@@ -89,6 +92,17 @@ export default function todoRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     if (updates.title !== undefined) todo.title = updates.title;
     if (updates.note !== undefined) todo.note = updates.note;
     if (updates.dueDate !== undefined) todo.dueDate = updates.dueDate;
+    if (updates.status !== undefined) {
+      todo.status = updates.status;
+      // status 与 completed 保持同步：done 视为完成，其它视为未完成
+      if (updates.status === 'done') {
+        todo.completed = true;
+        todo.completedAt = new Date();
+      } else {
+        todo.completed = false;
+        todo.completedAt = null as any;
+      }
+    }
     if (updates.quadrant !== undefined) {
       const quadrant = Number(updates.quadrant);
       if (![1, 2, 3, 4].includes(quadrant)) {
@@ -113,6 +127,8 @@ export default function todoRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
     todo.completed = !todo.completed;
     todo.completedAt = todo.completed ? new Date() : (null as any);
+    // 同步 status：勾选完成 -> done，取消完成 -> todo
+    todo.status = todo.completed ? 'done' : 'todo';
     todo.updatedBy = operator;
     await todo.save();
 

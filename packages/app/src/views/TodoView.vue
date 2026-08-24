@@ -22,8 +22,9 @@
             <van-checkbox :model-value="todo.completed" @click.stop @update:model-value="handleToggle(todo)" />
             <div class="todo-info">
               <div class="todo-title" :class="{ done: todo.completed }">{{ todo.title }}</div>
-              <div v-if="todo.dueDate" class="todo-due" :class="{ overdue: isOverdue(todo) }">
-                {{ todo.dueDate }}
+              <div class="todo-meta">
+                <span v-if="todo.dueDate" class="todo-due" :class="{ overdue: isOverdue(todo) }">{{ todo.dueDate }}</span>
+                <span v-if="statusMeta(todo.status)" class="todo-status" :style="statusStyle(todo.status)">{{ statusMeta(todo.status)?.name }}</span>
               </div>
             </div>
           </div>
@@ -58,6 +59,27 @@
             </van-field>
             <van-field v-model="form.dueDate" is-link readonly label="截止日期" placeholder="选择日期"
               @click="showDatePicker = true" />
+            <van-field name="status" label="状态">
+              <template #input>
+                <div class="status-chips">
+                  <div
+                    v-for="s in statuses"
+                    :key="s.key"
+                    class="status-chip"
+                    :class="{ active: form.status === s.key }"
+                    :style="chipStyle(s)"
+                    @click="form.status = s.key"
+                    @touchstart.passive="onChipTouchStart(s)"
+                    @touchend="onChipTouchEnd"
+                    @touchcancel="onChipTouchEnd"
+                    @contextmenu.prevent="onChipLongPress(s)"
+                  >{{ s.name }}</div>
+                  <div class="status-chip add-chip" @click="openAddStatus">
+                    <van-icon name="plus" size="12" /><span>新增</span>
+                  </div>
+                </div>
+              </template>
+            </van-field>
             <van-field v-model="form.note" label="备注" placeholder="选填" type="textarea" rows="2" autosize />
           </van-cell-group>
           <div class="form-actions">
@@ -72,14 +94,50 @@
     <van-popup v-model:show="showDatePicker" position="bottom" round>
       <van-date-picker v-model="pickerDate" title="选择截止日期" @confirm="onDateConfirm" @cancel="showDatePicker = false" />
     </van-popup>
+
+    <!-- 新增状态 -->
+    <van-dialog
+      v-model:show="showStatusDialog"
+      title="新增状态"
+      show-cancel-button
+      :before-close="onStatusBeforeClose"
+    >
+      <div class="status-form">
+        <div class="preset-section">
+          <div class="preset-label">常用状态（点选即添加）</div>
+          <div class="preset-chips">
+            <span
+              v-for="p in statusPresets"
+              :key="p.name"
+              class="preset-chip"
+              :style="{ color: p.color, borderColor: p.color }"
+              @click="onPresetPick(p)"
+            >{{ p.name }}</span>
+          </div>
+        </div>
+        <div class="preset-label custom-label">或自定义</div>
+        <van-field v-model="newStatusForm.name" placeholder="状态名称（如：待审核）" maxlength="10" />
+        <div class="color-row">
+          <span
+            v-for="c in statusColors"
+            :key="c"
+            class="color-dot"
+            :class="{ active: newStatusForm.color === c }"
+            :style="{ background: c }"
+            @click="newStatusForm.color = c"
+          />
+        </div>
+      </div>
+    </van-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showConfirmDialog, showToast } from 'vant';
 import { fetchTodos, createTodo, updateTodo, toggleTodo, deleteTodo, type TodoItem } from '@/service/todo';
+import { fetchTodoStatuses, createTodoStatus, deleteTodoStatus, type TodoStatusItem } from '@/service/todoStatus';
 import { preventBack } from '@/lib/router';
 import dayjs from 'dayjs';
 
@@ -97,17 +155,34 @@ const quadrants = [
 ];
 
 const todos = ref<TodoItem[]>([]);
+const statuses = ref<TodoStatusItem[]>([]);
 const showForm = ref(false);
 const showDatePicker = ref(false);
+const showStatusDialog = ref(false);
 const editing = ref(false);
 const editingId = ref('');
 
-const defaultForm = () => ({ title: '', quadrant: 1, dueDate: '', note: '' });
+const statusColors = ['#969799', '#1989fa', '#07c160', '#ee0a24', '#ff976a', '#7232dd', '#00bcd4', '#ffb800'];
+const newStatusForm = ref({ name: '', color: statusColors[1] });
+
+// 新增弹窗里的常用状态预设，点选即添加，避免每次手打名称
+const statusPresets = [
+  { name: '已阻塞', color: '#ee0a24' },
+  { name: '待测试', color: '#00bcd4' },
+  { name: '已退回', color: '#ff976a' },
+  { name: '已上线', color: '#07c160' },
+  { name: '已过期', color: '#969799' },
+  { name: '待处理', color: '#1989fa' },
+  { name: '已搁置', color: '#7232dd' },
+];
+
+const defaultForm = () => ({ title: '', quadrant: 1, status: 'todo', dueDate: '', note: '' });
 const form = ref(defaultForm());
 const pickerDate = ref<string[]>(dayjs().format('YYYY-MM-DD').split('-'));
 
 preventBack(showForm);
 preventBack(showDatePicker);
+preventBack(showStatusDialog);
 
 const onClickLeft = () => {
   router.back();
@@ -121,6 +196,43 @@ const isOverdue = (todo: TodoItem) => {
   return dayjs(todo.dueDate).isBefore(dayjs(), 'day');
 };
 
+const statusMeta = (key: string) => statuses.value.find((s) => s.key === key);
+
+// 将 #RRGGBB 转为 rgba()，避免 8 位 hex 在某些 WebView 的 CSSOM 上被拒
+const hexToRgba = (hex: string, alpha: number) => {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+// 任务卡片上的状态徽标样式
+const statusStyle = (key: string) => {
+  const s = statusMeta(key);
+  if (!s) return {};
+  return {
+    color: s.color,
+    backgroundColor: hexToRgba(s.color, 0.1),
+  };
+};
+
+// 表单中状态 chip 的样式：选中时填色，未选中时描边
+const chipStyle = (s: TodoStatusItem) => {
+  const active = form.value.status === s.key;
+  return active
+    ? { color: '#fff', backgroundColor: s.color, borderColor: s.color }
+    : { color: s.color, borderColor: hexToRgba(s.color, 0.4) };
+};
+
+const loadStatuses = async () => {
+  try {
+    statuses.value = await fetchTodoStatuses();
+  } catch (e) {
+    console.error('[Todo] load statuses failed:', e);
+  }
+};
+
 const loadTodos = async () => {
   try {
     todos.value = await fetchTodos();
@@ -130,7 +242,10 @@ const loadTodos = async () => {
   }
 };
 
-onMounted(loadTodos);
+onMounted(() => {
+  loadStatuses();
+  loadTodos();
+});
 
 const openAddFor = (quadrant: number) => {
   editing.value = false;
@@ -147,6 +262,7 @@ const openEdit = (todo: TodoItem) => {
   form.value = {
     title: todo.title,
     quadrant: todo.quadrant,
+    status: todo.status || 'todo',
     dueDate: todo.dueDate,
     note: todo.note,
   };
@@ -181,6 +297,8 @@ const handleToggle = async (todo: TodoItem) => {
   try {
     await toggleTodo(todo.id);
     todo.completed = !todo.completed;
+    // 与 status 同步：勾选完成 -> done，取消完成 -> todo
+    todo.status = todo.completed ? 'done' : 'todo';
   } catch (e) {
     console.error('[Todo] toggle failed:', e);
     showToast('操作失败');
@@ -203,6 +321,82 @@ const handleDelete = () => {
   }).catch(() => {
     // 取消
   });
+};
+
+// ===== 状态 chip 交互 =====
+let longPressTimer: number | undefined;
+
+const onChipTouchStart = (s: TodoStatusItem) => {
+  if (s.isSystem) return;
+  if (longPressTimer) window.clearTimeout(longPressTimer);
+  longPressTimer = window.setTimeout(() => {
+    onChipLongPress(s);
+  }, 500);
+};
+
+const onChipTouchEnd = () => {
+  if (longPressTimer) {
+    window.clearTimeout(longPressTimer);
+    longPressTimer = undefined;
+  }
+};
+
+const onChipLongPress = (s: TodoStatusItem) => {
+  if (s.isSystem) return;
+  showConfirmDialog({
+    title: '删除状态',
+    message: `确定删除自定义状态「${s.name}」吗？`,
+  }).then(async () => {
+    try {
+      await deleteTodoStatus(s.key);
+      await loadStatuses();
+      if (form.value.status === s.key) form.value.status = 'todo';
+      showToast('已删除');
+    } catch (e: any) {
+      showToast(e?.message || '删除失败');
+    }
+  }).catch(() => {
+    // 取消
+  });
+};
+
+const openAddStatus = () => {
+  newStatusForm.value = { name: '', color: statusColors[1] };
+  showStatusDialog.value = true;
+};
+
+// 点选常用预设：一键创建并选中（同名状态已存在则提示）
+const onPresetPick = async (p: { name: string; color: string }) => {
+  if (statuses.value.some((s) => s.name === p.name)) {
+    showToast('该状态已存在');
+    return;
+  }
+  try {
+    const created = await createTodoStatus({ name: p.name, color: p.color });
+    await loadStatuses();
+    form.value.status = created.key;
+    showStatusDialog.value = false;
+  } catch (e: any) {
+    showToast(e?.message || '创建失败');
+  }
+};
+
+const onStatusBeforeClose = async (action: string) => {
+  if (action !== 'confirm') return true;
+  const name = newStatusForm.value.name.trim();
+  if (!name) {
+    showToast('请输入状态名称');
+    return false;
+  }
+  try {
+    const created = await createTodoStatus({ name, color: newStatusForm.value.color });
+    await loadStatuses();
+    form.value.status = created.key;
+    return true;
+  } catch (e: any) {
+    showToast(e?.message || '创建失败');
+    return false;
+  }
 };
 </script>
 
@@ -346,14 +540,29 @@ const handleDelete = () => {
             }
           }
 
+          .todo-meta {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 3px;
+          }
+
           .todo-due {
-            margin-top: 2px;
             font-size: 11px;
             color: #969799;
 
             &.overdue {
               color: #ee0a24;
             }
+          }
+
+          .todo-status {
+            font-size: 10px;
+            line-height: 1;
+            padding: 2px 6px;
+            border-radius: 8px;
+            white-space: nowrap;
           }
         }
       }
@@ -396,10 +605,97 @@ const handleDelete = () => {
       }
     }
 
+    .status-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 4px 10px;
+        font-size: 12px;
+        line-height: 1;
+        border: 1px solid;
+        border-radius: 12px;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        transition: opacity 0.15s;
+
+        &:active {
+          opacity: 0.7;
+        }
+
+        &.add-chip {
+          color: #969799;
+          border-color: #dcdee0;
+          background: #fff;
+        }
+      }
+    }
+
     .form-actions {
       display: flex;
       gap: 10px;
       margin: 20px 16px 0;
+    }
+  }
+}
+
+.status-form {
+  padding: 16px 20px 8px;
+
+  .preset-label {
+    font-size: 12px;
+    color: #969799;
+    margin-bottom: 8px;
+
+    &.custom-label {
+      margin-top: 14px;
+    }
+  }
+
+  .preset-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    .preset-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      font-size: 12px;
+      line-height: 1;
+      border: 1px solid;
+      border-radius: 12px;
+      cursor: pointer;
+      background: #fff;
+
+      &:active {
+        opacity: 0.6;
+      }
+    }
+  }
+
+  .color-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+
+    .color-dot {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      position: relative;
+      border: 2px solid transparent;
+
+      &.active {
+        border-color: #323233;
+      }
     }
   }
 }

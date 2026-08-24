@@ -6,6 +6,7 @@ export interface TodoItem {
   note: string;
   quadrant: number;
   completed: boolean;
+  status: string;
   dueDate: string;
   completedAt: number | null;
   createdAt: number;
@@ -20,6 +21,7 @@ function mapTodo(row: any): TodoItem {
     note: data.note || row.note || '',
     quadrant: Number(row.quadrant ?? data.quadrant ?? 4),
     completed: !!row.completed,
+    status: data.status || row.status || 'todo',
     dueDate: data.dueDate || row.dueDate || '',
     completedAt: data.completedAt ? new Date(data.completedAt).getTime() : null,
     createdAt: data.createdAt ? new Date(data.createdAt).getTime() : (row.updated_at ? new Date(row.updated_at).getTime() : Date.now()),
@@ -32,12 +34,13 @@ export async function fetchTodos() {
   return (result.data || []).map(mapTodo)
 }
 
-export async function createTodo(data: Pick<TodoItem, 'title' | 'quadrant'> & Partial<Pick<TodoItem, 'note' | 'dueDate'>>) {
+export async function createTodo(data: Pick<TodoItem, 'title' | 'quadrant'> & Partial<Pick<TodoItem, 'note' | 'dueDate' | 'status'>>) {
   const result = await invoke<any>('db_todo_create', {
     title: data.title,
     note: data.note || '',
     quadrant: data.quadrant,
     dueDate: data.dueDate || '',
+    status: data.status || 'todo',
   })
   return mapTodo(result.data)
 }
@@ -49,6 +52,7 @@ export async function updateTodo(data: Partial<TodoItem> & { id: string }) {
     note: data.note,
     quadrant: data.quadrant,
     dueDate: data.dueDate,
+    status: data.status,
   })
   return mapTodo(result.data)
 }

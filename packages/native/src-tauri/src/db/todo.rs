@@ -23,6 +23,9 @@ fn normalize_todo(mut val: JsonValue) -> JsonValue {
 
         let due_date = obj.get("dueDate").and_then(|v| v.as_str()).unwrap_or("").to_string();
         obj.insert("dueDate".to_string(), json!(due_date));
+
+        let status = obj.get("status").and_then(|v| v.as_str()).unwrap_or("todo").to_string();
+        obj.insert("status".to_string(), json!(status));
     }
     val
 }
@@ -58,6 +61,7 @@ pub async fn db_todo_create(
     note: Option<String>,
     quadrant: Option<i64>,
     due_date: Option<String>,
+    status: Option<String>,
 ) -> Result<JsonValue, String> {
     if title.trim().is_empty() {
         return Err("title is required".to_string());
@@ -68,12 +72,14 @@ pub async fn db_todo_create(
     if !(1..=4).contains(&quadrant_value) {
         return Err("quadrant is invalid".to_string());
     }
+    let status_value = status.unwrap_or_else(|| "todo".to_string());
 
     let now = chrono::Utc::now().to_rfc3339();
     let data = json!({
         "title": title,
         "note": note.unwrap_or_default(),
         "dueDate": due_date.unwrap_or_default(),
+        "status": status_value,
         "createdAt": now,
         "completedAt": null,
     })
@@ -110,6 +116,7 @@ pub async fn db_todo_update(
     note: Option<String>,
     quadrant: Option<i64>,
     due_date: Option<String>,
+    status: Option<String>,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
 
@@ -131,6 +138,9 @@ pub async fn db_todo_update(
         None => return Err("Todo not found".to_string()),
     };
 
+    // status 与 completed 同步：done 视为完成，其它视为未完成
+    let new_completed: Option<i64> = status.as_deref().map(|s| if s == "done" { 1 } else { 0 });
+
     let mut merged = existing;
     if let Some(obj) = merged.as_object_mut() {
         if let Some(t) = title {
@@ -142,29 +152,70 @@ pub async fn db_todo_update(
         if let Some(d) = due_date {
             obj.insert("dueDate".to_string(), json!(d));
         }
+        if let Some(s) = status.clone() {
+            obj.insert("status".to_string(), json!(s));
+            let completed_at: JsonValue = if s == "done" {
+                json!(chrono::Utc::now().to_rfc3339())
+            } else {
+                json!(null)
+            };
+            obj.insert("completedAt".to_string(), completed_at);
+        }
     }
 
-    if let Some(q) = quadrant {
-        if !(1..=4).contains(&q) {
-            return Err("quadrant is invalid".to_string());
+    let data_str = merged.to_string();
+    match (quadrant, new_completed) {
+        (Some(q), Some(c)) => {
+            if !(1..=4).contains(&q) {
+                return Err("quadrant is invalid".to_string());
+            }
+            conn.execute(
+                "UPDATE todos SET quadrant = ?1, completed = ?2, data = ?3, updated_at = datetime('now') WHERE id = ?4",
+                vec![
+                    TursoValue::Integer(q),
+                    TursoValue::Integer(c),
+                    TursoValue::Text(data_str),
+                    TursoValue::Text(id.clone()),
+                ],
+            )
+            .await
+            .map_err(|e| e.to_string())?;
         }
-        conn.execute(
-            "UPDATE todos SET quadrant = ?1, data = ?2, updated_at = datetime('now') WHERE id = ?3",
-            vec![
-                TursoValue::Integer(q),
-                TursoValue::Text(merged.to_string()),
-                TursoValue::Text(id.clone()),
-            ],
-        )
-        .await
-        .map_err(|e| e.to_string())?;
-    } else {
-        conn.execute(
-            "UPDATE todos SET data = ?1, updated_at = datetime('now') WHERE id = ?2",
-            (merged.to_string(), id.clone()),
-        )
-        .await
-        .map_err(|e| e.to_string())?;
+        (Some(q), None) => {
+            if !(1..=4).contains(&q) {
+                return Err("quadrant is invalid".to_string());
+            }
+            conn.execute(
+                "UPDATE todos SET quadrant = ?1, data = ?2, updated_at = datetime('now') WHERE id = ?3",
+                vec![
+                    TursoValue::Integer(q),
+                    TursoValue::Text(data_str),
+                    TursoValue::Text(id.clone()),
+                ],
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        }
+        (None, Some(c)) => {
+            conn.execute(
+                "UPDATE todos SET completed = ?1, data = ?2, updated_at = datetime('now') WHERE id = ?3",
+                vec![
+                    TursoValue::Integer(c),
+                    TursoValue::Text(data_str),
+                    TursoValue::Text(id.clone()),
+                ],
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        }
+        (None, None) => {
+            conn.execute(
+                "UPDATE todos SET data = ?1, updated_at = datetime('now') WHERE id = ?2",
+                (data_str, id.clone()),
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        }
     }
 
     let mut rows = conn
@@ -219,6 +270,11 @@ pub async fn db_todo_toggle(state: State<'_, TursoDb>, id: String) -> Result<Jso
     let mut data: JsonValue = serde_json::from_str(&data_str).unwrap_or(json!({}));
     if let Some(obj) = data.as_object_mut() {
         obj.insert("completedAt".to_string(), completed_at);
+        // 同步 status：勾选完成 -> done，取消完成 -> todo
+        obj.insert(
+            "status".to_string(),
+            json!(if new_completed { "done" } else { "todo" }),
+        );
     }
 
     conn.execute(

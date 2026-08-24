@@ -8,6 +8,7 @@ export interface TodoItem {
   note: string;
   quadrant: number;
   completed: boolean;
+  status: string;
   dueDate: string;
   completedAt: number | null;
   createdAt: number;
@@ -24,6 +25,7 @@ export async function fetchTodos(): Promise<TodoItem[]> {
       note: item.note || '',
       quadrant: item.quadrant,
       completed: !!item.completed,
+      status: item.status || 'todo',
       dueDate: item.dueDate || '',
       completedAt: item.completedAt,
       createdAt: item.createdAt,
@@ -33,7 +35,7 @@ export async function fetchTodos(): Promise<TodoItem[]> {
   return []
 }
 
-export async function createTodo(data: Pick<TodoItem, 'title' | 'quadrant'> & Partial<Pick<TodoItem, 'note' | 'dueDate'>>) {
+export async function createTodo(data: Pick<TodoItem, 'title' | 'quadrant'> & Partial<Pick<TodoItem, 'note' | 'dueDate' | 'status'>>) {
   if (isLocalMode()) return local.createTodo(data)
   const res: any = await api.post('todo/create', { json: data }).json()
   return res.data
