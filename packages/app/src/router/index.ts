@@ -228,6 +228,26 @@ const router = createRouter({
       }
     },
     {
+      path: '/events',
+      name: 'events',
+      component: () => import('../views/event/EventView.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'EventView'
+      }
+    },
+    {
+      path: '/events/records',
+      name: 'events-records',
+      component: () => import('../views/event/EventRecordsView.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'EventRecordsView'
+      }
+    },
+    {
       path: '/files',
       name: 'files',
       component: () => import('../views/DriveView.vue'),
