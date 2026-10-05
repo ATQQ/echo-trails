@@ -103,18 +103,50 @@ export function normalizeCargoToml(content: string) {
     .trim()
 }
 
+/**
+ * Cargo.lock 里本 crate 的 version 由 setNativeVersion 随壳版本一起改写，
+ * 归一化掉它，避免「只升版本不改代码」也被判定成 Native 变化。
+ * 其余依赖版本保持原样，依赖变动仍然会影响指纹。
+ */
+export function normalizeCargoLock(content: string) {
+  return content
+    .replace(
+      /(\[\[package\]\]\nname = "echo-trails"\n)version = "[^"]+"/,
+      '$1version = "0"',
+    )
+    .replace(/\r\n/g, '\n')
+    .trim()
+}
+
 function readNormalizedFile(absPath: string, rel: string): Buffer {
   let bytes = readFileSync(absPath)
   if (rel.endsWith('.json')) return normalizeJson(rel, bytes)
+  if (rel.endsWith('Cargo.lock')) return Buffer.from(normalizeCargoLock(bytes.toString('utf8')))
   if (isTextFile(rel)) {
     bytes = Buffer.from(bytes.toString('utf8').replace(/\r\n/g, '\n'))
   }
   return bytes
 }
 
+/**
+ * 系统/编辑器垃圾文件：本机有、CI checkout 没有（或反过来），
+ * 一旦进指纹就会让同一份代码在不同机器算出不同 hash，必须剔除。
+ */
+export function isJunkFile(name: string) {
+  return (
+    name === '.DS_Store' ||
+    name === 'Thumbs.db' ||
+    name === 'desktop.ini' ||
+    name.endsWith('~') ||
+    name.endsWith('.swp') ||
+    name.endsWith('.swo')
+  )
+}
+
 function walkFiles(dir: string, acc: string[], skip?: (full: string) => boolean) {
   if (!existsSync(dir)) return
   for (const name of readdirSync(dir)) {
+    if (isJunkFile(name)) continue
     const full = join(dir, name)
     if (skip && skip(full)) continue
     const stat = statSync(full)

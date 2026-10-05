@@ -3,7 +3,9 @@ import { createHash } from 'node:crypto'
 import {
   canonicalJson,
   computeNativeHash,
+  isJunkFile,
   listNativeHashFiles,
+  normalizeCargoLock,
   normalizeCargoToml,
   normalizeJson,
   stripDevHttpRules,
@@ -79,6 +81,39 @@ describe('native hash normalization', () => {
     expect(normalizeCargoToml('name = "echo-trails"\nversion = "0.9.3"\n')).toBe(
       normalizeCargoToml('name = "echo-trails"\r\nversion = "0.10.0"\r\n'),
     )
+  })
+
+  test('Cargo.lock 只归一化本 crate 的 version，依赖版本仍然算数', () => {
+    const lock = (selfVersion: string, depVersion: string) =>
+      [
+        '[[package]]',
+        'name = "echo-trails"',
+        `version = "${selfVersion}"`,
+        'dependencies = ["zip"]',
+        '',
+        '[[package]]',
+        'name = "zip"',
+        `version = "${depVersion}"`,
+        '',
+      ].join('\n')
+    // 只升壳版本：指纹不变
+    expect(normalizeCargoLock(lock('0.9.3', '4.3.0'))).toBe(
+      normalizeCargoLock(lock('0.9.4', '4.3.0')),
+    )
+    // 依赖版本变了：指纹必须变
+    expect(normalizeCargoLock(lock('0.9.4', '4.3.0'))).not.toBe(
+      normalizeCargoLock(lock('0.9.4', '4.4.0')),
+    )
+  })
+
+  test('系统/编辑器垃圾文件不进指纹，避免本机与 CI 算出不同 hash', () => {
+    expect(isJunkFile('.DS_Store')).toBe(true)
+    expect(isJunkFile('Thumbs.db')).toBe(true)
+    expect(isJunkFile('desktop.ini')).toBe(true)
+    expect(isJunkFile('lib.rs~')).toBe(true)
+    expect(isJunkFile('mod.rs.swp')).toBe(true)
+    expect(isJunkFile('lib.rs')).toBe(false)
+    expect(isJunkFile('MainActivity.kt')).toBe(false)
   })
 
   test('canonicalJson 按键排序', () => {
