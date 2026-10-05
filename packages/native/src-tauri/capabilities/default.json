@@ -16,7 +16,7 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "http://192.168.31.175:1420/**",
+          "url": "http://192.168.31.173:1420/**",
           "all": true,
           "request": true
         },
@@ -26,7 +26,17 @@
           "request": true
         },
         {
+          "url": "http://*:*/**",
+          "all": true,
+          "request": true
+        },
+        {
           "url": "https://**",
+          "all": true,
+          "request": true
+        },
+        {
+          "url": "https://*:*/**",
           "all": true,
           "request": true
         },

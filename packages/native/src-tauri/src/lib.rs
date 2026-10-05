@@ -1,5 +1,6 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use log::{info, LevelFilter};
+use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
 
 mod command;
@@ -8,8 +9,23 @@ use command::*;
 pub mod db;
 use db::*;
 
+mod ota;
+use ota::{
+    activate_web_package, apply_web_package, get_native_build, prepare_web_package, OtaAssets,
+    PendingAssets,
+};
+
+// `run()` 里的 `generate_context!` 会在 macOS 的 test profile 里重复定义
+// `_EMBED_INFO_PLIST`（crate-type 同时含 cdylib/staticlib/rlib）。测试构建下排除它，
+// 这样 `cargo test` 能正常链接 ota / schema 等测试；正常构建不受影响。
+#[cfg(not(test))]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 资源覆盖式热更新：先把内置资源交给 OtaAssets，再替换 context 里的资源提供者。
+    let mut context: tauri::Context<tauri::Wry> = tauri::generate_context!();
+    let ota = OtaAssets::new(context.set_assets(Box::new(PendingAssets)));
+    let _ = context.set_assets(Box::new(ota.clone()));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(
@@ -30,6 +46,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
+            app.manage(ota);
             // Desktop-only plugins: updater (auto update) + process (relaunch)
             // 不在 mobile 注册，避免 Android/iOS 拉入桌面依赖
             #[cfg(desktop)]
@@ -59,6 +76,10 @@ pub fn run() {
             download_apk,
             open_apk,
             check_update,
+            prepare_web_package,
+            activate_web_package,
+            apply_web_package,
+            get_native_build,
             get_file_info,
             parse_live_photo,
             // Legacy KV cache
@@ -149,6 +170,7 @@ pub fn run() {
             db_get_pending_sync,
             db_mark_synced,
         ])
-        .run(tauri::generate_context!())
+        // 必须用上面替换过资源的 context，否则 OtaAssets 不会生效
+        .run(context)
         .expect("error while running tauri application");
 }

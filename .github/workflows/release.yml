@@ -175,6 +175,14 @@ jobs:
         run: |
           echo "::warning::ANDROID_KEYSTORE_BASE64 not set. The build will fall back to debug signing."
 
+      - name: Compute native hash
+        id: nativeHash
+        run: |
+          set -e
+          HASH=$(bun run scripts/native-hash.ts | tail -n1)
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "Native hash: $HASH" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build Android (APK + AAB)
         run: bun run build:android
 
@@ -213,10 +221,12 @@ jobs:
             release/echo-trails-release-*.apk
 
       - name: Prepare android meta artifact
+        env:
+          NATIVE_HASH: ${{ steps.nativeHash.outputs.hash }}
         run: |
           set -e
           mkdir -p artifact
-          node -e "const fs=require('fs');const c=require('./packages/native/src-tauri/tauri.conf.json');const u=require('./packages/app/public/update.json');const a=u.android[0];const v=c.version;fs.writeFileSync('artifact/meta.json',JSON.stringify({platform:'android',version:v,md5:a.md5,apkFileName:'echo-trails-release-'+v+'.apk',description:a.description||'',forceUpdate:!!a.forceUpdate},null,2))"
+          node -e "const fs=require('fs');const c=require('./packages/native/src-tauri/tauri.conf.json');const u=require('./packages/app/public/update.json');const a=u.android[0];const v=c.version;fs.writeFileSync('artifact/meta.json',JSON.stringify({platform:'android',version:v,md5:a.md5,apkFileName:'echo-trails-release-'+v+'.apk',description:a.description||'',forceUpdate:!!a.forceUpdate,nativeHash:process.env.NATIVE_HASH||a.nativeHash||''},null,2))"
           cat artifact/meta.json
 
       - name: Upload android meta artifact
@@ -252,6 +262,7 @@ jobs:
           const meta = JSON.parse(fs.readFileSync('meta.json', 'utf8'));
           const v = meta.version;
           const md5 = (meta.md5 || '').trim();
+          const nativeHash = (meta.nativeHash || '').trim();
           if (!v || !md5) {
             console.log('skip: no version/md5 in meta');
             process.exit(0);
@@ -269,8 +280,9 @@ jobs:
             console.log('update.json: insert entry ' + v);
           }
           entry.md5 = md5;
+          if (nativeHash) entry.nativeHash = nativeHash;
           fs.writeFileSync(updatePath, JSON.stringify(u, null, 2) + '\n');
-          console.log('update.json: ' + v + ' md5=' + md5);
+          console.log('update.json: ' + v + ' md5=' + md5 + ' nativeHash=' + nativeHash);
 
           // 2) version.json：仅当 meta 版本 >= 当前 android 版本时整体更新（不回退）
           const versionPath = 'packages/app/public/version.json';
@@ -287,7 +299,16 @@ jobs:
           };
           const cur = ver.android && ver.android.version;
           if (!cur || cmp(v, cur) >= 0) {
-            ver.android = { version: v, downloadUrl: cdnUrl, forceUpdate: !!meta.forceUpdate, description: meta.description || '', md5 };
+            // 保留已有的 webPackage（CI 只补 apk 相关字段，不吞掉热更新清单）
+            ver.android = {
+              ...(ver.android || {}),
+              version: v,
+              downloadUrl: cdnUrl,
+              forceUpdate: !!meta.forceUpdate,
+              description: meta.description || (ver.android && ver.android.description) || '',
+              md5,
+              ...(nativeHash ? { nativeHash } : {}),
+            };
             fs.writeFileSync(versionPath, JSON.stringify(ver, null, 2) + '\n');
             console.log('version.json: android -> ' + v);
           } else {

@@ -1,330 +1,153 @@
+/**
+ * Web 版本升级（热更新双轨里的“日常迭代”）。
+ *
+ * 只升 Web 版本：packages/app、packages/server，并把本次发布说明写进
+ * version.json / update.json 的 description。不碰 Native 壳版本（见 upgrade-native.ts）。
+ *
+ * 注意：会清空 version.json 里旧的 webPackage，避免把上一版离线包当新版发出去；
+ * 随后必须跑 `bun run pack:web-package` 重新写入 webPackage 再部署。
+ */
+import semver from 'semver'
+import prompts from 'prompts'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  OTA_PLATFORMS,
+  appPackagePath,
+  serverPackagePath,
+  updateJsonPath,
+  versionJsonPath,
+  readJson,
+  readUpdateFile,
+  writeJson,
+} from './release-meta.ts'
 
-import fs from 'node:fs';
-import path from 'node:path';
-import prompts from 'prompts';
-import semver from 'semver';
+function parseArgs(argv: string[]) {
+  const args = argv.filter((item) => item !== '--')
+  const readValue = (flag: string) => {
+    const index = args.indexOf(flag)
+    return index !== -1 && args[index + 1] ? args[index + 1] : ''
+  }
+  return {
+    version: readValue('--version'),
+    prerelease: readValue('--pre'),
+    desc: readValue('--desc'),
+    patch: args.includes('--patch'),
+  }
+}
 
-const rootDir = process.cwd();
-const appPackagePath = path.join(rootDir, 'packages/app/package.json');
-const tauriConfPath = path.join(rootDir, 'packages/native/src-tauri/tauri.conf.json');
-const cargoTomlPath = path.join(rootDir, 'packages/native/src-tauri/Cargo.toml');
-const versionJsonPath = path.join(rootDir, 'packages/app/public/version.json');
-const updateJsonPath = path.join(rootDir, 'packages/app/public/update.json');
-const serverPackagePath = path.join(rootDir, 'packages/server/package.json');
+async function resolveVersion(currentVersion: string, opts: ReturnType<typeof parseArgs>) {
+  const patch = semver.inc(currentVersion, 'patch')!
+  const minor = semver.inc(currentVersion, 'minor')!
+  const major = semver.inc(currentVersion, 'major')!
+
+  if (opts.version) {
+    if (!semver.valid(opts.version)) {
+      console.error(`Error: Invalid version ${opts.version}`)
+      process.exit(1)
+    }
+    return opts.version
+  }
+  if (opts.patch) return patch
+  if (opts.prerelease) return semver.inc(currentVersion, 'prepatch', opts.prerelease) || ''
+
+  const response = await prompts({
+    type: 'select',
+    name: 'value',
+    message: 'Select Web release type',
+    choices: [
+      { title: `Patch (${patch})`, value: patch },
+      { title: `Minor (${minor})`, value: minor },
+      { title: `Major (${major})`, value: major },
+      { title: 'Custom', value: 'custom' },
+    ],
+  })
+  if (!response.value) {
+    console.log('Operation cancelled.')
+    process.exit(0)
+  }
+  if (response.value === 'custom') {
+    const custom = await prompts({
+      type: 'text',
+      name: 'value',
+      message: 'Enter custom version',
+      validate: (value: string) => (semver.valid(value) ? true : 'Invalid semver version'),
+    })
+    return custom.value as string
+  }
+  return response.value as string
+}
 
 async function main() {
-  // 1. Read current version from packages/app/package.json
-  if (!fs.existsSync(appPackagePath)) {
-    console.error(`Error: Could not find ${appPackagePath}`);
-    process.exit(1);
-  }
-
-  const appPkg = JSON.parse(fs.readFileSync(appPackagePath, 'utf-8'));
-  const currentVersion = appPkg.version;
-
+  const opts = parseArgs(process.argv.slice(2))
+  const appPkg = readJson<Record<string, unknown>>(appPackagePath)
+  const currentVersion = String(appPkg.version || '')
   if (!semver.valid(currentVersion)) {
-    console.error(`Error: Current version ${currentVersion} is invalid.`);
-    process.exit(1);
+    console.error(`Error: Current version ${currentVersion} is invalid.`)
+    process.exit(1)
   }
+  console.log(`Current Web version: ${currentVersion}`)
 
-  console.log(`Current version: ${currentVersion}`);
-
-  // Check arguments
-  const args = process.argv.slice(2);
-  const isAutoPatch = args.includes('--patch');
-  let autoVersion = '';
-  const versionIndex = args.indexOf('--version');
-  if (versionIndex !== -1 && args[versionIndex + 1]) {
-    autoVersion = args[versionIndex + 1];
-  }
-  let autoPre = '';
-  const preIndex = args.indexOf('--pre');
-  if (preIndex !== -1 && args[preIndex + 1]) {
-    autoPre = args[preIndex + 1];
-  }
-  let autoDesc = '';
-  const descIndex = args.indexOf('--desc');
-  if (descIndex !== -1 && args[descIndex + 1]) {
-    autoDesc = args[descIndex + 1];
-  }
-
-  // 2. Prompt for new version
-  const patch = semver.inc(currentVersion, 'patch');
-  const minor = semver.inc(currentVersion, 'minor');
-  const major = semver.inc(currentVersion, 'major');
-
-  let newVersion;
-  if (autoVersion) {
-    if (!semver.valid(autoVersion)) {
-      console.error(`Error: Invalid version ${autoVersion}`);
-      process.exit(1);
-    }
-    newVersion = autoVersion;
-  } else if (isAutoPatch) {
-    newVersion = patch;
-  } else if (autoPre) {
-    // Auto prerelease: e.g. --pre rc → prepatch with rc identifier
-    newVersion = semver.inc(currentVersion, 'prepatch', autoPre);
-  } else {
-    const response = await prompts({
-      type: 'select',
-      name: 'value',
-      message: 'Select release type',
-      choices: [
-        { title: `Patch (${patch})`, value: patch },
-        { title: `Minor (${minor})`, value: minor },
-        { title: `Major (${major})`, value: major },
-        { title: 'Prerelease (rc / beta / alpha)', value: 'prerelease' },
-        { title: 'Custom', value: 'custom' },
-      ],
-    });
-
-    newVersion = response.value;
-
-    if (!newVersion) {
-      console.log('Operation cancelled.');
-      process.exit(0);
-    }
-
-    if (newVersion === 'prerelease') {
-      // Select prerelease identifier (rc / beta / alpha)
-      const identifierRes = await prompts({
-        type: 'select',
-        name: 'value',
-        message: 'Select prerelease identifier',
-        choices: [
-          { title: 'rc (Release Candidate)', value: 'rc' },
-          { title: 'beta', value: 'beta' },
-          { title: 'alpha', value: 'alpha' },
-        ],
-      });
-      const identifier = identifierRes.value;
-      if (!identifier) {
-        console.log('Operation cancelled.');
-        process.exit(0);
-      }
-
-      // Select base version (prepatch / preminor / premajor / next)
-      const prepatch = semver.inc(currentVersion, 'prepatch', identifier);
-      const preminor = semver.inc(currentVersion, 'preminor', identifier);
-      const premajor = semver.inc(currentVersion, 'premajor', identifier);
-
-      if (!prepatch || !preminor || !premajor) {
-        console.error('Error: Failed to compute prerelease versions.');
-        process.exit(1);
-      }
-
-      const baseChoices: { title: string; value: string }[] = [
-        { title: `Pre-patch (${prepatch})`, value: prepatch },
-        { title: `Pre-minor (${preminor})`, value: preminor },
-        { title: `Pre-major (${premajor})`, value: premajor },
-      ];
-
-      // If current version is already a prerelease, offer to increment
-      if (semver.prerelease(currentVersion)) {
-        const prereleaseNext = semver.inc(currentVersion, 'prerelease', identifier);
-        if (prereleaseNext) {
-          baseChoices.unshift({
-            title: `Next prerelease (${prereleaseNext})`,
-            value: prereleaseNext,
-          });
-        }
-      }
-
-      const baseRes = await prompts({
-        type: 'select',
-        name: 'value',
-        message: 'Select base version',
-        choices: baseChoices,
-      });
-      newVersion = baseRes.value;
-      if (!newVersion) {
-        console.log('Operation cancelled.');
-        process.exit(0);
-      }
-    }
-
-    if (newVersion === 'custom') {
-      const customRes = await prompts({
-        type: 'text',
-        name: 'value',
-        message: 'Enter custom version',
-        validate: (value) => semver.valid(value) ? true : 'Invalid semver version',
-      });
-      newVersion = customRes.value;
-    }
-  }
-
+  const newVersion = await resolveVersion(currentVersion, opts)
   if (!newVersion) {
-    console.log('Operation cancelled.');
-    process.exit(0);
+    console.log('Operation cancelled.')
+    process.exit(0)
   }
 
-  // Prompt for release description
-  let description = autoDesc;
+  let description = opts.desc
   if (!description) {
-    const descriptionRes = await prompts({
+    const response = await prompts({
       type: 'text',
       name: 'value',
       message: 'Enter release description (optional)',
       initial: 'Maintenance update',
-    });
-    description = descriptionRes.value;
+    })
+    description = response.value || ''
   }
 
-  console.log(`\nUpgrading to: ${newVersion}\n`);
+  console.log(`\nUpgrading Web to: ${newVersion}\n`)
 
-  // 3. Update files
+  appPkg.version = newVersion
+  writeJson(appPackagePath, appPkg)
+  console.log(`Updated ${appPackagePath}`)
 
-  // Update packages/app/package.json
-  appPkg.version = newVersion;
-  fs.writeFileSync(appPackagePath, JSON.stringify(appPkg, null, 2) + '\n');
-  console.log(`Updated ${path.relative(rootDir, appPackagePath)}`);
-
-  // Update packages/server/package.json
-  if (fs.existsSync(serverPackagePath)) {
-    const serverPkg = JSON.parse(fs.readFileSync(serverPackagePath, 'utf-8'));
-    serverPkg.version = newVersion;
-    fs.writeFileSync(serverPackagePath, JSON.stringify(serverPkg, null, 2) + '\n');
-    console.log(`Updated ${path.relative(rootDir, serverPackagePath)}`);
-  } else {
-    console.warn(`Warning: ${serverPackagePath} not found.`);
+  if (existsSync(serverPackagePath)) {
+    const serverPkg = readJson<Record<string, unknown>>(serverPackagePath)
+    serverPkg.version = newVersion
+    writeJson(serverPackagePath, serverPkg)
+    console.log(`Updated ${serverPackagePath}`)
   }
 
-  // Update packages/native/src-tauri/tauri.conf.json
-  if (fs.existsSync(tauriConfPath)) {
-    const tauriConf = JSON.parse(fs.readFileSync(tauriConfPath, 'utf-8'));
-    tauriConf.version = newVersion;
-    fs.writeFileSync(tauriConfPath, JSON.stringify(tauriConf, null, 2) + '\n');
-    console.log(`Updated ${path.relative(rootDir, tauriConfPath)}`);
-  } else {
-    console.warn(`Warning: ${tauriConfPath} not found.`);
+  // version.json：只写 description 并清空旧 webPackage，壳版本 / nativeHash 不动。
+  const versionData = readJson<Record<string, Record<string, unknown>>>(versionJsonPath)
+  for (const platform of OTA_PLATFORMS) {
+    const entry = versionData[platform]
+    if (!entry) continue
+    if (description) entry.description = description
+    delete entry.webPackage
+  }
+  writeJson(versionJsonPath, versionData)
+  console.log(`Updated ${versionJsonPath}（webPackage 已清空，待 pack:web-package 写入）`)
+
+  const updateData = readUpdateFile()
+  for (const platform of OTA_PLATFORMS) {
+    const list = updateData[platform]
+    if (!Array.isArray(list) || list.length === 0) continue
+    if (description) list[0].description = description
+    delete list[0].webPackage
+  }
+  if (existsSync(updateJsonPath)) {
+    writeFileSync(updateJsonPath, `${JSON.stringify(updateData, null, 2)}\n`)
+    console.log(`Updated ${updateJsonPath}`)
   }
 
-  // Update packages/native/src-tauri/Cargo.toml
-  if (fs.existsSync(cargoTomlPath)) {
-    let cargoToml = fs.readFileSync(cargoTomlPath, 'utf-8');
-    // Replace version = "x.y.z" with new version
-    // Use regex to find the version field under [package] or just the first occurrence
-    // Assuming standard Cargo.toml structure where [package] is at the top
-    const versionRegex = /^version\s*=\s*".*"/m;
-    if (versionRegex.test(cargoToml)) {
-      cargoToml = cargoToml.replace(versionRegex, `version = "${newVersion}"`);
-      fs.writeFileSync(cargoTomlPath, cargoToml);
-      console.log(`Updated ${path.relative(rootDir, cargoTomlPath)}`);
-    } else {
-      console.warn(`Warning: Could not find version field in ${cargoTomlPath}`);
-    }
-  } else {
-    console.warn(`Warning: ${cargoTomlPath} not found.`);
-  }
-
-  // Cargo.lock 里本地 crate 版本必须跟 Cargo.toml 对齐，否则 CI rust-target cache key 不变，
-  // 会把上几个版本的 bundle 安装包一起还原并上传到新 Release。
-  const cargoLockPath = path.join(rootDir, 'packages/native/src-tauri/Cargo.lock');
-  if (fs.existsSync(cargoLockPath)) {
-    let cargoLock = fs.readFileSync(cargoLockPath, 'utf-8');
-    const lockPkgRegex = /(\[\[package\]\]\nname = "echo-trails"\n)version = "[^"]+"/;
-    if (lockPkgRegex.test(cargoLock)) {
-      cargoLock = cargoLock.replace(lockPkgRegex, `$1version = "${newVersion}"`);
-      fs.writeFileSync(cargoLockPath, cargoLock);
-      console.log(`Updated ${path.relative(rootDir, cargoLockPath)}`);
-    } else {
-      console.warn(`Warning: Could not find echo-trails package in ${cargoLockPath}`);
-    }
-  }
-
-  // Update packages/app/public/version.json
-  if (fs.existsSync(versionJsonPath)) {
-    const versionData = JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
-
-    const platforms = ['android'];
-    let updated = false;
-
-    for (const platform of platforms) {
-      if (versionData[platform]) {
-        // Handle array format (new) or object format (old)
-        if (Array.isArray(versionData[platform])) {
-          // For version.json, we probably just want to update the latest version in place
-          // OR prepend a new one? Usually version.json is for "latest" check.
-          // But if it's history-aware, we should prepend.
-          // User requirement: "version.json also updated to latest structure"
-          // Let's assume we prepend a new entry for history.
-
-          const currentLatest = versionData[platform][0] || {};
-          const oldVersion = currentLatest.version;
-
-          const newEntry = {
-            ...currentLatest,
-            version: newVersion,
-            description: description || currentLatest.description,
-            // Reset fields that should be new
-            md5: undefined,
-            downloadUrl: currentLatest.downloadUrl ? currentLatest.downloadUrl.replace(oldVersion, newVersion) : ''
-          };
-
-          versionData[platform].unshift(newEntry);
-          updated = true;
-        } else {
-          // Old object format
-          const oldVersion = versionData[platform].version;
-          versionData[platform].version = newVersion;
-
-          if (description) {
-            versionData[platform].description = description;
-          }
-
-          // 新版本发布前 md5 未知，必须清空，等 CI sync-md5 回填。
-          delete versionData[platform].md5;
-
-          if (versionData[platform].downloadUrl && oldVersion) {
-            versionData[platform].downloadUrl = versionData[platform].downloadUrl.replace(oldVersion, newVersion);
-          }
-          updated = true;
-        }
-      }
-    }
-
-    if (updated) {
-      fs.writeFileSync(versionJsonPath, JSON.stringify(versionData, null, 2) + '\n');
-      console.log(`Updated ${path.relative(rootDir, versionJsonPath)}`);
-    }
-  }
-
-  // Update packages/app/public/update.json
-  if (fs.existsSync(updateJsonPath)) {
-    const updateData = JSON.parse(fs.readFileSync(updateJsonPath, 'utf-8'));
-    const platforms = ['android'];
-    let updated = false;
-
-    for (const platform of platforms) {
-      if (updateData[platform] && Array.isArray(updateData[platform])) {
-        const currentLatest = updateData[platform][0] || {};
-        const oldVersion = currentLatest.version;
-
-        const newEntry = {
-          ...currentLatest,
-          version: newVersion,
-          description: description || currentLatest.description,
-          md5: undefined, // Clear MD5 for new version
-          downloadUrl: currentLatest.downloadUrl ? currentLatest.downloadUrl.replace(oldVersion, newVersion) : ''
-        };
-
-        // Prepend new version
-        updateData[platform].unshift(newEntry);
-        updated = true;
-      }
-    }
-
-    if (updated) {
-      fs.writeFileSync(updateJsonPath, JSON.stringify(updateData, null, 2) + '\n');
-      console.log(`Updated ${path.relative(rootDir, updateJsonPath)}`);
-    }
-  } else {
-    console.warn(`Warning: ${updateJsonPath} not found.`);
-  }
-
-  console.log('\nUpgrade completed successfully!');
+  console.log('\n下一步：')
+  console.log('  bun run pack:web-package     # 打包离线包并写 webPackage')
+  console.log('  bun run upload:web-package   # 上传 CDN')
+  console.log('  bun run deploy:client        # 发布 Web + version.json')
+  console.log('  （若 Native 代码有变化，先跑 bun run upgrade:native --check）')
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error)
+  process.exit(1)
+})

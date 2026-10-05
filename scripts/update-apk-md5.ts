@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { computeNativeHash, writeNativeHashFile } from './native-hash.ts';
 
 const projectRoot = path.resolve(__dirname, '..');
 const versionPath = path.resolve(__dirname, '../packages/app/public/version.json');
@@ -57,6 +58,8 @@ async function main() {
     console.log(`Found APK: ${apkPath}`);
     const md5 = calculateMd5(apkPath);
     console.log(`MD5: ${md5}`);
+    const nativeHash = writeNativeHashFile(computeNativeHash());
+    console.log(`Native hash: ${nativeHash}`);
 
     // Update version.json (Old structure: object)
     if (fs.existsSync(versionPath)) {
@@ -67,10 +70,12 @@ async function main() {
             if (Array.isArray(versionData.android)) {
                 if (versionData.android.length > 0) {
                     versionData.android[0].md5 = md5;
+                    versionData.android[0].nativeHash = nativeHash;
                     console.log(`Updated version.json (array) with MD5: ${md5}`);
                 }
             } else {
                 versionData.android.md5 = md5;
+                versionData.android.nativeHash = nativeHash;
                 console.log(`Updated version.json (object) with MD5: ${md5}`);
             }
             fs.writeFileSync(versionPath, JSON.stringify(versionData, null, 2) + '\n');
@@ -89,6 +94,7 @@ async function main() {
             if (updateData.android.length > 0) {
                 // Update the latest version (first element)
                 updateData.android[0].md5 = md5;
+                updateData.android[0].nativeHash = nativeHash;
                 fs.writeFileSync(updateJsonPath, JSON.stringify(updateData, null, 2) + '\n');
                 console.log(`Updated update.json with MD5: ${md5}`);
             } else {

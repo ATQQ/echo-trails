@@ -7,6 +7,11 @@
   ],
   "scripts": {
     "upgrade": "bun run scripts/upgrade-version.ts",
+    "upgrade:native": "bun run scripts/upgrade-native.ts",
+    "native:hash": "bun run scripts/native-hash.ts",
+    "pack:web-package": "bun run scripts/pack-web-package.ts",
+    "upload:web-package": "bun --env-file=.bitiful.env.local run scripts/upload-web-package.ts",
+    "ota:local": "bun run scripts/ota-local.ts",
     "lint": "eslint . --fix",
     "format": "prettier --write packages",
     "build:client": "cd packages/app && npm run build",

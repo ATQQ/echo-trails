@@ -1,105 +1,99 @@
-use tauri::{Emitter, Manager};
 use log::info;
 use serde::{Deserialize, Serialize};
-use futures_util::StreamExt;
-use std::io::Write;
-use crate::command::common::calculate_md5;
+use tauri::Manager;
+
+use crate::command::common::{
+    calculate_md5, compare_version, emit_progress, remove_file, stream_download,
+};
+use crate::ota::compiled_native_hash;
 
 #[cfg(target_os = "android")]
 use jni::objects::JValue;
 
-#[derive(Clone, Serialize)]
-pub struct ProgressPayload {
-    progress: u64,
-    total: u64,
-    status: String,
-}
-
 #[tauri::command]
-pub async fn download_apk(app_handle: tauri::AppHandle, url: String, version: String, md5: Option<String>) -> Result<String, String> {
+pub async fn download_apk(
+    app_handle: tauri::AppHandle,
+    url: String,
+    version: String,
+    md5: Option<String>,
+    file_size: Option<u64>,
+) -> Result<String, String> {
     let cache_dir = app_handle.path().app_cache_dir().map_err(|e| e.to_string())?;
-    
+
     if !cache_dir.exists() {
         std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
     }
-    
+
     let file_name = format!("echo-trails-{}.apk", version);
     let file_path = cache_dir.join(&file_name);
     let file_path_str = file_path.to_string_lossy().to_string();
 
+    let progress_total = file_size.filter(|size| *size > 0);
+    let expected_md5 = md5
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
     if file_path.exists() {
-        let has_md5 = md5.as_deref().map(|m| !m.is_empty()).unwrap_or(false);
-        if has_md5 {
-            // 有 MD5：校验缓存文件，匹配才直接复用
-            let expected_md5 = md5.as_deref().unwrap();
+        // 有 MD5 且校验通过才复用缓存；否则删除重下，避免半截文件残留。
+        if let Some(expected) = expected_md5 {
             match calculate_md5(&file_path) {
-                Ok(current_md5) => {
-                    if current_md5.eq_ignore_ascii_case(expected_md5) {
-                        let _ = app_handle.emit("download-progress", ProgressPayload {
-                            progress: 100,
-                            total: 100,
-                            status: "exists".to_string(),
-                        });
-                        return Ok(file_path_str);
-                    } else {
-                        // MD5 不匹配（坏缓存），删除重新下载
-                        let _ = std::fs::remove_file(&file_path);
-                    }
-                },
-                Err(_) => {
-                    let _ = std::fs::remove_file(&file_path);
+                Ok(current_md5) if current_md5.eq_ignore_ascii_case(expected) => {
+                    emit_progress(&app_handle, 100, 100, "exists");
+                    return Ok(file_path_str);
                 }
+                _ => remove_file(&file_path),
             }
         } else {
-            // 无 MD5：缓存文件无法校验完整性（可能是上次中断的半截文件），删除重新下载
-            let _ = std::fs::remove_file(&file_path);
+            remove_file(&file_path);
         }
     }
 
-    let client = reqwest::Client::new();
-    let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
-    let total_size = res.content_length().unwrap_or(0);
-
-    let mut file = std::fs::File::create(&file_path).map_err(|e| e.to_string())?;
-    let mut stream = res.bytes_stream();
-    let mut downloaded: u64 = 0;
-
-    while let Some(item) = stream.next().await {
-        let chunk = match item {
-            Ok(c) => c,
-            Err(e) => {
-                // 下载中断：清理半截文件，避免残留坏缓存导致后续无法重新下载
-                drop(file);
-                let _ = std::fs::remove_file(&file_path);
-                return Err(e.to_string());
-            }
+    const MAX_DOWNLOAD_ATTEMPTS: u8 = 2;
+    let mut last_error: Option<String> = None;
+    for attempt in 0..MAX_DOWNLOAD_ATTEMPTS {
+        if attempt > 0 {
+            remove_file(&file_path);
+            emit_progress(&app_handle, 0, 0, "retrying");
+        }
+        if let Err(error) = stream_download(
+            &app_handle,
+            &url,
+            &file_path,
+            progress_total,
+            expected_md5.is_none(),
+            "downloaded file is not an APK",
+        )
+        .await
+        {
+            last_error = Some(error);
+            continue;
+        }
+        let Some(expected) = expected_md5 else {
+            return Ok(file_path_str);
         };
-        if let Err(e) = file.write_all(&chunk) {
-            drop(file);
-            let _ = std::fs::remove_file(&file_path);
-            return Err(e.to_string());
-        }
-        downloaded += chunk.len() as u64;
-
-        let _ = app_handle.emit("download-progress", ProgressPayload {
-            progress: downloaded,
-            total: total_size,
-            status: "downloading".to_string(),
-        });
-    }
-
-    // Verify MD5 after download
-    if let Some(expected_md5) = &md5 {
-        if !expected_md5.is_empty() {
-             let current_md5 = calculate_md5(&file_path)?;
-             if !current_md5.eq_ignore_ascii_case(expected_md5) {
-                 let _ = std::fs::remove_file(&file_path);
-                 return Err(format!("MD5 mismatch: expected {}, got {}", expected_md5, current_md5));
-             }
+        match calculate_md5(&file_path) {
+            Ok(current_md5) if current_md5.eq_ignore_ascii_case(expected) => {
+                return Ok(file_path_str);
+            }
+            Ok(current_md5) => {
+                let actual_size = std::fs::metadata(&file_path)
+                    .map(|meta| meta.len())
+                    .unwrap_or(0);
+                remove_file(&file_path);
+                last_error = Some(format!(
+                    "MD5 mismatch: expected {}, got {} ({} bytes)",
+                    expected, current_md5, actual_size
+                ));
+            }
+            Err(error) => {
+                remove_file(&file_path);
+                last_error = Some(error);
+            }
         }
     }
 
-    Ok(file_path_str)
+    Err(last_error.unwrap_or_else(|| "MD5 mismatch".to_string()))
 }
 
 #[tauri::command]
@@ -155,10 +149,22 @@ pub async fn open_apk(_app_handle: tauri::AppHandle, file_path: String) -> Resul
 
 // ==================== Check Update ====================
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
+struct WebPackageInfo {
+    #[serde(default)]
+    version: String,
+    #[serde(rename = "downloadUrl", default)]
+    download_url: String,
+    #[serde(default)]
+    md5: String,
+    #[serde(rename = "fileSize", default)]
+    file_size: u64,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 struct VersionInfo {
     version: String,
-    #[serde(rename = "downloadUrl")]
+    #[serde(rename = "downloadUrl", default)]
     download_url: String,
     #[serde(rename = "forceUpdate", default)]
     force_update: bool,
@@ -166,6 +172,12 @@ struct VersionInfo {
     description: String,
     #[serde(default)]
     md5: String,
+    #[serde(rename = "fileSize", default)]
+    file_size: u64,
+    #[serde(rename = "nativeHash", default)]
+    native_hash: String,
+    #[serde(rename = "webPackage", default)]
+    web_package: Option<WebPackageInfo>,
 }
 
 #[derive(Clone, Serialize)]
@@ -182,32 +194,116 @@ pub struct UpdateInfo {
     #[serde(rename = "forceUpdate")]
     pub force_update: bool,
     pub md5: String,
+    #[serde(rename = "fileSize")]
+    pub file_size: u64,
+    /// none / web（离线包热更新） / apk（原生安装包更新）
+    #[serde(rename = "updateKind")]
+    pub update_kind: String,
 }
 
-fn compare_version(v1: &str, v2: &str) -> i32 {
-    let parts1: Vec<u32> = v1.split('.').filter_map(|s| s.parse().ok()).collect();
-    let parts2: Vec<u32> = v2.split('.').filter_map(|s| s.parse().ok()).collect();
-    let len = parts1.len().max(parts2.len());
-    for i in 0..len {
-        let n1 = parts1.get(i).copied().unwrap_or(0);
-        let n2 = parts2.get(i).copied().unwrap_or(0);
-        if n1 > n2 { return 1; }
-        if n1 < n2 { return -1; }
+fn no_update(current_version: String) -> UpdateInfo {
+    UpdateInfo {
+        has_update: false,
+        latest_version: current_version.clone(),
+        current_version,
+        description: String::new(),
+        download_url: String::new(),
+        force_update: false,
+        md5: String::new(),
+        file_size: 0,
+        update_kind: "none".to_string(),
     }
-    0
+}
+
+/// 对客户端展示/比较的“产品版本”：优先 webPackage.version，其次壳版本。
+fn web_version(info: &VersionInfo) -> &str {
+    info.web_package
+        .as_ref()
+        .map(|pkg| pkg.version.as_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(info.version.as_str())
+}
+
+/// 更新决策：nativeHash 匹配时优先热更新离线包，否则回退原生安装包。
+fn decide_update(
+    current_web: &str,
+    local_shell_version: &str,
+    local_native_hash: &str,
+    latest: &VersionInfo,
+    web_ready: bool,
+    apk_ready: bool,
+) -> UpdateInfo {
+    let product_latest = web_version(latest);
+    let hash_match = !latest.native_hash.is_empty() && latest.native_hash == local_native_hash;
+    let web_pkg = latest
+        .web_package
+        .as_ref()
+        .filter(|pkg| !pkg.version.is_empty() && !pkg.download_url.is_empty());
+    let newer_web = compare_version(product_latest, current_web) > 0;
+    let newer_shell = compare_version(&latest.version, local_shell_version) > 0;
+
+    if newer_web && hash_match {
+        if let Some(pkg) = web_pkg {
+            if web_ready {
+                return UpdateInfo {
+                    has_update: true,
+                    current_version: current_web.to_string(),
+                    latest_version: pkg.version.clone(),
+                    description: latest.description.clone(),
+                    download_url: pkg.download_url.clone(),
+                    force_update: latest.force_update,
+                    md5: pkg.md5.clone(),
+                    file_size: pkg.file_size,
+                    update_kind: "web".to_string(),
+                };
+            }
+        }
+    }
+
+    if newer_shell && !latest.download_url.is_empty() && apk_ready {
+        return UpdateInfo {
+            has_update: true,
+            current_version: current_web.to_string(),
+            latest_version: latest.version.clone(),
+            description: latest.description.clone(),
+            download_url: latest.download_url.clone(),
+            force_update: latest.force_update,
+            md5: latest.md5.clone(),
+            file_size: latest.file_size,
+            update_kind: "apk".to_string(),
+        };
+    }
+
+    no_update(current_web.to_string())
 }
 
 const DEFAULT_VERSION_URLS: &[&str] = &[
-    // 首选：photo 域名的 update.json（APK 下载走 Bitiful CDN，国内访问快）
-    // 注意：本地发版时 update.json 可能先于 APK 上传 CDN 到达，
-    // 由 is_download_available 探测兜底，探测失败会自动回退后面的源
-    "https://photo.sugarat.top/update.json",
+    // 首选：photo 域名的 version.json（含 nativeHash / webPackage，权威更新清单）
+    "https://photo.sugarat.top/version.json",
     // 回退：GitHub Release 上的 latest.json（tauri updater 标准格式 + android 扩展字段）
     "https://github.com/ATQQ/echo-trails/releases/latest/download/latest.json",
-    // 再回退：仓库 main 分支的 update.json（数组格式，兼容旧客户端）
+    // 再回退：仓库 main 分支的 version.json / update.json（兼容旧客户端）
+    "https://raw.githubusercontent.com/ATQQ/echo-trails/main/packages/app/public/version.json",
     "https://raw.githubusercontent.com/ATQQ/echo-trails/main/packages/app/public/update.json",
+    "https://cdn.jsdelivr.net/gh/ATQQ/echo-trails@main/packages/app/public/version.json",
     "https://cdn.jsdelivr.net/gh/ATQQ/echo-trails@main/packages/app/public/update.json",
 ];
+
+fn version_urls(preferred: Option<String>) -> Vec<String> {
+    let mut urls = Vec::new();
+    if let Some(url) = preferred {
+        let trimmed = url.trim();
+        if !trimmed.is_empty() {
+            urls.push(trimmed.to_string());
+        }
+    }
+    for url in DEFAULT_VERSION_URLS {
+        if !urls.iter().any(|existing| existing == url) {
+            urls.push((*url).to_string());
+        }
+    }
+    urls
+}
 
 // 从 JSON Value 中提取指定平台的最新版本信息。
 // 兼容三种格式：
@@ -275,7 +371,16 @@ async fn is_download_available(client: &reqwest::Client, download_url: &str) -> 
 }
 
 #[tauri::command]
-pub async fn check_update(current_version: String, platform: String) -> Result<UpdateInfo, String> {
+pub async fn check_update<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    current_version: String,
+    platform: String,
+    version_url: Option<String>,
+) -> Result<UpdateInfo, String> {
+    // 以本机实际生效的 Web 版本为准（含已启用的离线包）：
+    // 只信前端上报时，离线包自报版本一旦落后于清单版本就会反复“启用 → 重载”。
+    let current_version = crate::ota::effective_web_version(&app, &current_version);
+
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(3))
         .build()
@@ -283,9 +388,10 @@ pub async fn check_update(current_version: String, platform: String) -> Result<U
 
     let mut found_latest: Option<VersionInfo> = None;
 
-    for url in DEFAULT_VERSION_URLS {
+    for url in version_urls(version_url.clone()) {
         let fetch_url = format!("{}?t={}", url, chrono::Utc::now().timestamp_millis());
-        match client.get(&fetch_url)
+        match client
+            .get(&fetch_url)
             .header("Cache-Control", "no-cache, no-store, must-revalidate")
             .header("Pragma", "no-cache")
             .send()
@@ -302,28 +408,10 @@ pub async fn check_update(current_version: String, platform: String) -> Result<U
                             Err(_) => continue,
                         };
 
-                        match extract_platform_latest(&data, &platform) {
-                            Some(latest_info) => {
-                                // 发现新版本：先探测安装包是否已可下载，可用才采用并停止轮询
-                                if compare_version(&latest_info.version, &current_version) > 0 {
-                                    if latest_info.download_url.is_empty() {
-                                        // 无下载链接时保持原有行为：直接采用
-                                        found_latest = Some(latest_info);
-                                        break;
-                                    }
-                                    if is_download_available(&client, &latest_info.download_url).await {
-                                        found_latest = Some(latest_info);
-                                        break;
-                                    }
-                                    // 元数据先于安装包上传（资源尚不可下载），跳过该版本源继续尝试
-                                    continue;
-                                }
-                                // 当前 URL 无新版本，作为兜底保存（继续尝试后续 URL）
-                                if found_latest.is_none() {
-                                    found_latest = Some(latest_info);
-                                }
-                            }
-                            None => continue,
+                        if let Some(latest_info) = extract_platform_latest(&data, &platform) {
+                            // 以第一个可解析的来源为准；资源可用性在下面统一探测。
+                            found_latest = Some(latest_info);
+                            break;
                         }
                     }
                     Err(_) => continue,
@@ -333,29 +421,93 @@ pub async fn check_update(current_version: String, platform: String) -> Result<U
         }
     }
 
-    match found_latest {
-        Some(latest_info) => {
-            let has_update = compare_version(&latest_info.version, &current_version) > 0;
-            Ok(UpdateInfo {
-                has_update,
-                current_version: current_version.clone(),
-                latest_version: latest_info.version.clone(),
-                description: latest_info.description.clone(),
-                download_url: latest_info.download_url.clone(),
-                force_update: latest_info.force_update,
-                md5: latest_info.md5.clone(),
-            })
+    let Some(latest_info) = found_latest else {
+        return Ok(no_update(current_version));
+    };
+
+    let product_latest = web_version(&latest_info);
+    let hash_match = !latest_info.native_hash.is_empty()
+        && latest_info.native_hash == compiled_native_hash();
+    let newer_web = compare_version(product_latest, &current_version) > 0;
+    let newer_shell = compare_version(&latest_info.version, env!("CARGO_PKG_VERSION")) > 0;
+
+    let mut web_ready = false;
+    if newer_web && hash_match {
+        if let Some(pkg) = latest_info
+            .web_package
+            .as_ref()
+            .filter(|pkg| !pkg.version.is_empty() && !pkg.download_url.is_empty())
+        {
+            web_ready = is_download_available(&client, &pkg.download_url).await;
         }
-        None => {
-            Ok(UpdateInfo {
-                has_update: false,
-                current_version: current_version.clone(),
-                latest_version: current_version,
-                description: String::new(),
-                download_url: String::new(),
-                force_update: false,
-                md5: String::new(),
-            })
+    }
+
+    let mut apk_ready = true;
+    if newer_shell && !latest_info.download_url.is_empty() {
+        apk_ready = is_download_available(&client, &latest_info.download_url).await;
+    }
+
+    Ok(decide_update(
+        &current_version,
+        env!("CARGO_PKG_VERSION"),
+        compiled_native_hash(),
+        &latest_info,
+        web_ready,
+        apk_ready,
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample() -> VersionInfo {
+        VersionInfo {
+            version: "0.2.7".into(),
+            download_url: "https://example.com/a.apk".into(),
+            force_update: false,
+            description: "notes".into(),
+            md5: "apkmd5".into(),
+            file_size: 10,
+            native_hash: "hash-1".into(),
+            web_package: Some(WebPackageInfo {
+                version: "0.2.8".into(),
+                download_url: "https://example.com/a.zip".into(),
+                md5: "webmd5".into(),
+                file_size: 3,
+            }),
         }
+    }
+
+    #[test]
+    fn matching_native_hash_uses_web_package() {
+        let info = decide_update("0.2.7", "0.2.7", "hash-1", &sample(), true, true);
+        assert_eq!(info.update_kind, "web");
+        assert_eq!(info.latest_version, "0.2.8");
+        assert_eq!(info.download_url, "https://example.com/a.zip");
+        assert_eq!(info.md5, "webmd5");
+    }
+
+    #[test]
+    fn native_hash_mismatch_uses_apk_when_apk_is_newer() {
+        let mut latest = sample();
+        latest.version = "0.2.9".into();
+        latest.native_hash = "hash-2".into();
+        let info = decide_update("0.2.8", "0.2.7", "hash-1", &latest, true, true);
+        assert_eq!(info.update_kind, "apk");
+        assert_eq!(info.latest_version, "0.2.9");
+    }
+
+    #[test]
+    fn web_only_release_does_not_loop_old_apk() {
+        let info = decide_update("0.2.8", "0.2.7", "hash-1", &sample(), true, true);
+        assert!(!info.has_update);
+        assert_eq!(info.update_kind, "none");
+    }
+
+    #[test]
+    fn unavailable_web_package_falls_back_to_none() {
+        let info = decide_update("0.2.7", "0.2.7", "hash-1", &sample(), false, true);
+        assert!(!info.has_update);
     }
 }

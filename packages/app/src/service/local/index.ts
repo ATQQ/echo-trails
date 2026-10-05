@@ -535,11 +535,13 @@ export async function getMemorialCovers() {
 
 export async function checkUpdate(params: {
   currentVersion: string,
-  platform: string
+  platform: string,
+  versionUrl?: string
 }) {
   return invoke<any>('check_update', {
     currentVersion: params.currentVersion,
     platform: params.platform,
+    versionUrl: params.versionUrl,
   })
 }
 

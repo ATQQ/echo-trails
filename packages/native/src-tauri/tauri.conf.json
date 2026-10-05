@@ -5,8 +5,8 @@
   "version": "0.9.3",
   "identifier": "com.echo-trails.app",
   "build": {
-    "beforeDevCommand": "cd ../app && VITE_BASE_ORIGIN=http://192.168.31.175:1420 VITE_VERSION_URL=https://photo.sugarat.top/version.json TAURI=true bun run dev",
-    "devUrl": "http://192.168.31.175:1420",
+    "beforeDevCommand": "cd ../app && VITE_BASE_ORIGIN=http://192.168.31.173:1420 VITE_VERSION_URL=https://photo.sugarat.top/version.json TAURI=true bun run dev",
+    "devUrl": "http://192.168.31.173:1420",
     "beforeBuildCommand": "bun scripts/before-build.mjs",
     "frontendDist": "../../app/dist"
   },

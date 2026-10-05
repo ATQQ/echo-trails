@@ -1,5 +1,6 @@
 import { fileURLToPath, URL } from 'node:url'
 import { networkInterfaces } from 'os';
+import { execSync } from 'node:child_process';
 
 import { defineConfig, type PluginOption } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -24,6 +25,22 @@ function getLocalIp() {
 
 const isTauriDev = process.env.TAURI
 const host = getLocalIp();
+
+// 构建期注入 git 短 hash，供版本页展示（与 smart-expense-app 的 __APP_COMMIT__ 对齐）。
+function getGitCommit() {
+  const injected = process.env.VITE_APP_COMMIT?.trim();
+  if (injected) return injected;
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return '';
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -41,6 +58,7 @@ export default defineConfig({
   // },
   define:{
     'process.env.TAURI': isTauriDev,
+    __APP_COMMIT__: JSON.stringify(getGitCommit()),
   },
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

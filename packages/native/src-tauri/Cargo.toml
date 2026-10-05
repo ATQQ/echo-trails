@@ -43,6 +43,9 @@ tokio-util = { version = "0.7.18", features = ["io", "codec"] }
 turso = { version = "0.5.3", default-features = false }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+# OTA 热更新：解压 Web 离线包（对齐 tauri-bundler 已锁定的 zip 4.x）
+# 仅需 deflate 解压，用 flate2/zlib-rs 避免拉入 zopfli 压缩器。
+zip = { version = "4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"

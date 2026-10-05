@@ -26,8 +26,9 @@
 ## 3. 事实源与产物流向
 
 ```
-版本源 packages/app/package.json ──upgrade──▶ tauri.conf.json / Cargo.toml / Cargo.lock /
-                                              server package.json / public/version.json / public/update.json
+Web 版本源 packages/app/package.json ──upgrade──▶ server package.json / public/version.json / public/update.json
+壳版本源 packages/native ──upgrade:native──▶ tauri.conf.json / Cargo.toml / Cargo.lock /
+                                              native package.json / version.json 各平台 version + nativeHash
 
 tag vX.Y.Z ──▶ GitHub Actions(release.yml)
                  ├─ build-android   → GitHub Release APK + meta
@@ -36,7 +37,8 @@ tag vX.Y.Z ──▶ GitHub Actions(release.yml)
                  └─ publish-latest-json → 回写 latest.json 到 main + Release
 
 本地 ──▶ 下载 APK ──▶ 上传 Bitiful CDN ──▶ update.json 里的 downloadUrl 生效
-本地 ──▶ Deploy Web ──▶ photo.sugarat.top 上的 update.json / version.json / latest.json 生效
+本地 ──▶ pack/upload web-package ──▶ Web 离线包上传 Bitiful CDN，version.json 写入 webPackage
+本地 ──▶ Deploy Web ──▶ photo.sugarat.top 上的 update.json / version.json / latest.json / 离线包生效
 本地 ──▶ Deploy Server ──▶ 后端接口生效
 ```
 
@@ -47,9 +49,92 @@ tag vX.Y.Z ──▶ GitHub Actions(release.yml)
 - 更新检查（原生 `check_update`）优先读：`https://photo.sugarat.top/update.json`
 - 兜底：GitHub `releases/latest/download/latest.json`、`raw.githubusercontent.com`、`jsdelivr`
 
-## 4. 标准发版流程
+## 4. 双轨版本与静默 OTA 热更新
+
+只有 **Native（壳）** 变化时才需要重新构建发版；纯前端改动走离线包热更新，零 APK、零 CI。
+
+### 4.1 版本双轨
+
+| 版本 | 事实源 | 何时升 |
+| --- | --- | --- |
+| Web 版本 | `packages/app/package.json` | 每次前端迭代（`bun run upgrade`） |
+| 壳版本 | `packages/native/package.json` / `tauri.conf.json` / `Cargo.toml` | 仅 Native 变化（`bun run upgrade:native`） |
+
+`version.json` 的每个平台条目同时记录壳 `version` + `nativeHash` + `webPackage`：
+
+```json
+{
+  "android": {
+    "version": "0.9.3",
+    "nativeHash": "6c8bb076da61aa03",
+    "downloadUrl": ".../echo-trails-release-0.9.3.apk",
+    "md5": "...",
+    "webPackage": {
+      "version": "0.9.4",
+      "downloadUrl": ".../echo-trails-web-0.9.4.zip",
+      "md5": "...",
+      "fileSize": 123456
+    }
+  }
+}
+```
+
+判定规则（Native `decide_update`）：
+
+- `latestWeb = webPackage.version ?? version`；`latestWeb > 当前版本` 且 `nativeHash === 本机编译 hash` ⇒ 返回 `web`（热更新离线包）。
+- 否则回退原生更新：Android → `apk`；桌面 → `tauri-plugin-updater`。
+- 壳内已有的 OTA 资源会被读取为 `current → previous → 内置资源`，冷启动自动提升完整 staging；版本 ≤ 内置 Web 版本的旧包会被丢弃。
+
+静默流程：启动后静默检查并下载解压到 staging → **用户尚未交互且仍在启动窗口内**则立即启用并刷新 WebView；已深入操作则留待下次冷启动自动启用。手动「检查更新」按用户意图立即生效。
+
+### 4.2 Native Hash 生成规则
+
+唯一权威实现是 [scripts/native-hash.ts](../scripts/native-hash.ts)，`build.rs` 只读取它写出的 `native-hash.txt`（该文件已 gitignore），本地与 CI 完全一致。移动/换网导致的 dev IP 改动不影响 hash。
+
+纳入指纹：`src/**`、`gen/android/app/src/main/**`（排除 `generated/`）、`gen/android/app/build.gradle.kts`、`proguard-rules.pro`、`Cargo.lock`、归一化后的 `tauri.conf.json` / `capabilities/*.json` / `Cargo.toml`。
+
+归一化：
+
+- `tauri.conf.json`：删除 `build.devUrl`、`build.beforeDevCommand`，`version` 置 `"0"`。
+- `capabilities/*.json`：删除 `http:default.allow` 中 `url` 含 `:1420` 的规则（覆盖 `192.168.x.x` / `localhost` / `127.0.0.1`）。
+- `Cargo.toml`：`version = "0"`。
+- 所有 JSON：`parse` → 递归按键名排序 → `JSON.stringify(v, null, 2)`（消除尾部换行差异）。
+- 其他文件：原始字节（CRLF → LF）。
+
+### 4.3 纯前端迭代流程（无需发版）
+
+```bash
+bun run upgrade -- --version <v> --desc "<一句话说明>"   # 只升 Web 版本
+bun run pack:web-package                                  # 构建前端 → zip → 写 webPackage
+bun run upload:web-package                                # 上传 Bitiful CDN
+bun run deploy:client                                     # 部署 Web + version.json / update.json
+```
+
+### 4.4 Native 变化流程（需要重新发版）
+
+```bash
+bun run upgrade:native --check   # 退出码 2 表示 nativeHash 变了，需要升壳 + 打 APK
+bun run upgrade:native           # 把壳版本对齐到当前 Web 版本，写 version.json 各平台 version/nativeHash
+# 之后照旧打 tag + 触发 CI（APK + 桌面 4 平台），再到本地上传 CDN
+```
+
+### 4.5 本地验证热更新
+
+```bash
+bun run ota:local          # 打基线 APK → 装机 → 回车发离线包（局域网）
+bun run ota:local web      # 只发离线包（服务已在跑）
+bun run ota:local fail     # 故意写坏 md5，验证失败回滚
+bun run ota:local serve    # 只起静态服务（桌面端验证复用同一个 zip）
+```
+
+`ota:local` 只写 `release/ota-local/version.json`，**不会**改动线上清单。
+
+## 5. 标准发版流程
 
 以下命令均在仓库根目录执行，`<version>` 形如 `0.9.3`，`<tag>` 形如 `v0.9.3`。
+
+> 纯前端改动不需要走本流程：按 4.3 节 `upgrade` → `pack/upload web-package` → `deploy:client` 即可。
+> 本节适用于 **Native 变化**（`bun run upgrade:native --check` 退出码 2）或首个带 OTA 运行时的壳。
 
 ### Step 0 前置检查
 
@@ -67,9 +152,11 @@ node -e "console.log(require('./packages/app/package.json').version)"
 
 ```bash
 bun run upgrade -- --version <version> --desc "<一句话发布说明>"
+bun run upgrade:native --check   # 退出码 2 表示本机 Native 有变化，需先跑 upgrade:native
 ```
 
-- 该命令会同步更新：`packages/app/package.json`、`packages/server/package.json`、`packages/native/src-tauri/tauri.conf.json`、`Cargo.toml`、`Cargo.lock`、`packages/app/public/version.json`、`packages/app/public/update.json`（新版本 md5 清空、downloadUrl 换版本号）。
+- `bun run upgrade` 只升 **Web 版本**：`packages/app/package.json`、`packages/server/package.json`，并把发布说明写进 `version.json` / `update.json`（同时清空旧 `webPackage`）；**不再改 Native 壳版本**。
+- Native 有变化时先跑 `bun run upgrade:native`，把壳版本对齐到当前 Web 版本并写入各平台 `version` / `nativeHash`（清空 md5 / fileSize）。
 - 也可用 `--patch` 自动取下一个 patch 版本。
 - 随后按 `git log <lastTag>..HEAD --pretty=format:'%s'` 生成 CHANGELOG 条目，按现有格式归类到 `### Feature` / `### Bug Fixes` / `### Chore`。
 
@@ -172,7 +259,7 @@ curl -s "https://photo.sugarat.top/version.json?t=$(date +%s)" | head -20
 
 **人工检查点 2（User）**：确认线上版本号、CHANGELOG、更新提示（`发现新版本`）正常。
 
-## 5. 一键命令清单（Agent 版）
+## 6. 一键命令清单（Agent 版）
 
 ```bash
 VERSION=0.9.3
@@ -200,7 +287,7 @@ bun run deploy:client
 bun run deploy:server
 ```
 
-## 6. 失败处理与回滚
+## 7. 失败处理与回滚
 
 | 场景 | 处理 |
 | --- | --- |
@@ -212,7 +299,7 @@ bun run deploy:server
 | 需要回滚 Web/Server | `kite rollback <projectId>`，或在 Kite 控制台选择历史版本回滚 |
 | 需要回滚客户端更新 | 旧版本仍在 `update.json` 历史数组里，把 `version.json` 的 android 指向旧版本并重新部署 Web |
 
-## 7. 当前自动化能力
+## 8. 当前自动化能力
 
 已支持非交互执行：
 

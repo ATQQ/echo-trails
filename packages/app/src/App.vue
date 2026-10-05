@@ -2,16 +2,9 @@
 import { type RouteLocationNormalizedLoaded, useRoute } from 'vue-router';
 import FooterNav from '@/components/FooterNav/FooterNav.vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { showToast } from 'vant';
 import { isTauri } from '@/constants';
-import { version } from '../package.json';
-import { type } from '@tauri-apps/plugin-os';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { openUrl } from '@tauri-apps/plugin-opener';
-import { checkUpdate as checkUpdateApi } from "@/service";
 import { isAutoCheckUpdateEnabled } from '@/composables/useAutoCheckUpdate';
-import NotificationBanner from '@/components/NotificationBanner/NotificationBanner.vue';
+import { useAppUpdate } from '@/composables/useAppUpdate';
 import MainLayout from '@/components/MainLayout.vue';
 import SideNav from '@/components/SideNav/SideNav.vue';
 import { useFooterStore } from '@/stores/footer';
@@ -55,148 +48,6 @@ watch(() => route.path, (path) => {
   }
 })
 
-// Notification state
-const showBanner = ref(false);
-const bannerTitle = ref('');
-const bannerMessage = ref('');
-const bannerIcon = ref<string | undefined>(undefined);
-const bannerDuration = ref(5000);
-const bannerAction = ref<(() => void) | null>(null);
-
-const appVersion = ref(version);
-const updateInfoRef = ref<any>(null);
-
-const handleDownload = async (url: string, version: string, md5?: string) => {
-  // Start background download
-  showToast('开始后台下载...');
-
-  const unlisten = await listen('download-progress', (event: any) => {
-    const { status } = event.payload;
-    if (status === 'exists') {
-      // Already exists, prompt install immediately?
-      // Or show banner "Download complete"
-      showDownloadCompleteBanner(event.payload.filePath || '');
-    }
-    // We can track progress here but user asked for "background" without overlay
-  });
-
-  try {
-    const filePath = await invoke('download_apk', { url, version, md5 });
-    unlisten();
-
-    // Download finished
-    showDownloadCompleteBanner(filePath as string);
-
-  } catch (e) {
-    console.error(e);
-    // Optionally show failure banner
-    unlisten();
-  }
-};
-
-const showDownloadCompleteBanner = (filePath: string) => {
-  bannerTitle.value = '下载完成';
-  bannerMessage.value = '安装包已就绪，点击立即安装';
-  bannerDuration.value = 8000; // Give user more time
-  bannerAction.value = async () => {
-    try {
-      await invoke('open_apk', { filePath });
-    } catch (e) {
-      showToast('无法打开文件: ' + e);
-    }
-  };
-  bannerAction.value()
-  showBanner.value = true;
-};
-
-const handleBannerClick = () => {
-  if (bannerAction.value) {
-    bannerAction.value();
-    showBanner.value = false; // Close on action
-  }
-};
-
-const doCheckUpdate = async () => {
-  try {
-    // 桌面端（Tauri）：用 tauri-plugin-updater API 实现应用内自动更新
-    if (isTauri && isDesktop.value) {
-      const { checkDesktopUpdate, downloadAndInstallDesktopUpdate } = await import('@/lib/updater')
-      const update = await checkDesktopUpdate()
-      if (update) {
-        updateInfoRef.value = {
-          hasUpdate: true,
-          currentVersion: appVersion.value,
-          latestVersion: update.version,
-          description: update.body || '',
-          downloadUrl: '',
-          forceUpdate: false,
-          md5: '',
-        }
-        bannerTitle.value = '发现新版本 - 点击开始下载'
-        bannerMessage.value = `v${update.version} ${update.body || ''}`
-        bannerDuration.value = 6000
-        bannerAction.value = async () => {
-          try {
-            showToast('正在下载并安装更新...')
-            // 下载 + 签名校验 + 安装，完成后自动 relaunch
-            await downloadAndInstallDesktopUpdate()
-          } catch (e) {
-            showToast('更新失败: ' + e)
-          }
-        }
-        showBanner.value = true
-      }
-      return
-    }
-
-    // Android / Web：现有逻辑（Native check_update 命令 / 服务端接口）
-    // 获取当前平台
-    let platform = 'macos';
-    if (isTauri) {
-      platform = await type();
-    } else {
-      const ua = navigator.userAgent.toLowerCase();
-      if (ua.includes('android')) platform = 'android';
-      else if (ua.includes('iphone') || ua.includes('ipad')) platform = 'ios';
-      else if (ua.includes('windows')) platform = 'windows';
-      else if (ua.includes('linux')) platform = 'linux';
-    }
-
-    const updateInfo = await checkUpdateApi({
-      currentVersion: appVersion.value,
-      platform,
-    });
-
-    if (updateInfo && updateInfo.hasUpdate) {
-      updateInfoRef.value = updateInfo;
-
-      // Show Notification Banner
-      bannerTitle.value = '发现新版本 - 点击开始下载';
-      bannerMessage.value = `v${updateInfo.latestVersion} ${updateInfo.description}`;
-      bannerDuration.value = 6000;
-
-      bannerAction.value = () => {
-        // When clicked, trigger update flow
-        if (platform === 'android' && isTauri) {
-          if (updateInfo.downloadUrl) {
-            handleDownload(updateInfo.downloadUrl, updateInfo.latestVersion, updateInfo.md5);
-          } else {
-            showToast('暂无下载地址');
-          }
-        } else if (isTauri) {
-           openUrl(updateInfo.downloadUrl);
-        } else {
-           window.open(updateInfo.downloadUrl, '_blank');
-        }
-      };
-
-      showBanner.value = true;
-    }
-  } catch (e) {
-    console.error('Update check failed:', e);
-  }
-};
-
 // 拦截非输入元素上的 Backspace，防止触发浏览器/Tauri WebView 的 history.back()
 // 焦点在 input/textarea/contenteditable 上时正常删除字符
 const handleBackspaceNavigation = (e: KeyboardEvent) => {
@@ -217,8 +68,9 @@ onMounted(() => {
   setTimeout(() => window?.hideLoadingScreen?.(), 5000)
   // 初始化 vConsole 调试控制台（依据设置页调试面板的开关状态）
   useVConsole()
-  if(!isTauri || !isAutoCheckUpdateEnabled.value) return;
-  doCheckUpdate();
+  if (!isTauri || !isAutoCheckUpdateEnabled.value) return;
+  // 静默检查：Web 离线包后台下载，未交互则在启动窗口内直接启用刷新
+  void useAppUpdate().check({ silent: true });
 })
 
 watch([showSideNav, isSideNavCollapsed], ([hasSideNav, collapsedValue]) => {
@@ -253,16 +105,6 @@ onBeforeUnmount(() => {
   <div v-if="showAlbumBlur && !isDesktop" class="album-top-blur-mask" aria-hidden="true"></div>
   <!-- 底部菜单（仅移动端） -->
   <footer-nav v-show="showNav && footerStore.isVisible && !isDesktop"></footer-nav>
-
-  <!-- Notification Banner -->
-  <NotificationBanner
-    v-model:show="showBanner"
-    :title="bannerTitle"
-    :message="bannerMessage"
-    :icon="bannerIcon"
-    :duration="bannerDuration"
-    @click="handleBannerClick"
-  />
 </template>
 
 <style>

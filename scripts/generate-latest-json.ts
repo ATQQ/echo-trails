@@ -38,6 +38,9 @@ interface AndroidMeta {
   apkFileName: string; // echo-trails-release-0.8.2.apk
   description: string;
   forceUpdate: boolean;
+  /** 壳指纹；与客户端编译期 hash 一致才允许热更新离线包。 */
+  nativeHash?: string;
+  fileSize?: number;
 }
 
 function parseArgs() {
@@ -138,6 +141,8 @@ async function main() {
       forceUpdate: !!android.forceUpdate,
       description: android.description || '',
       md5: android.md5,
+      ...(android.nativeHash ? { nativeHash: android.nativeHash } : {}),
+      ...(android.fileSize ? { fileSize: android.fileSize } : {}),
     },
   };
 

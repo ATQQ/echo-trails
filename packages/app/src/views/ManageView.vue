@@ -1,30 +1,30 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLocalStorage } from '@vueuse/core';
-import { showConfirmDialog, showToast, showLoadingToast, closeToast, showDialog } from 'vant';
+import { showConfirmDialog, showToast } from 'vant';
 import { isTauri } from '@/constants';
-import { checkLogin, checkUpdate as checkUpdateApi } from '@/service';
+import { checkLogin } from '@/service';
 import { isLocalMode } from '@/lib/serviceRouter';
-import { version } from '../../package.json';
-import { type } from '@tauri-apps/plugin-os';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { getAppCommit, getNativeBuild } from '@/lib/app-update';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { isCacheDebugMode, isCacheDisabled } from '@/composables/useCachedImage';
 import { isNativeUploadTokenEnabled } from '@/composables/useUploadTokenConfig';
 import { isAutoCheckUpdateEnabled } from '@/composables/useAutoCheckUpdate';
 import { useVConsole } from '@/composables/useVConsole';
+import { useAppUpdate } from '@/composables/useAppUpdate';
 import { preventBack } from '@/lib/router';
 
 const router = useRouter();
 
-// Download state
-const showDownloadProgress = ref(false);
-const downloadPercent = ref(0);
-const downloadStatus = ref('');
-
-// ... existing code ...
+// 更新流程统一交给 useAppUpdate（静默 + 手动），这里只暴露进度给遮罩层
+const {
+  downloading,
+  downloadPercent,
+  downloadStatus,
+  check: checkAppUpdate,
+  currentVersion,
+} = useAppUpdate();
 
 // 用户信息
 const { value: userInfo } = useLocalStorage('userInfo', {
@@ -56,9 +56,40 @@ onMounted(async () => {
 });
 
 
-// App 版本号
-const appVersion = ref(version);
+// 版本信息：热更新后当前版本与热更包信息都由 Native 提供
 const clickVersionCount = ref(0);
+const appCommit = getAppCommit();
+const nativeCommit = ref('');
+const nativeShellVersion = ref('');
+const webVersion = ref('');
+const webHash = ref('');
+const versionCommit = computed(() => nativeCommit.value || appCommit);
+// 主版本以壳为准：壳升级后这里自然跟着变，离线包单独一行展示
+const displayVersion = computed(() => nativeShellVersion.value || currentVersion.value);
+// 离线包行展示「构建该包的 commit」：当前运行的 JS 就来自离线包，其 __APP_COMMIT__ 即包自身的 commit。
+const webCommit = computed(() => (webVersion.value ? appCommit : ''));
+
+/** Native 侧拿不到真实 commit 时会返回 unknown/dev，这种情况回退到前端构建期注入值。 */
+function usableCommit(value?: string) {
+  const commit = value?.trim() || '';
+  if (!commit || commit === 'unknown' || commit === 'dev') return '';
+  return commit;
+}
+
+onMounted(() => {
+  if (!isTauri) return;
+  void getNativeBuild()
+    .then((info) => {
+      nativeCommit.value = usableCommit(info?.commit);
+      nativeShellVersion.value = info?.version?.trim() || '';
+      webVersion.value = info?.webVersion?.trim() || '';
+      webHash.value = info?.webHash?.trim() || '';
+    })
+    .catch((error) => {
+      console.error('Read native build info failed:', error);
+    });
+});
+
 let clickTimer: any = null;
 const showDebugMenu = ref(false);
 const useLegacyWeightEntry = useLocalStorage('use_legacy_weight_entry', false);
@@ -107,123 +138,16 @@ const goToServiceConfig = () => {
   router.push('/set');
 };
 
-// 检查更新
+// 检查更新：统一走 useAppUpdate，Web 热更新 / Android APK / 桌面原生更新都在内部决策
 const handleCheckUpdate = async () => {
-  const toast = showLoadingToast({
-    message: '检查更新中...',
-    forbidClick: true,
-    duration: 0,
-  });
-
-  try {
-    // 获取当前平台
-    let platform = 'macos';
-    if (isTauri) {
-      platform = await type();
-    } else {
-      const ua = navigator.userAgent.toLowerCase();
-      if (ua.includes('android')) platform = 'android';
-      else if (ua.includes('iphone') || ua.includes('ipad')) platform = 'ios';
-      else if (ua.includes('windows')) platform = 'windows';
-      else if (ua.includes('linux')) platform = 'linux';
-    }
-
-    // 桌面端（Tauri）：用 tauri-plugin-updater API 实现应用内自动更新
-    const isDesktopPlatform = isTauri && ['macos', 'windows', 'linux'].includes(platform);
-    if (isDesktopPlatform) {
-      const { checkDesktopUpdate, downloadAndInstallDesktopUpdate } = await import('@/lib/updater')
-      const update = await checkDesktopUpdate()
-      closeToast()
-      if (update) {
-        showConfirmDialog({
-          title: '发现新版本',
-          message: `最新版本：${update.version}\n\n${update.body || ''}`,
-          confirmButtonText: '立即更新',
-          cancelButtonText: '取消',
-        })
-          .then(async () => {
-            try {
-              showToast('正在下载并安装更新...')
-              // 下载 + 签名校验 + 安装，完成后自动 relaunch
-              await downloadAndInstallDesktopUpdate()
-            } catch (e) {
-              showToast('更新失败: ' + e)
-            }
-          })
-          .catch(() => {
-            // 取消
-          })
-      } else {
-        showToast('当前已是最新版本')
-      }
-      return
-    }
-
-    // Android / Web：现有逻辑（Native check_update 命令 / 服务端接口）
-    const updateInfo = await checkUpdateApi({
-      currentVersion: appVersion.value,
-      platform,
-    });
-
-    if (updateInfo && updateInfo.hasUpdate) {
-      closeToast();
-
-      // 构建更新提示信息
-      let message = `最新版本：${updateInfo.latestVersion}\n\n${updateInfo.description || ''}`;
-
-      // 如果有详细 changelog
-      if (updateInfo.changelog) {
-          const log = updateInfo.changelog;
-          message = `最新版本：${updateInfo.latestVersion}\n发布日期：${log.date || ''}\n\n${log.description || updateInfo.description}`;
-      }
-
-      showConfirmDialog({
-        title: '发现新版本',
-        message: message,
-        confirmButtonText: (platform === 'android' && isTauri) ? '应用内更新' : '去更新',
-        cancelButtonText: (platform === 'android' && isTauri) ? '浏览器下载' : '取消',
-        closeOnClickOverlay: (platform === 'android' && isTauri),
-      })
-        .then(async () => {
-          if (updateInfo.downloadUrl) {
-            // Check if we are on Android and use native download
-            if (platform === 'android' && isTauri) {
-              handleDownload(updateInfo.downloadUrl, updateInfo.latestVersion, updateInfo.md5);
-            } else if (isTauri) {
-               await openUrl(updateInfo.downloadUrl);
-             } else {
-              window.open(updateInfo.downloadUrl, '_blank');
-            }
-          } else {
-            showToast('暂无下载地址');
-          }
-        })
-        .catch(async (action: any) => {
-          // on cancel
-          if (action === 'cancel' && platform === 'android' && isTauri) {
-             if (updateInfo.downloadUrl) {
-                await openUrl(updateInfo.downloadUrl);
-             } else {
-                showToast('暂无下载地址');
-             }
-          }
-        });
-    } else {
-      closeToast();
-      showToast('当前已是最新版本');
-    }
-  } catch (e) {
-    console.error(e);
-    closeToast();
-    showToast('检查更新失败');
-  }
+  await checkAppUpdate({ silent: false });
 };
 
 // 关于项目
 const showAbout = () => {
   showConfirmDialog({
     title: '关于 Echo Trails',
-    message: 'Echo Trails 是一个跨平台的相册管理应用，旨在提供便捷的照片管理和浏览体验。\n\n当前版本：v' + appVersion.value,
+    message: 'Echo Trails 是一个跨平台的相册管理应用，旨在提供便捷的照片管理和浏览体验。\n\n当前版本：v' + displayVersion.value,
     showCancelButton: false,
   });
 };
@@ -238,53 +162,6 @@ const openGithub = async () => {
     await openUrl(url);
   } else {
     window.open(url, '_blank');
-  }
-};
-
-const handleDownload = async (url: string, version: string, md5?: string) => {
-  showDownloadProgress.value = true;
-  downloadPercent.value = 0;
-  downloadStatus.value = '准备下载...';
-
-  const unlisten = await listen('download-progress', (event: any) => {
-    const { progress, total, status } = event.payload;
-    if (status === 'exists') {
-      downloadPercent.value = 100;
-      downloadStatus.value = '文件已存在';
-    } else {
-      if (total > 0) {
-        downloadPercent.value = Math.floor((progress / total) * 100);
-        downloadStatus.value = `正在下载... ${downloadPercent.value}%`;
-      } else {
-        const mb = (progress / 1024 / 1024).toFixed(2);
-        downloadStatus.value = `正在下载... ${mb}MB`;
-      }
-    }
-  });
-
-  try {
-    const filePath = await invoke('download_apk', { url, version, md5 });
-    showDownloadProgress.value = false;
-    unlisten();
-
-    showConfirmDialog({
-      title: '下载完成',
-      message: `安装包已下载到: ${filePath}\n是否立即安装？`,
-      confirmButtonText: '立即安装',
-    })
-      .then(async () => {
-        try {
-          await invoke('open_apk', { filePath });
-        } catch (e) {
-          showToast('无法打开文件: ' + e);
-        }
-      })
-      .catch(() => {});
-  } catch (e) {
-    console.error(e);
-    showToast('下载失败: ' + e);
-    showDownloadProgress.value = false;
-    unlisten();
   }
 };
 </script>
@@ -340,7 +217,12 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
 
       <!-- 版本信息 -->
       <div class="version-info">
-        <div @click="handleVersionClick">Echo Trails v{{ appVersion }}</div>
+        <div @click="handleVersionClick">
+          Echo Trails v{{ displayVersion }}<span v-if="versionCommit"> ({{ versionCommit }})</span>
+        </div>
+        <div v-if="webVersion" class="ota-line" :title="webHash ? `离线包 md5: ${webHash}` : undefined">
+          离线包 v{{ webVersion }}<span v-if="webCommit"> ({{ webCommit }})</span>
+        </div>
         <div class="github-link" @click="openGithub">
           开源地址: https://github.com/ATQQ/echo-trails
         </div>
@@ -348,7 +230,7 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
     </div>
 
     <!-- Download Progress Overlay -->
-    <van-overlay :show="showDownloadProgress" z-index="9999">
+    <van-overlay :show="downloading" z-index="9999">
       <div class="wrapper" style="display: flex; align-items: center; justify-content: center; height: 100%;">
         <div class="block" style="width: 80%; background-color: #fff; border-radius: 8px; padding: 20px; text-align: center;">
           <van-loading type="spinner" v-if="downloadPercent < 100" />
@@ -420,6 +302,12 @@ const handleDownload = async (url: string, version: string, md5?: string) => {
   text-align: center;
   color: #969799;
   font-size: 12px;
+
+  .ota-line {
+    margin-top: 6px;
+    word-break: break-all;
+    user-select: all;
+  }
 
   .github-link {
     margin-top: 8px;
