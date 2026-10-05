@@ -49,11 +49,13 @@ bun run dev:android
 - 版本双轨：`packages/app` 是 Web 版本（日常迭代），`packages/native` 是壳版本（仅 Native 变化时升）。`version.json` 同时记录壳 `version` + `nativeHash` + `webPackage`。
 - `nativeHash` 由 [scripts/native-hash.ts](../../scripts/native-hash.ts) 生成，写入 `src-tauri/native-hash.txt`（已 gitignore），`build.rs` 注入编译期常量；换网导致的 dev IP 改动不影响 hash。
 - 客户端只在 `nativeHash` 与本机编译值一致时才应用 `webPackage`，否则回退 Android APK / 桌面 `tauri-plugin-updater`。
+- CI 在编译前会跑 `scripts/verify-native-hash.ts`，校验 `version.json` 各端 `nativeHash` 与本次构建指纹一致，不一致直接失败；所以升壳后务必先 `upgrade:native` 并把 `version.json` 一起提交。
 
 相关命令：
 
 ```sh
 bun run native:hash          # 计算并写出当前 Native hash
+bun run verify:native-hash   # 校验 version.json 各端 nativeHash 是否与当前工作树一致
 bun run upgrade:native       # Native 变化时升壳 + 写 version.json（--check 只检测，退出码 2 表示需要升壳）
 bun run pack:web-package     # 打包前端为离线包并写 webPackage
 bun run upload:web-package   # 上传离线包到 Bitiful CDN

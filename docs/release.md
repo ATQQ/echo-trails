@@ -128,9 +128,11 @@ bun run upgrade:native           # 把壳版本对齐到当前 Web 版本，写 
 # 之后照旧打 tag + 触发 CI（APK + 桌面 4 平台），再到本地上传 CDN
 ```
 
-OTA 下 CI 只做这些事：
+OTA 下 CI 的职责：
 
-- `build-android` 计算 `nativeHash` 写进 APK meta；`sync-md5` 回写 `update.json` / `version.json` 时只补 `android` 的 `md5` / `nativeHash`，并**保留已有的 `webPackage`**，不会吞掉热更新清单。
+- `build-android` 与 `build-desktop` 在编译前都会跑 `bun run scripts/verify-native-hash.ts`：把 CI 计算出的 nativeHash 与 tag 里 `version.json` 各端（`android` / `macos` / `windows` / `linux`）比对，**不一致直接失败**并打 `::error::`，不会静默覆盖。
+- 所以升壳后必须先 `bun run upgrade:native` 并把它写出的 `version.json` 一起提交，否则 CI 会在校验步骤直接失败。
+- `sync-md5` 只负责把 APK 的 `md5` 回写进 `update.json` / `version.json`，并保留已有的 `webPackage` / `nativeHash`。
 - 桌面 4 平台的 `nativeHash` 由 `upgrade:native` 在本地写进 `version.json`；CI 只负责出安装包和 `tauri-plugin-updater` 签名。
 
 ### 4.5 本地验证热更新
@@ -207,6 +209,7 @@ gh run watch <runId> --exit-status
 ```
 
 - CI 会校验 `tauri.conf.json` 版本 == tag，不一致会直接失败。
+- CI 会校验 `version.json` 各端 `nativeHash` == 本次构建指纹（`bun run verify:native-hash` 可本地预跑），不一致会直接失败。
 - 四个 job 全部成功才算通过：`build-android`、`build-desktop`、`sync-md5`、`publish-latest-json`。
 
 ### Step 4 拉回 CI 的元数据提交并校验

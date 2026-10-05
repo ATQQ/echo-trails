@@ -183,6 +183,9 @@ jobs:
           echo "hash=$HASH" >> "$GITHUB_OUTPUT"
           echo "Native hash: $HASH" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Verify nativeHash matches committed version.json
+        run: bun run scripts/verify-native-hash.ts
+
       - name: Build Android (APK + AAB)
         run: bun run build:android
 
@@ -275,14 +278,20 @@ jobs:
           const u = JSON.parse(fs.readFileSync(updatePath, 'utf8'));
           let entry = (u.android || []).find((e) => e.version === v);
           if (!entry) {
-            entry = { version: v, downloadUrl: cdnUrl, forceUpdate: !!meta.forceUpdate, description: meta.description || '' };
+            // 兜底插入缺失条目：nativeHash 来自 build-android 的校验步骤，已确认与提交一致
+            entry = {
+              version: v,
+              downloadUrl: cdnUrl,
+              forceUpdate: !!meta.forceUpdate,
+              description: meta.description || '',
+              ...(nativeHash ? { nativeHash } : {}),
+            };
             u.android = [entry, ...(u.android || [])];
             console.log('update.json: insert entry ' + v);
           }
           entry.md5 = md5;
-          if (nativeHash) entry.nativeHash = nativeHash;
           fs.writeFileSync(updatePath, JSON.stringify(u, null, 2) + '\n');
-          console.log('update.json: ' + v + ' md5=' + md5 + ' nativeHash=' + nativeHash);
+          console.log('update.json: ' + v + ' md5=' + md5 + ' nativeHash(已校验)=' + nativeHash);
 
           // 2) version.json：仅当 meta 版本 >= 当前 android 版本时整体更新（不回退）
           const versionPath = 'packages/app/public/version.json';
@@ -299,7 +308,7 @@ jobs:
           };
           const cur = ver.android && ver.android.version;
           if (!cur || cmp(v, cur) >= 0) {
-            // 保留已有的 webPackage（CI 只补 apk 相关字段，不吞掉热更新清单）
+            // 保留已有的 webPackage / nativeHash（CI 只补 apk 的 md5，不做回写纠正）
             ver.android = {
               ...(ver.android || {}),
               version: v,
@@ -307,7 +316,6 @@ jobs:
               forceUpdate: !!meta.forceUpdate,
               description: meta.description || (ver.android && ver.android.description) || '',
               md5,
-              ...(nativeHash ? { nativeHash } : {}),
             };
             fs.writeFileSync(versionPath, JSON.stringify(ver, null, 2) + '\n');
             console.log('version.json: android -> ' + v);
@@ -451,6 +459,10 @@ jobs:
             librsvg2-dev \
             patchelf \
             libfuse2
+
+      # 先校验 version.json 的 nativeHash 与本次构建一致，避免打出无法热更的桌面包
+      - name: Verify nativeHash matches committed version.json
+        run: bun run scripts/verify-native-hash.ts
 
       - name: Build desktop bundle (with updater signature)
         working-directory: packages/native
