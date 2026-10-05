@@ -18,11 +18,10 @@
     "description": "初始版本"
   },
   "android": {
-    "version": "0.9.2",
-    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.2.apk",
+    "version": "0.9.3",
+    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.3.apk",
     "forceUpdate": false,
-    "description": "Maintenance update",
-    "md5": "84040b9d289156a6a595ca04dbc0a9f4"
+    "description": "修复上传资源链接异常问题"
   },
   "ios": {
     "version": "0.1.2",

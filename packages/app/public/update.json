@@ -25,6 +25,12 @@
   ],
   "android": [
     {
+      "version": "0.9.3",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.3.apk",
+      "forceUpdate": false,
+      "description": "修复上传资源链接异常问题"
+    },
+    {
       "version": "0.9.2",
       "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.2.apk",
       "forceUpdate": false,
