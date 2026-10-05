@@ -32,6 +32,11 @@ async function main() {
   // Check arguments
   const args = process.argv.slice(2);
   const isAutoPatch = args.includes('--patch');
+  let autoVersion = '';
+  const versionIndex = args.indexOf('--version');
+  if (versionIndex !== -1 && args[versionIndex + 1]) {
+    autoVersion = args[versionIndex + 1];
+  }
   let autoPre = '';
   const preIndex = args.indexOf('--pre');
   if (preIndex !== -1 && args[preIndex + 1]) {
@@ -49,7 +54,13 @@ async function main() {
   const major = semver.inc(currentVersion, 'major');
 
   let newVersion;
-  if (isAutoPatch) {
+  if (autoVersion) {
+    if (!semver.valid(autoVersion)) {
+      console.error(`Error: Invalid version ${autoVersion}`);
+      process.exit(1);
+    }
+    newVersion = autoVersion;
+  } else if (isAutoPatch) {
     newVersion = patch;
   } else if (autoPre) {
     // Auto prerelease: e.g. --pre rc → prepatch with rc identifier

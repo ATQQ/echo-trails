@@ -15,7 +15,7 @@ function getVersion() {
   return pkg.version;
 }
 
-async function triggerRelease() {
+async function triggerRelease(skipConfirm = false) {
   try {
     const version = getVersion();
     const tagName = `v${version}`;
@@ -39,16 +39,18 @@ async function triggerRelease() {
       process.exit(1);
     }
 
-    const confirm = await prompts({
-      type: 'confirm',
-      name: 'value',
-      message: `是否确认触发 GitHub Actions 中的 Release 构建流水线 (${tagName})?`,
-      initial: true,
-    });
+    if (!skipConfirm) {
+      const confirm = await prompts({
+        type: 'confirm',
+        name: 'value',
+        message: `是否确认触发 GitHub Actions 中的 Release 构建流水线 (${tagName})?`,
+        initial: true,
+      });
 
-    if (!confirm.value) {
-      console.log('取消操作');
-      return;
+      if (!confirm.value) {
+        console.log('取消操作');
+        return;
+      }
     }
 
     console.log(`📡 正在通过 gh cli 触发 workflow_dispatch...`);
@@ -66,8 +68,32 @@ async function downloadAssets() {
     const version = getVersion();
     const tagName = `v${version}`;
 
+    if (!fs.existsSync(releaseDir)) {
+      console.log(`📁 创建目录: ${releaseDir}`);
+      fs.mkdirSync(releaseDir, { recursive: true });
+    }
+
+    // 非交互：按 glob 下载（可重复 --pattern）
+    if (patterns.length > 0) {
+      console.log(`📥 下载匹配资源到: ${releaseDir}`);
+      for (const pattern of patterns) {
+        console.log(`-> ${pattern}`);
+        execSync(`gh release download ${tagName} -p "${pattern}" -D "${releaseDir}" --clobber`, { stdio: 'inherit' });
+      }
+      console.log(`\n✅ 下载完成！产物位于: ${releaseDir}`);
+      return;
+    }
+
+    // 非交互：下载全部
+    if (downloadAll) {
+      console.log(`📥 下载全部资源到: ${releaseDir}`);
+      execSync(`gh release download ${tagName} -D "${releaseDir}" --clobber`, { stdio: 'inherit' });
+      console.log(`\n✅ 下载完成！产物位于: ${releaseDir}`);
+      return;
+    }
+
     console.log(`🔍 正在拉取 Release 资源列表: ${tagName}...`);
-    
+
     let assetsJson;
     try {
       assetsJson = execSync(`gh release view ${tagName} --json assets`, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
@@ -98,11 +124,6 @@ async function downloadAssets() {
     });
 
     if (response.selectedAssets && response.selectedAssets.length > 0) {
-      if (!fs.existsSync(releaseDir)) {
-        console.log(`📁 创建目录: ${releaseDir}`);
-        fs.mkdirSync(releaseDir, { recursive: true });
-      }
-
       console.log(`📥 开始下载到: ${releaseDir}`);
       for (const assetName of response.selectedAssets) {
         console.log(`-> 正在下载 ${assetName}...`);
@@ -118,6 +139,15 @@ async function downloadAssets() {
 }
 
 const action = process.argv[2];
+const rest = process.argv.slice(3);
+const skipConfirm = rest.includes('--yes') || rest.includes('-y');
+const downloadAll = rest.includes('--all');
+const patterns: string[] = [];
+for (let i = 0; i < rest.length; i++) {
+  if (rest[i] === '--pattern' && rest[i + 1]) {
+    patterns.push(rest[++i]);
+  }
+}
 
 async function main() {
   // 检查 gh cli 是否已登录
@@ -129,13 +159,15 @@ async function main() {
   }
 
   if (action === 'trigger') {
-    await triggerRelease();
+    await triggerRelease(skipConfirm);
   } else if (action === 'download') {
     await downloadAssets();
   } else {
     console.log('使用方法:');
-    console.log('  bun run scripts/gh-release.ts trigger  - 触发 GitHub Actions 构建');
-    console.log('  bun run scripts/gh-release.ts download - 选择并下载构建产物');
+    console.log('  bun run scripts/gh-release.ts trigger [--yes]                       - 触发 GitHub Actions 构建');
+    console.log('  bun run scripts/gh-release.ts download                              - 交互选择并下载构建产物');
+    console.log('  bun run scripts/gh-release.ts download --pattern "<glob>" [...]     - 按 glob 下载产物');
+    console.log('  bun run scripts/gh-release.ts download --all                        - 下载全部产物');
   }
 }
 

@@ -68,6 +68,7 @@ bun install
   - **部署**: `deploy-client.ts`, `deploy-server.ts`.
   - **发布**: `git-release.ts`, `upgrade-version.ts`.
   - **Android**: `rename-android-apk.ts`, `setup-android-signing.ts`.
+  - **发版流程**: 见 [docs/release.md](./docs/release.md)（CI 只构建，APK 上传 CDN 与 Web/Server 部署在本地完成）。
 
 ## 要求
 1. 每次修改完在最后总结一下本次修改，用简体中文，安装常用的 git commit 的格式

@@ -2,24 +2,29 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import prompts from 'prompts';
 
-// Load .bitiful.env manually
-const envPath = path.join(process.cwd(), '.bitiful.env');
-if (fs.existsSync(envPath)) {
+// Load S3 配置：支持直接执行脚本时读取 .bitiful.env / .bitiful.env.local，
+// 通过 `bun --env-file=...` 运行时则直接使用已注入的环境变量。
+const envPath = ['.bitiful.env', '.bitiful.env.local']
+  .map((name) => path.join(process.cwd(), name))
+  .find((candidate) => fs.existsSync(candidate));
+
+if (envPath) {
   const envConfig = fs.readFileSync(envPath, 'utf-8');
   envConfig.split('\n').forEach(line => {
     const trimmed = line.trim();
     if (trimmed && !trimmed.startsWith('#')) {
       const [key, ...valueParts] = trimmed.split('=');
-      if (key && valueParts.length > 0) {
+      if (key && valueParts.length > 0 && !process.env[key.trim()]) {
         process.env[key.trim()] = valueParts.join('=').trim();
       }
     }
   });
   console.log(`Loaded configuration from ${envPath}`);
-} else {
-  console.warn(`Warning: .bitiful.env file not found at ${envPath}. Expecting environment variables to be set otherwise.`);
+} else if (!process.env.S3_ACCESS_KEY) {
+  console.warn('Warning: S3 configuration not found. Expecting environment variables to be set.');
 }
 
 const config = {
@@ -45,39 +50,62 @@ const s3Client = new S3Client({
   region: config.region,
 });
 
+const cliArgs = process.argv.slice(2);
+const fileIndex = cliArgs.indexOf('--file');
+const fileArg = fileIndex !== -1 ? cliArgs[fileIndex + 1] : '';
+
 async function main() {
   const releaseDir = path.join(process.cwd(), 'release');
 
-  if (!fs.existsSync(releaseDir)) {
-      console.error(`Error: Release directory not found at ${releaseDir}`);
+  let fileName = '';
+  let filePath = '';
+
+  if (fileArg) {
+    filePath = path.isAbsolute(fileArg) ? fileArg : path.resolve(process.cwd(), fileArg);
+    if (!fs.existsSync(filePath)) {
+      console.error(`Error: APK file not found: ${filePath}`);
       process.exit(1);
+    }
+    fileName = path.basename(filePath);
+    if (!fileName.endsWith('.apk')) {
+      console.error(`Error: Not an APK file: ${filePath}`);
+      process.exit(1);
+    }
+  } else {
+    if (!fs.existsSync(releaseDir)) {
+        console.error(`Error: Release directory not found at ${releaseDir}`);
+        process.exit(1);
+    }
+
+    const files = fs.readdirSync(releaseDir).filter(f => f.endsWith('.apk'));
+
+    if (files.length === 0) {
+      console.log('No APK files found in release directory.');
+      return;
+    }
+
+    const response = await prompts({
+      type: 'select',
+      name: 'file',
+      message: 'Select an APK to upload to S3',
+      choices: files.map(f => ({ title: f, value: f })),
+    });
+
+    if (!response.file) {
+      console.log('No file selected.');
+      return;
+    }
+
+    fileName = response.file;
+    filePath = path.join(releaseDir, fileName);
   }
 
-  const files = fs.readdirSync(releaseDir).filter(f => f.endsWith('.apk'));
-
-  if (files.length === 0) {
-    console.log('No APK files found in release directory.');
-    return;
-  }
-
-  const response = await prompts({
-    type: 'select',
-    name: 'file',
-    message: 'Select an APK to upload to S3',
-    choices: files.map(f => ({ title: f, value: f })),
-  });
-
-  if (!response.file) {
-    console.log('No file selected.');
-    return;
-  }
-
-  const fileName = response.file;
-  const filePath = path.join(releaseDir, fileName);
   const fileContent = fs.readFileSync(filePath);
+  const md5 = crypto.createHash('md5').update(fileContent).digest('hex');
   const key = `echo-trails/release/${fileName}`;
 
   console.log(`Uploading ${fileName} to ${config.bucket} (Key: ${key})...`);
+  console.log(`MD5: ${md5}`);
 
   try {
     const command = new PutObjectCommand({
