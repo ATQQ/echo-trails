@@ -98,8 +98,8 @@ export function normalizeJson(rel: string, bytes: Buffer): Buffer {
 
 export function normalizeCargoToml(content: string) {
   return content
-    .replace(/^version\s*=\s*".*"/m, 'version = "0"')
     .replace(/\r\n/g, '\n')
+    .replace(/^version\s*=\s*".*"/m, 'version = "0"')
     .trim()
 }
 
@@ -110,22 +110,32 @@ export function normalizeCargoToml(content: string) {
  */
 export function normalizeCargoLock(content: string) {
   return content
+    .replace(/\r\n/g, '\n')
     .replace(
       /(\[\[package\]\]\nname = "echo-trails"\n)version = "[^"]+"/,
       '$1version = "0"',
     )
-    .replace(/\r\n/g, '\n')
     .trim()
 }
 
-function readNormalizedFile(absPath: string, rel: string): Buffer {
-  let bytes = readFileSync(absPath)
+/**
+ * 把单个文件字节归一化成进入指纹前的形态。
+ *
+ * 必须先统一换行再做结构化归一化：Windows 的 core.autocrlf 会把 checkout 出来的
+ * 文本文件变成 CRLF，如果 Cargo.lock 之类的正则先按 LF 匹配，就会漏掉本 crate 版本，
+ * 导致同一份代码在 Windows 与 macOS/Linux 上算出不同 nativeHash。
+ */
+export function normalizeFileBytes(rel: string, bytes: Buffer): Buffer {
   if (rel.endsWith('.json')) return normalizeJson(rel, bytes)
   if (rel.endsWith('Cargo.lock')) return Buffer.from(normalizeCargoLock(bytes.toString('utf8')))
   if (isTextFile(rel)) {
     bytes = Buffer.from(bytes.toString('utf8').replace(/\r\n/g, '\n'))
   }
   return bytes
+}
+
+function readNormalizedFile(absPath: string, rel: string): Buffer {
+  return normalizeFileBytes(rel, readFileSync(absPath))
 }
 
 /**

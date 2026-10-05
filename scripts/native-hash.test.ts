@@ -7,6 +7,7 @@ import {
   listNativeHashFiles,
   normalizeCargoLock,
   normalizeCargoToml,
+  normalizeFileBytes,
   normalizeJson,
   stripDevHttpRules,
 } from './native-hash.ts'
@@ -104,6 +105,30 @@ describe('native hash normalization', () => {
     expect(normalizeCargoLock(lock('0.9.4', '4.3.0'))).not.toBe(
       normalizeCargoLock(lock('0.9.4', '4.4.0')),
     )
+  })
+
+  test('CRLF 的 Cargo.lock 仍能归一化本 crate 的 version', () => {
+    const crlf = [
+      '[[package]]',
+      'name = "echo-trails"',
+      'version = "0.9.4"',
+      'dependencies = ["zip"]',
+      '',
+    ].join('\r\n')
+    expect(normalizeCargoLock(crlf)).toContain('version = "0"')
+  })
+
+  test('文本文件在 LF / CRLF 工作树下归一化结果一致（Windows core.autocrlf）', () => {
+    const textLike = (rel: string) =>
+      rel.endsWith('Cargo.lock') ||
+      /\.(rs|toml|json|kt|kts|java|xml|pro|md|txt)$/.test(rel)
+    for (const file of listNativeHashFiles()) {
+      if (!textLike(file.rel)) continue
+      const crlf = Buffer.from(file.bytes.toString('utf8').replace(/\n/g, '\r\n'))
+      expect(normalizeFileBytes(file.rel, crlf).toString('base64')).toBe(
+        file.bytes.toString('base64'),
+      )
+    }
   })
 
   test('系统/编辑器垃圾文件不进指纹，避免本机与 CI 算出不同 hash', () => {
