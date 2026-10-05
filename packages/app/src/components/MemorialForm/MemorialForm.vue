@@ -103,7 +103,7 @@ import { ref, reactive, onMounted, computed } from 'vue';
 import { useMemorialStore, type MemorialDay } from '@/stores/memorial';
 import { showToast, showConfirmDialog, showLoadingToast, closeToast, showImagePreview } from 'vant';
 import dayjs from 'dayjs';
-import { ensureUploadInfo, filePath2Name, parseNativeImageFileUploadInfo } from '@/lib/file';
+import { buildDatedObjectKey, ensureUploadInfo, filePath2Name, parseNativeImageFileUploadInfo } from '@/lib/file';
 import { getUploadUrl, uploadFile } from '@/service';
 import { isTauri } from '@/constants';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -251,17 +251,7 @@ const handleOpenFile = async () => {
 };
 
 const generateAssetKey = (fileInfo: FileInfoItem) => {
-  const year = fileInfo.date.getFullYear();
-  const month = (fileInfo.date.getMonth() + 1).toString().padStart(2, '0');
-  const day = fileInfo.date.getDate().toString().padStart(2, '0');
-  const hour = fileInfo.date.getHours().toString().padStart(2, '0');
-  const minute = fileInfo.date.getMinutes().toString().padStart(2, '0');
-  const second = fileInfo.date.getSeconds().toString().padStart(2, '0');
-  const uploadTime = new Date().getTime()
-  const { operator = 'unknow', username = 'unknow' } = JSON.parse(localStorage.getItem('userInfo') || '{}')
-
-  const keySuffix = `${username}/${operator}/${year}-${month}-${day}/${hour}-${minute}-${second}-${uploadTime}-${fileInfo.name}`
-  return `memorial/${keySuffix}`
+  return buildDatedObjectKey('memorial', fileInfo)
 };
 
 

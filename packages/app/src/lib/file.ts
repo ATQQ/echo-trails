@@ -31,8 +31,37 @@ async function lstatNative(filePath: string) {
   return await lstat(filePath, { baseDir: BaseDirectory.Resource });
 }
 
-export function generateFileKey(fileInfo: FileInfoItem) {
-  // 年-月-日/时分/上传时间-文件名
+function normalizeKeySegment(value: unknown, fallback = 'unknow') {
+  const segment = typeof value === 'string' ? value.trim() : ''
+  return segment || fallback
+}
+
+function readUploadIdentity() {
+  let raw: { username?: unknown; operator?: unknown } = {}
+  try {
+    raw = JSON.parse(localStorage.getItem('userInfo') || '{}')
+  } catch {
+    raw = {}
+  }
+  return {
+    username: normalizeKeySegment(raw.username),
+    operator: normalizeKeySegment(raw.operator),
+  }
+}
+
+/**
+ * 归一化 S3 对象 key：统一分隔符，合并重复斜杠并去掉开头斜杠。
+ * 避免 username/operator 为空时写出 `prefix///日期/...` 这类异常路径。
+ */
+export function normalizeObjectKey(key: string) {
+  return key
+    .replace(/\\/g, '/')
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\/+/, '')
+}
+
+export function buildDatedObjectKey(prefix: string, fileInfo: Pick<FileInfoItem, 'date' | 'name'>) {
+  // 年-月-日/时分秒-上传时间戳-文件名
   const year = fileInfo.date.getFullYear();
   const month = (fileInfo.date.getMonth() + 1).toString().padStart(2, '0');
   const day = fileInfo.date.getDate().toString().padStart(2, '0');
@@ -40,17 +69,22 @@ export function generateFileKey(fileInfo: FileInfoItem) {
   const minute = fileInfo.date.getMinutes().toString().padStart(2, '0');
   const second = fileInfo.date.getSeconds().toString().padStart(2, '0');
   const uploadTime = new Date().getTime()
-  const { operator = 'unknow', username = 'unknow' } = JSON.parse(localStorage.getItem('userInfo') || '{}')
+  const { operator, username } = readUploadIdentity()
 
-  const typeSplit = fileInfo.file.type.split('/')[0]
   const keySuffix = `${username}/${operator}/${year}-${month}-${day}/${hour}-${minute}-${second}-${uploadTime}-${fileInfo.name}`
+  return normalizeObjectKey(`${prefix}/${keySuffix}`)
+}
+
+export function generateFileKey(fileInfo: FileInfoItem) {
+  const typeSplit = fileInfo.file.type.split('/')[0]
+  const basePrefix = import.meta.env.VITE_S3_PREFIX || 'echo-trails'
 
   // 视频类型 前缀/video/原视频时间年-月-日/时分秒-上传时间戳-原文件名
   if (typeSplit === 'video') {
-    return `${import.meta.env.VITE_S3_PREFIX}/video/${keySuffix}`
+    return buildDatedObjectKey(`${basePrefix}/video`, fileInfo)
   }
   // 前缀/原图时间年-月-日/时分秒-上传时间戳-原文件名
-  return `${import.meta.env.VITE_S3_PREFIX}/${keySuffix}`
+  return buildDatedObjectKey(basePrefix, fileInfo)
 }
 
 

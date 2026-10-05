@@ -93,7 +93,7 @@ import { useMemorialCalc } from '@/composables/useMemorialCalc';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { snapdom } from '@zumer/snapdom';
-import { downloadFile, ensureUploadInfo } from '@/lib/file';
+import { buildDatedObjectKey, downloadFile, ensureUploadInfo } from '@/lib/file';
 import { showToast, showLoadingToast, closeToast } from 'vant';
 import { getUploadUrl, uploadFile } from '@/service';
 import { isTauri } from '@/constants';
@@ -250,17 +250,7 @@ const onFileSelected = async (event: Event) => {
 };
 
 const generateAssetKey = (fileInfo: any) => {
-  const year = fileInfo.date.getFullYear();
-  const month = (fileInfo.date.getMonth() + 1).toString().padStart(2, '0');
-  const day = fileInfo.date.getDate().toString().padStart(2, '0');
-  const hour = fileInfo.date.getHours().toString().padStart(2, '0');
-  const minute = fileInfo.date.getMinutes().toString().padStart(2, '0');
-  const second = fileInfo.date.getSeconds().toString().padStart(2, '0');
-  const uploadTime = new Date().getTime()
-  const { operator = 'unknow', username = 'unknow' } = JSON.parse(localStorage.getItem('userInfo') || '{}')
-
-  const keySuffix = `${username}/${operator}/${year}-${month}-${day}/${hour}-${minute}-${second}-${uploadTime}-${fileInfo.name}`
-  return `memorial/${keySuffix}`
+  return buildDatedObjectKey('memorial', fileInfo)
 };
 
 const uploadAndSave = async (fileInfo: any) => {

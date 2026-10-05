@@ -135,8 +135,28 @@ export const bitifulS3Manager = new BitifulS3Manager();
 
 const urlStore = new Store()
 
-export async function createFileLink(key: string, style?: string, queryParams?: string) {
-  const Key = style ? `${key}!style:${style}` : key
+/**
+ * 归一化对象 key，兼容存量数据。
+ *
+ * 历史版本前端在 username/operator 为空时会写出 `prefix///date/xxx` 这类 key，
+ * 而对象在 S3 中实际落在 `prefix/date/xxx`。下发链接/签名/删除前统一收敛为
+ * 单斜杠路径，避免 CDN 因重复斜杠返回无效资源。
+ */
+export function normalizeObjectKey(key: string | null | undefined) {
+  const value = String(key || '')
+  if (!value) return ''
+  // 已经是完整 URL 或本地协议时不做处理
+  if (/^https?:\/\//i.test(value) || /^(blob|data):/i.test(value)) return value
+  return value
+    .replace(/\\/g, '/')
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\/+/, '')
+}
+
+export async function createFileLink(key: string | null | undefined, style?: string, queryParams?: string) {
+  const normalizedKey = normalizeObjectKey(key)
+  if (!normalizedKey) return ''
+  const Key = style ? `${normalizedKey}!style:${style}` : normalizedKey
   const cacheKey = queryParams ? `${Key}?${queryParams}` : Key
   if (urlStore.has(cacheKey)) {
     return urlStore.get(cacheKey)
@@ -149,7 +169,7 @@ export async function createFileLink(key: string, style?: string, queryParams?: 
 
   let url = await getSignedUrl(bitifulS3Manager.getClient(), command, { expiresIn: 60 * 30 /*半小时*/ })
   if (bitifulConfig.domain.startsWith('http') && bitifulConfig.cdnToken) {
-    url = createLink(key, bitifulConfig.domain, bitifulConfig.cdnToken, style)
+    url = createLink(normalizedKey, bitifulConfig.domain, bitifulConfig.cdnToken, style)
   }
 
   if (queryParams) {
@@ -194,11 +214,13 @@ function signCdnLink(domain: string, token: string, fileName: string, expiresSec
  * 生成带鉴权的 CDN 直链（文件分享/下载用）
  * 未配置 CDN 域名或 Token 时返回 null，调用方回退到 S3 预签名
  */
-export function createCdnLink(key: string, expiresSeconds: number): string | null {
+export function createCdnLink(key: string | null | undefined, expiresSeconds: number): string | null {
   if (!bitifulConfig.domain.startsWith('http') || !bitifulConfig.cdnToken) {
     return null;
   }
-  const fileName = `/${key.split('/').map(p => encodeURIComponent(p)).join('/')}`;
+  const normalizedKey = normalizeObjectKey(key);
+  if (!normalizedKey) return null;
+  const fileName = `/${normalizedKey.split('/').map(p => encodeURIComponent(p)).join('/')}`;
   return signCdnLink(bitifulConfig.domain, bitifulConfig.cdnToken, fileName, expiresSeconds);
 }
 
@@ -207,9 +229,11 @@ export function createCdnLink(key: string, expiresSeconds: number): string | nul
  * 单个对象删除，失败时抛出异常，调用方自行 catch
  */
 export async function deleteS3Object(key: string): Promise<void> {
+  const normalizedKey = normalizeObjectKey(key)
+  if (!normalizedKey) return
   const cmd = new DeleteObjectCommand({
     Bucket: bitifulConfig.bucket,
-    Key: key,
+    Key: normalizedKey,
   });
   await bitifulS3Manager.getClient().send(cmd);
 }

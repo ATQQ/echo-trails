@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { DriveFile } from "../db/driveFile";
-import { bitifulS3Manager, bitifulConfig, createCdnLink, deleteS3Object } from "../lib/bitiful";
+import { bitifulS3Manager, bitifulConfig, createCdnLink, deleteS3Object, normalizeObjectKey } from "../lib/bitiful";
 
 function formatDriveFileResponse(f: any) {
   return {
@@ -298,7 +298,7 @@ export default function driveFileRouter(router: Hono<BlankEnv, BlankSchema, "/">
 
     const cmd = new GetObjectCommand({
       Bucket: item.bucket || bitifulConfig.bucket,
-      Key: item.key,
+      Key: normalizeObjectKey(item.key),
     });
     const url = await getSignedUrl(bitifulS3Manager.getClient(), cmd, { expiresIn: expires });
 
@@ -321,7 +321,7 @@ export default function driveFileRouter(router: Hono<BlankEnv, BlankSchema, "/">
 
     const cmd = new GetObjectCommand({
       Bucket: item.bucket || bitifulConfig.bucket,
-      Key: item.key,
+      Key: normalizeObjectKey(item.key),
     });
     const url = await getSignedUrl(bitifulS3Manager.getClient(), cmd, { expiresIn: 3600 });
 

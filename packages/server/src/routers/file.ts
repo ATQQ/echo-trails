@@ -4,7 +4,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Photo } from "../db/photo";
 import photoService from "../service/photoService";
-import { bitifulS3Manager, bitifulConfig } from "../lib/bitiful";
+import { bitifulS3Manager, bitifulConfig, normalizeObjectKey } from "../lib/bitiful";
 import { formatSize } from "../lib/file";
 
 function replaceNullKeys(obj: any) {
@@ -26,7 +26,7 @@ function replaceNullKeys(obj: any) {
 
 export default function fileRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
   router.get('upload/token', async (ctx) => {
-    const key = ctx.req.query('key')
+    const key = normalizeObjectKey(ctx.req.query('key') || '')
     if (!key) {
       return ctx.json({
         code: 1,
