@@ -45,13 +45,23 @@ tag vX.Y.Z ──▶ GitHub Actions(release.yml)
 关键地址：
 
 - APK CDN：`https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-<version>.apk`
+- Web 离线包 CDN：`https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-<version>.zip`
 - Web：`https://photo.sugarat.top`
-- 更新检查（原生 `check_update`）优先读：`https://photo.sugarat.top/update.json`
-- 兜底：GitHub `releases/latest/download/latest.json`、`raw.githubusercontent.com`、`jsdelivr`
+- 更新检查（原生 `check_update`）权威清单：`https://photo.sugarat.top/version.json`（含 `nativeHash` / `webPackage`）
+- 回退顺序：GitHub `releases/latest/download/latest.json` → `raw.githubusercontent.com` 的 `version.json` / `update.json` → `jsdelivr` 同两份
 
 ## 4. 双轨版本与静默 OTA 热更新
 
 只有 **Native（壳）** 变化时才需要重新构建发版；纯前端改动走离线包热更新，零 APK、零 CI。
+
+### 4.0 什么时候需要 CI
+
+| 改动类型 | 需要 CI | 流程 |
+| --- | --- | --- |
+| 仅前端（`packages/app`），可含后端 | 不需要 | 4.3 节：`upgrade` → `pack/upload web-package` → `deploy:client` |
+| 动到 `packages/native/**`（Rust / Android 原生 / capability / Cargo / tauri.conf） | 需要 | 4.4 节 + 第 5 节：`upgrade:native` → tag → CI 打 APK + 桌面 4 平台 |
+
+判断依据：`bun run upgrade:native --check` 退出码 `2` 表示 Native 变了。CI 是 `workflow_dispatch` 手动触发，push 不会自动跑；纯发离线包完全绕开 CI。
 
 ### 4.1 版本双轨
 
@@ -118,6 +128,11 @@ bun run upgrade:native           # 把壳版本对齐到当前 Web 版本，写 
 # 之后照旧打 tag + 触发 CI（APK + 桌面 4 平台），再到本地上传 CDN
 ```
 
+OTA 下 CI 只做这些事：
+
+- `build-android` 计算 `nativeHash` 写进 APK meta；`sync-md5` 回写 `update.json` / `version.json` 时只补 `android` 的 `md5` / `nativeHash`，并**保留已有的 `webPackage`**，不会吞掉热更新清单。
+- 桌面 4 平台的 `nativeHash` 由 `upgrade:native` 在本地写进 `version.json`；CI 只负责出安装包和 `tauri-plugin-updater` 签名。
+
 ### 4.5 本地验证热更新
 
 ```bash
@@ -127,7 +142,7 @@ bun run ota:local fail     # 故意写坏 md5，验证失败回滚
 bun run ota:local serve    # 只起静态服务（桌面端验证复用同一个 zip）
 ```
 
-`ota:local` 只写 `release/ota-local/version.json`，**不会**改动线上清单。
+`ota:local` 只写 `release/ota-local/version.json`（`android` / `macos` / `windows` / `linux` 四端共用同一份 zip），**不会**改动线上清单。
 
 ## 5. 标准发版流程
 
@@ -203,7 +218,7 @@ node -e "const u=require('./packages/app/public/update.json');console.log(u.andr
 cat packages/app/public/latest.json | head -20
 ```
 
-要求：`update.json` 头部的 `version` 等于 `<version>`，且带有 `md5`；main 上有 bot 的 `chore(release): sync APK md5@<tag>` 提交。
+要求：`update.json` 头部的 `version` 等于 `<version>`，且带有 `md5`；`version.json` 的 `android` 条目带有 `nativeHash`（与本次壳编译值一致）；main 上有 bot 的 `chore(release): sync APK md5@<tag>` 提交。
 
 ### Step 5 下载 APK 产物
 
