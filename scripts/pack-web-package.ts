@@ -17,6 +17,7 @@ import {
   appDistDir,
   appPackagePath,
   cdnWebPackageUrl,
+  findUpdateEntry,
   projectRoot,
   readJson,
   readPackageVersion,
@@ -25,6 +26,7 @@ import {
   versionJsonPath,
   webPackageFileName,
   type VersionFile,
+  type UpdateFile,
   type WebPackageInfo,
 } from './release-meta.ts'
 
@@ -100,11 +102,12 @@ function main() {
   console.log(`Updated ${versionJsonPath}`)
 
   if (existsSync(updateJsonPath)) {
-    const updateData = readJson<Record<string, Array<Record<string, unknown>>>>(updateJsonPath)
+    const updateData = readJson<UpdateFile>(updateJsonPath)
     for (const platform of OTA_PLATFORMS) {
-      const list = updateData[platform]
-      if (!Array.isArray(list) || list.length === 0) continue
-      list[0].webPackage = { ...pkg }
+      // 只挂到本次版本的条目上，别把 webPackage 挂到桌面端的 0.1.2 占位条目
+      const entry = findUpdateEntry(updateData[platform], version)
+      if (!entry) continue
+      entry.webPackage = { ...pkg }
     }
     writeFileSync(updateJsonPath, `${JSON.stringify(updateData, null, 2)}\n`)
     console.log(`Updated ${updateJsonPath}`)

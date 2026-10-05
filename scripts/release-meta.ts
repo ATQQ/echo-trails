@@ -115,6 +115,17 @@ export function readUpdateFile(): UpdateFile {
   return readJson<UpdateFile>(updateJsonPath)
 }
 
+/**
+ * 在 update.json 的平台数组里按版本找条目。
+ *
+ * 不要用 `list[0]`：桌面端数组里还躺着历史占位条目，直接写 [0] 会把
+ * 别的版本的说明 / webPackage 盖掉（0.9.4 发版时就是这么污染过数据）。
+ */
+export function findUpdateEntry(list: PlatformVersionInfo[] | undefined, version: string) {
+  if (!Array.isArray(list)) return undefined
+  return list.find((item) => item.version === version)
+}
+
 /** 把同一份 webPackage 写入所有 OTA 平台条目。 */
 export function applyWebPackage(versionData: VersionFile, pkg: WebPackageInfo) {
   for (const platform of OTA_PLATFORMS) {

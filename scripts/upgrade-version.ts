@@ -13,6 +13,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import {
   OTA_PLATFORMS,
   appPackagePath,
+  findUpdateEntry,
   serverPackagePath,
   updateJsonPath,
   versionJsonPath,
@@ -130,10 +131,11 @@ async function main() {
 
   const updateData = readUpdateFile()
   for (const platform of OTA_PLATFORMS) {
-    const list = updateData[platform]
-    if (!Array.isArray(list) || list.length === 0) continue
-    if (description) list[0].description = description
-    delete list[0].webPackage
+    // 只改「本次版本」的条目；历史版本说明与桌面占位条目保持原样
+    const entry = findUpdateEntry(updateData[platform], newVersion)
+    if (!entry) continue
+    if (description) entry.description = description
+    delete entry.webPackage
   }
   if (existsSync(updateJsonPath)) {
     writeFileSync(updateJsonPath, `${JSON.stringify(updateData, null, 2)}\n`)
