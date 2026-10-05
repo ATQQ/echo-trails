@@ -1,4 +1,21 @@
 # Changelog
+## 0.9.4
+
+### Feature
+- 新增静默 OTA 热更新：Android 与桌面端优先加载本地离线包，纯前端改动无需重新构建发版
+- 版本双轨：`packages/app` 走 Web 版本，`packages/native` 仅在 Native 变化时升；`version.json` 记录 `nativeHash` 与 `webPackage`
+- 设置页展示壳版本 + commit，有热更时追加离线包版本与构建 commit
+- 新增离线包发布链路与本地验证脚本（`pack:web-package` / `upload:web-package` / `ota:local`）
+
+### Bug Fixes
+- 修复 http capability 只匹配默认端口，导致局域网 API 报 `url not allowed on the configured scope`
+- 修复离线包自报版本落后清单时反复启用并刷新 WebView 的循环
+
+### Chore
+- nativeHash 指纹剔除 `.DS_Store` 等本机垃圾文件并归一化 `Cargo.lock` 版本，保证本地与 CI 同值
+- CI 增加 nativeHash 强校验，与 `version.json` 不一致直接失败
+- 补充发版手册的 OTA 流程、CI 职责与校验说明
+
 ## 0.9.3
 
 ### Bug Fixes

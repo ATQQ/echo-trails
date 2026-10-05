@@ -1,28 +1,39 @@
 {
   "macos": {
-    "version": "0.1.2",
+    "version": "0.9.4",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "初始版本"
+    "description": "本次更新\n- 新增静默 OTA 热更新，纯前端改动无需重新发版\n- 设置页展示壳版本与离线包版本\n- 修复局域网 API 请求被拦截的问题",
+    "nativeHash": "ed99733ae58f457e",
+    "md5": "",
+    "fileSize": 0
   },
   "windows": {
-    "version": "0.1.2",
+    "version": "0.9.4",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "初始版本"
+    "description": "本次更新\n- 新增静默 OTA 热更新，纯前端改动无需重新发版\n- 设置页展示壳版本与离线包版本\n- 修复局域网 API 请求被拦截的问题",
+    "nativeHash": "ed99733ae58f457e",
+    "md5": "",
+    "fileSize": 0
   },
   "linux": {
-    "version": "0.1.2",
+    "version": "0.9.4",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "初始版本"
+    "description": "本次更新\n- 新增静默 OTA 热更新，纯前端改动无需重新发版\n- 设置页展示壳版本与离线包版本\n- 修复局域网 API 请求被拦截的问题",
+    "nativeHash": "ed99733ae58f457e",
+    "md5": "",
+    "fileSize": 0
   },
   "android": {
-    "version": "0.9.3",
-    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.3.apk",
+    "version": "0.9.4",
+    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.4.apk",
     "forceUpdate": false,
-    "description": "修复上传资源链接异常问题",
-    "md5": "f6c813b959c355261326b107f27c9c74"
+    "description": "本次更新\n- 新增静默 OTA 热更新，纯前端改动无需重新发版\n- 设置页展示壳版本与离线包版本\n- 修复局域网 API 请求被拦截的问题",
+    "md5": "",
+    "nativeHash": "ed99733ae58f457e",
+    "fileSize": 0
   },
   "ios": {
     "version": "0.1.2",
