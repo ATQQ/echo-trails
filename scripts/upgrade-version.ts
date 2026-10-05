@@ -274,6 +274,9 @@ async function main() {
             versionData[platform].description = description;
           }
 
+          // 新版本发布前 md5 未知，必须清空，等 CI sync-md5 回填。
+          delete versionData[platform].md5;
+
           if (versionData[platform].downloadUrl && oldVersion) {
             versionData[platform].downloadUrl = versionData[platform].downloadUrl.replace(oldVersion, newVersion);
           }
