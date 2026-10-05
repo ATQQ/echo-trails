@@ -21,7 +21,8 @@
     "version": "0.9.3",
     "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.3.apk",
     "forceUpdate": false,
-    "description": "修复上传资源链接异常问题"
+    "description": "修复上传资源链接异常问题",
+    "md5": "f6c813b959c355261326b107f27c9c74"
   },
   "ios": {
     "version": "0.1.2",
