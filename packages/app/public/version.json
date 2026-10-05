@@ -31,7 +31,7 @@
     "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.4.apk",
     "forceUpdate": false,
     "description": "本次更新\n- 新增静默 OTA 热更新，纯前端改动无需重新发版\n- 设置页展示壳版本与离线包版本\n- 修复局域网 API 请求被拦截的问题",
-    "md5": "",
+    "md5": "798c616362807fa255ce0f4e67f73a90",
     "nativeHash": "ed99733ae58f457e",
     "fileSize": 0
   },
