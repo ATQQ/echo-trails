@@ -37,6 +37,8 @@ bun install
 - **本地开发命令**:
   - Android（后端 + Android 原生）: 项目根目录 `bun run dev`（等价 `run-p dev:server dev:android`）。
   - Desktop（后端 + 桌面 Tauri）: 项目根目录 `bun run dev:app`（等价 `run-p dev:server dev:desktop`）。
+  - Web（后端 + 浏览器前端）: 项目根目录 `bun run dev:web`（等价 `run-p dev:server dev:client`，前端固定 1420 端口）。
+  - 仅 Web 前端: 项目根目录 `bun run dev:client`（等价 `cd packages/app && bun run dev --port 1420`）。
   - 仅 Android 原生: `cd packages/native && bun run dev:android` 或根目录 `bun run dev:android`。
   - 仅 Desktop 原生（macOS/Windows）: `cd packages/native && bun run dev`（等价 `bun run dev:desktop`；两者都会先跑 `pre:build` 再执行 `tauri dev`）；或根目录 `bun run dev:desktop`。
     - 前置条件: Rust stable + Xcode Command Line Tools（macOS）/ MSVC Build Tools（Windows）；首次编译需拉取 cargo 依赖，网络代理需可用。
