@@ -146,6 +146,7 @@ const otherApps = ref<AppItem[]>([
   { text: '纪念日', icon: 'calendar-o', color: '#f2826a', url: '/memorial' },
   { text: '云盘', icon: 'cluster-o', color: '#1989fa', url: '/files', svg: cloudSvg },
   { text: '待办事项', icon: 'todo-list-o', color: '#6739b6', url: '/todo' },
+  { text: '事件记录', icon: 'records-o', color: '#00bcd4', url: '/events' },
 ]);
 
 // 隐藏未上线（无 url）入口

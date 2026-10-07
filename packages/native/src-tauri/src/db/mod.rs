@@ -9,6 +9,7 @@ pub mod album_folder;
 pub mod asset;
 pub mod blood_pressure;
 pub mod drive_file;
+pub mod event;
 pub mod family;
 pub mod memorial;
 pub mod photo;
@@ -23,6 +24,7 @@ pub use album_folder::*;
 pub use asset::*;
 pub use blood_pressure::*;
 pub use drive_file::*;
+pub use event::*;
 pub use family::*;
 pub use memorial::*;
 pub use photo::*;
@@ -240,6 +242,32 @@ pub fn schema_statements() -> &'static [&'static str] {
             data TEXT NOT NULL DEFAULT '{}'
         )",
         "CREATE INDEX IF NOT EXISTS idx_drive_files_parent ON drive_files(parent_id)",
+        // Events (事件定义，emoji + 名称，按家人隔离)
+        "CREATE TABLE IF NOT EXISTS events (
+            id TEXT PRIMARY KEY,
+            remote_id TEXT,
+            sync_status TEXT DEFAULT 'local',
+            updated_at TEXT DEFAULT (datetime('now')),
+            deleted INTEGER DEFAULT 0,
+            family_id TEXT,
+            data TEXT NOT NULL DEFAULT '{}'
+        )",
+        "CREATE INDEX IF NOT EXISTS idx_events_family ON events(family_id)",
+        // Event records (事件打卡记录)
+        "CREATE TABLE IF NOT EXISTS event_records (
+            id TEXT PRIMARY KEY,
+            remote_id TEXT,
+            sync_status TEXT DEFAULT 'local',
+            updated_at TEXT DEFAULT (datetime('now')),
+            deleted INTEGER DEFAULT 0,
+            family_id TEXT,
+            event_id TEXT,
+            date TEXT,
+            data TEXT NOT NULL DEFAULT '{}'
+        )",
+        "CREATE INDEX IF NOT EXISTS idx_event_records_family ON event_records(family_id)",
+        "CREATE INDEX IF NOT EXISTS idx_event_records_event ON event_records(event_id)",
+        "CREATE INDEX IF NOT EXISTS idx_event_records_date ON event_records(date)",
         // Sync log
         "CREATE TABLE IF NOT EXISTS sync_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

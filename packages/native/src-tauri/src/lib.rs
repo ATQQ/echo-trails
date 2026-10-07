@@ -166,6 +166,15 @@ pub fn run() {
             // Usage Record
             db_usage_record_add,
             db_usage_record_list,
+            // Event (事件记录：事件/打卡记录，按家人隔离)
+            db_event_list,
+            db_event_create,
+            db_event_update,
+            db_event_delete,
+            db_event_record_list,
+            db_event_record_create,
+            db_event_record_update,
+            db_event_record_delete,
             // Sync
             db_get_pending_sync,
             db_mark_synced,
