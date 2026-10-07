@@ -220,22 +220,41 @@ export const useEventStore = defineStore('event', () => {
     return created;
   }
 
-  const seededStorageKey = (familyId: string) => `event_seeded_${familyId}`;
+  const legacySeededStorageKey = (familyId: string) => `event_seeded_${familyId}`;
+  const seededStorageKey = (familyId: string) =>
+    `event_seeded_${isLocalMode() ? 'local' : 'server'}_${familyId}`;
+
+  function hasSeededDefaults() {
+    const familyId = currentFamilyId.value;
+    const key = seededStorageKey(familyId);
+    if (localStorage.getItem(key) === '1') return true;
+
+    // 远程模式的旧标记继续兼容；离线模式必须使用独立标记，
+    // 否则从远程切过来时会把本地空库误判成已经初始化过。
+    if (!isLocalMode() && localStorage.getItem(legacySeededStorageKey(familyId)) === '1') {
+      localStorage.setItem(key, '1');
+      return true;
+    }
+    return false;
+  }
+
+  function markDefaultsSeeded() {
+    localStorage.setItem(seededStorageKey(currentFamilyId.value), '1');
+  }
 
   /**
    * 首次进入该家人、且一条事件都没有时，自动创建默认的几个事件。
    * 用 localStorage 打标：用户之后手动全删，也不会被再补回来。
    */
   async function seedDefaultEvents() {
-    const key = seededStorageKey(currentFamilyId.value);
-    if (localStorage.getItem(key) === '1') return 0;
+    if (hasSeededDefaults()) return 0;
     if (events.value.length) {
-      localStorage.setItem(key, '1');
+      markDefaultsSeeded();
       return 0;
     }
     try {
       const created = await importTemplates(DEFAULT_EVENT_TEMPLATES);
-      localStorage.setItem(key, '1');
+      markDefaultsSeeded();
       return created.length;
     } catch (err) {
       console.error('Failed to seed default events', err);

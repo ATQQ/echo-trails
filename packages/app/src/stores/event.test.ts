@@ -6,7 +6,12 @@ import {
   deleteEventRecord,
   fetchEvents,
 } from '@/service/event';
+import { isLocalMode } from '@/lib/serviceRouter';
 import { useEventStore } from './event';
+
+vi.mock('@/lib/serviceRouter', () => ({
+  isLocalMode: vi.fn(() => false),
+}));
 
 vi.mock('@/service/event', () => ({
   createEvent: vi.fn(),
@@ -55,6 +60,7 @@ beforeEach(() => {
   localStorage.clear();
   setActivePinia(createPinia());
   vi.clearAllMocks();
+  vi.mocked(isLocalMode).mockReturnValue(false);
   vi.mocked(fetchEvents).mockResolvedValue([]);
   vi.mocked(createEvent).mockResolvedValue(targetEvent);
   vi.mocked(createEventRecord).mockResolvedValue(movedRecord);
@@ -125,5 +131,49 @@ describe('moveRecordToFamily', () => {
     ).resolves.toBeNull();
     expect(fetchEvents).not.toHaveBeenCalled();
     expect(createEventRecord).not.toHaveBeenCalled();
+  });
+});
+
+describe('seedDefaultEvents', () => {
+  it('离线模式忽略远程遗留标记并导入默认事件', async () => {
+    vi.mocked(isLocalMode).mockReturnValue(true);
+    localStorage.setItem('event_seeded_default', '1');
+    vi.mocked(createEvent).mockImplementation(async (_familyId, data) => ({
+      id: `seed-${data.name}`,
+      name: data.name,
+      emoji: data.emoji,
+      unit: data.unit || '',
+      defaultAmount: data.defaultAmount ?? null,
+      sortOrder: 0,
+    }));
+    const store = useEventStore();
+
+    const count = await store.seedDefaultEvents();
+
+    expect(count).toBe(3);
+    expect(createEvent).toHaveBeenCalledTimes(3);
+    expect(localStorage.getItem('event_seeded_local_default')).toBe('1');
+  });
+
+  it('远程模式兼容旧初始化标记，不重复导入', async () => {
+    localStorage.setItem('event_seeded_default', '1');
+    const store = useEventStore();
+
+    const count = await store.seedDefaultEvents();
+
+    expect(count).toBe(0);
+    expect(createEvent).not.toHaveBeenCalled();
+    expect(localStorage.getItem('event_seeded_server_default')).toBe('1');
+  });
+
+  it('离线模式已经初始化过时不再补种', async () => {
+    vi.mocked(isLocalMode).mockReturnValue(true);
+    localStorage.setItem('event_seeded_local_default', '1');
+    const store = useEventStore();
+
+    const count = await store.seedDefaultEvents();
+
+    expect(count).toBe(0);
+    expect(createEvent).not.toHaveBeenCalled();
   });
 });

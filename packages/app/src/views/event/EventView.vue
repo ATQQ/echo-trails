@@ -363,7 +363,7 @@ const chartDays = ref(7);
 const familyName = computed(
   () =>
     familyStore.familyList.find((f) => f.familyId === store.currentFamilyId)?.name ||
-    (store.currentFamilyId === 'default' ? '默认' : store.currentFamilyId),
+    '默认',
 );
 const familyAvatar = computed(() => familyName.value.slice(0, 1) || '默');
 const familyChoices = computed(() => {
@@ -371,6 +371,13 @@ const familyChoices = computed(() => {
   if (!list.some((f) => f.id === 'default')) list.unshift({ id: 'default', name: '默认' });
   return list;
 });
+
+/** 切过远程/离线或删除家人后，localStorage 里可能残留无效的家人 ID。 */
+function normalizeCurrentFamily() {
+  if (familyChoices.value.some((f) => f.id === store.currentFamilyId)) return;
+  familyStore.setCurrentFamily({ familyId: 'default', name: '默认' });
+  store.currentFamilyId = 'default';
+}
 
 const todayCount = computed(() => store.todayRecords.length);
 const streak = computed(() => streakDays(store.records));
@@ -398,6 +405,7 @@ onMounted(async () => {
   if (!familyStore.familyList.length) {
     await familyStore.fetchFamilyList().catch(() => {});
   }
+  normalizeCurrentFamily();
   await store.loadAll();
   await seedForCurrentFamily();
 });
@@ -496,7 +504,7 @@ async function onPanelSwitchFamily(payload: {
 
     const name =
       familyChoices.value.find((f) => f.id === familyId)?.name ||
-      (familyId === 'default' ? '默认' : familyId);
+      (familyId === 'default' ? '默认' : '该家人');
     await onFamilySwitch(familyId);
     showTopToast({ message: `已记到「${name}」`, type: 'success', duration: 2200 });
   } catch (err) {
@@ -764,7 +772,7 @@ async function onFamilySwitch(familyId: string) {
   showFamily.value = false;
   if (familyId === store.currentFamilyId) return;
   const found = familyStore.familyList.find((f) => f.familyId === familyId);
-  familyStore.setCurrentFamily(found || { familyId, name: familyId === 'default' ? '默认' : familyId });
+  familyStore.setCurrentFamily(found || { familyId, name: familyId === 'default' ? '默认' : '该家人' });
   tab.value = 'record';
   filterEventId.value = 'all';
   await store.setFamily(familyId);
