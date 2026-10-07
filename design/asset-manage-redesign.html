@@ -1,0 +1,2179 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>资产管理 · 设计稿收口 v4（仅设计稿）</title>
+<style>
+/* ============================================================
+   设计令牌
+   品牌主色沿用 App 现有 #1989fa，但只用于「操作」与「选中」，
+   页面主体靠中性面 + 语义状态色承载，避免整屏单一蓝色。
+   ============================================================ */
+:root{
+  --accent:#1989fa;
+  --accent-press:#0f7ae5;
+  --accent-soft:rgba(25,137,250,.10);
+  --accent-line:rgba(25,137,250,.28);
+
+  --bg:#f6f7f9;
+  --surface:#ffffff;
+  --surface-2:#f6f7f9;
+  --surface-3:#f1f3f6;
+  --line:#eceef1;
+  --line-strong:#e3e6ea;
+
+  --ink:#23262b;
+  --ink-2:#5c6169;
+  --ink-3:#8f949c;
+
+  --ok:#07c160;
+  --ok-soft:#e8f8ef;
+  --warn:#ff8f1f;
+  --warn-soft:#fff4e8;
+  --neutral:#8f949c;
+  --neutral-soft:#f1f3f6;
+  --danger:#ee0a24;
+  --danger-soft:#fdecee;
+
+  --r-card:12px;
+  --r-btn:8px;
+  --r-sheet:16px;
+  --r-full:999px;
+
+  --shadow-1:0 1px 2px rgba(35,38,43,.04);
+  --shadow-2:0 10px 28px rgba(35,38,43,.14);
+  --ease:cubic-bezier(.16,1,.3,1);
+
+  --font-sans:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --font-num:"DIN Alternate","SF Mono",ui-monospace,Menlo,monospace;
+  --safe-top:44px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:#0b1016;
+  color:#e8eef6;
+  font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* ---------- 评审台外壳（不属于产品 UI） ---------- */
+.chrome{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:12px 20px;
+  background:#101820;
+  border-bottom:1px solid #1e2a37;
+}
+.chrome__title{font-size:14px;font-weight:600;letter-spacing:0}
+.badge{
+  margin-left:8px;padding:2px 8px;border-radius:var(--r-full);
+  background:rgba(25,137,250,.18);color:#7fc0ff;font-size:11px;font-weight:500;
+}
+.chrome__controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-left:auto}
+.select-wrap{display:flex;align-items:center;gap:8px;font-size:12px;color:#93a1b1}
+.select-wrap select{
+  background:#17222e;color:#e8eef6;border:1px solid #24313f;border-radius:6px;
+  padding:6px 8px;font-size:12px;font-family:inherit;
+}
+.seg{display:inline-flex;background:#17222e;border:1px solid #24313f;border-radius:8px;padding:2px;gap:2px}
+.seg button{
+  border:0;background:transparent;color:#93a1b1;font-size:12px;
+  padding:6px 12px;border-radius:6px;cursor:pointer;
+}
+.seg button.is-active{background:var(--accent);color:#fff}
+.ghost{
+  border:1px solid #24313f;background:transparent;color:#cbd6e2;
+  padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;
+}
+
+.stage{
+  min-height:calc(100vh - 60px);
+  display:flex;align-items:flex-start;justify-content:center;
+  padding:28px 20px 64px;
+}
+.device-wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+.device{
+  position:relative;width:390px;height:844px;
+  background:#000;border-radius:44px;padding:10px;
+  box-shadow:0 30px 70px rgba(0,0,0,.55),0 0 0 2px #232c36 inset;
+  transition:width .25s var(--ease),height .25s var(--ease),border-radius .25s var(--ease);
+}
+body[data-view="desktop"] .device{width:1120px;height:760px;border-radius:22px}
+.app{
+  position:relative;width:100%;height:100%;overflow:hidden;
+  background:var(--bg);color:var(--ink);
+  border-radius:34px;
+}
+#base{position:absolute;inset:0}
+body[data-view="desktop"] .app{border-radius:14px}
+.overlay{position:absolute;inset:0;pointer-events:none;z-index:40}
+.overlay > *{pointer-events:auto}
+.toast-layer{
+  position:absolute;left:0;right:0;top:0;z-index:90;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding-top:60px;pointer-events:none;
+}
+.devbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+.devbar button{
+  border:1px solid #24313f;background:#141d27;color:#cbd6e2;
+  padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;
+}
+.devbar button:hover{border-color:var(--accent);color:#fff}
+.stack-hint{font-size:11px;color:#93a1b1}
+
+/* ---------- 产品 UI ---------- */
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+.screen__scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.appbar{
+  position:relative;z-index:20;
+  display:flex;align-items:center;gap:12px;
+  padding:calc(var(--safe-top) + 6px) 12px 10px;
+  background:rgba(255,255,255,.92);
+  backdrop-filter:saturate(160%) blur(12px);
+  border-bottom:1px solid var(--line);
+}
+body[data-view="desktop"] .appbar{padding-top:14px}
+.appbar__title{font-size:17px;font-weight:600;letter-spacing:0}
+.appbar__sub{font-size:11px;color:var(--ink-3);margin-top:2px}
+.appbar__spacer{flex:1}
+.appbar__actions{display:flex;align-items:center;gap:6px}
+.icon-btn{
+  width:34px;height:34px;border:0;border-radius:10px;background:transparent;
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-2);
+}
+.icon-btn:hover{background:var(--surface-3)}
+.icon-btn--accent{color:var(--accent)}
+
+.pad{padding:14px 14px 22px}
+.pad--wide{padding:14px 18px 22px;max-width:860px;margin:0 auto;width:100%}
+
+/* 摘要卡 */
+.summary{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);
+  box-shadow:var(--shadow-1);padding:4px 0;margin-bottom:14px;
+}
+.summary__row{display:flex;align-items:stretch}
+.summary__cell{flex:1;padding:14px 16px}
+.summary__cell + .summary__cell{border-left:1px solid var(--line)}
+.summary__label{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.summary__value{font-family:var(--font-num);font-size:20px;font-weight:600;margin-top:6px;letter-spacing:0}
+.summary__value small{font-size:12px;font-weight:500;color:var(--ink-3);margin-left:4px;font-family:var(--font-sans)}
+.summary__hint{font-size:11px;color:var(--ink-3);margin-top:4px}
+.summary__foot{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2);
+}
+.num-up{color:var(--danger)}
+.num-down{color:var(--ok)}
+.num-flat{color:var(--ink-2)}
+
+/* 筛选区 */
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:0 0 auto;border:1px solid var(--line-strong);background:var(--surface);
+  color:var(--ink-2);border-radius:var(--r-full);padding:7px 14px;font-size:13px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.chip.is-active{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:500}
+.chip--sm{padding:5px 11px;font-size:12px}
+.chip__dot{width:6px;height:6px;border-radius:50%}
+.dot-active{background:var(--ok)}
+.dot-retired{background:var(--neutral)}
+.dot-sold{background:var(--warn)}
+.chip-hint{font-size:12px;color:var(--ink-3);padding:2px 2px 12px}
+
+/* 列表实时搜索 */
+.search-bar{
+  display:flex;align-items:center;gap:9px;
+  height:42px;padding:0 12px;margin-bottom:14px;
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:11px;
+  box-shadow:var(--shadow-1);
+}
+.search-bar:focus-within{border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
+.search-bar__icon{display:inline-flex;color:var(--ink-3);flex:0 0 auto}
+.search-bar__input{
+  flex:1;min-width:0;border:0;outline:0;background:transparent;
+  color:var(--ink);font-family:inherit;font-size:14px;
+}
+.search-bar__input::placeholder{color:var(--ink-3)}
+.search-bar__clear{
+  width:24px;height:24px;border:0;border-radius:50%;flex:0 0 auto;
+  background:var(--surface-3);color:var(--ink-3);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.search-bar__clear:hover{background:#e7eaee;color:var(--ink-2)}
+
+/* 状态分布（保留现有的状态数量 + 进度条） */
+.status-strip{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);
+  box-shadow:var(--shadow-1);padding:12px 14px;margin-bottom:14px;
+}
+.status-strip__row{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2);margin-bottom:9px}
+.status-strip__item{display:inline-flex;align-items:center;gap:6px}
+.progress{display:flex;height:6px;border-radius:var(--r-full);overflow:hidden;background:var(--surface-3)}
+.progress i{display:block;height:100%}
+
+/* 分类页签（保留现有的分类 Tab） */
+.cat-tabs{
+  display:flex;gap:22px;overflow-x:auto;padding:0 2px;
+  border-bottom:1px solid var(--line);margin-bottom:12px;scrollbar-width:none;
+}
+.cat-tabs::-webkit-scrollbar{display:none}
+.cat-tab{
+  position:relative;border:0;background:transparent;color:var(--ink-2);
+  font-size:14px;padding:6px 2px 11px;cursor:pointer;white-space:nowrap;
+}
+.cat-tab.is-active{color:var(--accent);font-weight:600}
+.cat-tab.is-active::after{
+  content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+  background:var(--accent);border-radius:2px;
+}
+
+/* 浮动添加按钮（保留现有的 AddButton） */
+.fab{
+  position:absolute;right:16px;bottom:86px;z-index:30;
+  width:52px;height:52px;border-radius:50%;border:0;cursor:pointer;
+  background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 8px 20px rgba(25,137,250,.4);
+}
+body[data-view="desktop"] .fab{display:none}
+
+/* 资产卡 */
+.asset-card{
+  display:flex;gap:12px;align-items:center;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);
+  box-shadow:var(--shadow-1);padding:12px;margin-bottom:10px;
+}
+.asset-card__thumb{
+  position:relative;width:58px;height:58px;border-radius:10px;flex:0 0 auto;
+  background:var(--surface-3);display:flex;align-items:center;justify-content:center;
+  color:var(--ink-3);overflow:hidden;
+}
+.asset-card__thumb img{width:100%;height:100%;object-fit:cover;display:block}
+button.asset-card__thumb{border:1px solid var(--line);cursor:pointer}
+.asset-card__body{flex:1;min-width:0}
+.asset-card__head{display:flex;align-items:center;gap:8px}
+.asset-card__name{
+  flex:1;min-width:0;
+  font-size:15px;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.asset-card__meta{font-size:12px;color:var(--ink-3);margin-top:4px;display:flex;flex-wrap:wrap;gap:6px}
+.asset-card__num{
+  font-family:var(--font-num);font-size:15px;font-weight:600;color:var(--ink);
+  text-align:right;white-space:nowrap;
+}
+.asset-card__num small{display:block;font-family:var(--font-sans);font-size:11px;font-weight:400;color:var(--ink-3);margin-top:4px}
+.asset-card__side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+
+.tag{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;border-radius:var(--r-full);font-size:11px;font-weight:500;
+  white-space:nowrap;flex:0 0 auto;
+}
+.tag--active{background:var(--ok-soft);color:var(--ok)}
+.tag--retired{background:var(--neutral-soft);color:var(--neutral)}
+.tag--sold{background:var(--warn-soft);color:var(--warn)}
+.tag--ghost{background:var(--surface-3);color:var(--ink-2)}
+button.tag{border:0;cursor:pointer}
+
+.btn{
+  border:0;border-radius:var(--r-btn);font-size:13px;font-weight:500;
+  padding:9px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+}
+.btn--primary{background:var(--accent);color:#fff}
+.btn--primary:hover{background:var(--accent-press)}
+.btn--soft{background:var(--accent-soft);color:var(--accent)}
+.btn--plain{background:var(--surface);border:1px solid var(--line-strong);color:var(--ink-2)}
+.btn--danger{background:var(--danger-soft);color:var(--danger)}
+.btn--icon{width:34px;height:34px;padding:0;justify-content:center;border-radius:10px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* 空态 / 骨架 */
+.empty{padding:56px 20px;text-align:center;color:var(--ink-3)}
+.empty h4{margin:14px 0 6px;font-size:15px;color:var(--ink);font-weight:600}
+.empty p{margin:0 0 18px;font-size:13px;line-height:1.6}
+.skeleton{
+  background:linear-gradient(90deg,#eef0f3 25%,#f6f7f9 37%,#eef0f3 63%);
+  background-size:400% 100%;animation:shimmer 1.4s ease infinite;border-radius:8px;
+}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+
+/* 底部页签 */
+.tabbar{
+  display:flex;align-items:center;justify-content:space-around;
+  background:rgba(255,255,255,.94);border-top:1px solid var(--line);
+  padding:8px 0 22px;backdrop-filter:blur(12px);
+}
+.tabbar__item{
+  border:0;background:transparent;cursor:pointer;color:var(--ink-3);
+  display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;padding:4px 14px;
+}
+.tabbar__item.is-active{color:var(--accent)}
+
+/* 桌面布局：左侧栏 + 内容 */
+.desktop-shell{display:none;height:100%}
+body[data-view="desktop"] .desktop-shell{display:flex}
+body[data-view="desktop"] .mobile-shell{display:none}
+.rail{
+  width:196px;flex:0 0 auto;background:var(--surface);border-right:1px solid var(--line);
+  padding:18px 12px;display:flex;flex-direction:column;gap:4px;
+}
+.rail__brand{font-size:15px;font-weight:600;padding:6px 10px 14px}
+.rail__item{
+  border:0;background:transparent;text-align:left;cursor:pointer;color:var(--ink-2);
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:14px;
+}
+.rail__item.is-active{background:var(--accent-soft);color:var(--accent);font-weight:500}
+.rail__foot{margin-top:auto;font-size:11px;color:var(--ink-3);padding:10px}
+.desktop-main{flex:1;min-width:0;display:flex;flex-direction:column}
+
+/* 详情 */
+.detail-hero{position:relative;height:220px;background:var(--surface-3);overflow:hidden}
+.detail-hero img{width:100%;height:100%;object-fit:cover;display:block}
+.detail-hero__placeholder{height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-3)}
+.sheet{
+  background:var(--surface);border-radius:var(--r-sheet) var(--r-sheet) 0 0;
+  margin-top:-20px;position:relative;z-index:2;padding:18px 16px 28px;
+}
+.sheet--flat{border-radius:0;margin-top:0}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+.kv:last-child{border-bottom:0}
+.kv__k{color:var(--ink-2)}
+.kv__v{font-weight:500;font-family:var(--font-num)}
+.kv__v.plain{font-family:var(--font-sans)}
+.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0}
+.metric{background:var(--surface-2);border-radius:10px;padding:12px}
+.metric__k{font-size:12px;color:var(--ink-3)}
+.metric__v{font-family:var(--font-num);font-size:18px;font-weight:600;margin-top:6px}
+.detail-actions{display:flex;gap:10px;margin-top:18px}
+.detail-actions .btn{flex:1;justify-content:center}
+.detail-actions--stack{margin-top:10px}
+
+/* 表单 */
+.form-group{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);margin-bottom:14px;overflow:hidden}
+.form-group__title{
+  font-size:12px;color:var(--ink-3);padding:12px 16px 6px;background:var(--surface);
+}
+.field{display:flex;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--line);font-size:14px}
+.form-group__title + .field{border-top:0}
+.field__label{width:78px;flex:0 0 auto;color:var(--ink-2)}
+.field__label .req{color:var(--danger);margin-right:2px}
+.field__input{
+  flex:1;min-width:0;border:0;background:transparent;font-size:14px;color:var(--ink);outline:none;
+  text-align:right;font-family:inherit;
+}
+.field__input::placeholder{color:var(--ink-3)}
+.field__input--left{text-align:left}
+.note-input{
+  width:100%;border:1px solid var(--line-strong);border-radius:10px;
+  padding:11px 12px;font-size:14px;font-family:inherit;color:var(--ink);
+  outline:none;resize:none;background:var(--surface);
+}
+.note-input:focus{border-color:var(--accent-line);background:#fff}
+.field__value{flex:1;text-align:right;color:var(--ink)}
+.field__value.is-empty{color:var(--ink-3)}
+.field__err{color:var(--danger);font-size:12px;padding:0 16px 10px;text-align:right}
+.field.is-error{background:var(--danger-soft)}
+.seg-inline{display:inline-flex;background:var(--surface-3);border-radius:var(--r-full);padding:3px;gap:2px;flex:1}
+.seg-inline button{
+  flex:1;border:0;background:transparent;color:var(--ink-2);font-size:13px;
+  padding:7px 10px;border-radius:var(--r-full);cursor:pointer;white-space:nowrap;
+}
+.seg-inline button.is-active{background:var(--surface);color:var(--accent);font-weight:500;box-shadow:var(--shadow-1)}
+.sold-block{border-top:1px solid var(--line);background:#fffaf3}
+.retired-block{border-top:1px solid var(--line);background:#f7f8fa}
+
+/* 统计 */
+.bar-row{display:flex;align-items:center;gap:12px;margin:14px 0}
+.bar-row__name{width:64px;font-size:13px;color:var(--ink-2);flex:0 0 auto}
+.bar-track{flex:1;height:8px;background:var(--surface-3);border-radius:var(--r-full);overflow:hidden}
+.bar-fill{height:100%;border-radius:var(--r-full);background:var(--accent)}
+.bar-row__val{width:92px;text-align:right;font-family:var(--font-num);font-size:13px;color:var(--ink)}
+.status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.status-card{background:var(--surface-2);border-radius:10px;padding:12px}
+.status-card__k{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.status-card__n{font-family:var(--font-num);font-size:20px;font-weight:600;margin-top:8px}
+.status-card__v{font-size:12px;color:var(--ink-2);margin-top:4px}
+.status-card__profit{font-size:12px;font-weight:600;margin-top:4px}
+.bar-row{cursor:pointer}
+.bar-row__toggle{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-3);flex:0 0 auto}
+.sub-bar-list{padding:0 0 8px 0}
+.sub-bar-row{display:flex;align-items:center;gap:10px;margin:8px 0 8px 14px}
+.sub-bar-row__name{width:68px;font-size:12px;color:var(--ink-2);flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub-bar-row .bar-track{height:6px}
+.sub-bar-row__val{width:92px;text-align:right;font-family:var(--font-num);font-size:12px;color:var(--ink-2)}
+
+/* 统计 v3 */
+.stats-hero{
+  position:relative;overflow:hidden;margin-bottom:14px;padding:18px;
+  background:#202730;border:1px solid #303946;border-radius:16px;
+  box-shadow:0 14px 30px rgba(32,39,48,.16);color:#fff;
+}
+.stats-hero::after{
+  content:"";position:absolute;right:-42px;top:-54px;width:150px;height:150px;
+  border:26px solid rgba(255,255,255,.035);border-radius:50%;pointer-events:none;
+}
+.stats-hero__head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.stats-hero__eyebrow{font-size:12px;font-weight:500;color:rgba(255,255,255,.62)}
+.stats-hero__badge{
+  padding:3px 8px;border:1px solid rgba(255,255,255,.12);border-radius:999px;
+  background:rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.62);
+}
+.stats-hero__grid{position:relative;z-index:1;display:grid;grid-template-columns:1.25fr 1fr;gap:16px}
+.stats-hero__metric + .stats-hero__metric{border-left:1px solid rgba(255,255,255,.10);padding-left:16px}
+.stats-hero__label{font-size:11px;color:rgba(255,255,255,.55)}
+.stats-hero__value{
+  margin-top:7px;font-family:var(--font-num);font-size:21px;font-weight:600;
+  color:#fff;white-space:nowrap;
+}
+.stats-hero__metric:last-child .stats-hero__value{font-size:19px}
+.stats-hero__hint{margin-top:5px;font-size:10px;color:rgba(255,255,255,.42)}
+.stats-panel{
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow-1);padding:16px;margin-bottom:14px;
+}
+.stats-panel__head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+.stats-panel__title{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
+.stats-panel__sub{margin-top:4px;font-size:11px;color:var(--ink-3)}
+.stats-panel__meta{font-size:11px;color:var(--ink-3);white-space:nowrap}
+.stats-donut-wrap{display:grid;grid-template-columns:1fr;gap:16px;align-items:center}
+.stats-donut{
+  position:relative;width:126px;height:126px;margin:0 auto;border-radius:50%;
+  background:conic-gradient(#eef0f3 0 100%);
+}
+body[data-view="desktop"] .stats-donut-wrap{grid-template-columns:126px minmax(0,1fr);gap:22px}
+body[data-view="desktop"] .stats-donut{margin:0}
+.stats-donut::after{
+  content:"";position:absolute;inset:18px;border-radius:50%;
+  background:var(--surface);box-shadow:0 0 0 1px var(--line);
+}
+.stats-donut__center{
+  position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;
+}
+.stats-donut__center b{font-family:var(--font-num);font-size:19px;color:var(--ink)}
+.stats-donut__center span{margin-top:3px;font-size:10px;color:var(--ink-3)}
+.stats-cat-list{min-width:0}
+.stats-cat{border-bottom:1px solid var(--line)}
+.stats-cat:last-child{border-bottom:0}
+.stats-cat__row{
+  width:100%;border:0;background:transparent;cursor:pointer;
+  display:grid;grid-template-columns:8px minmax(44px,1fr) 46px 76px 16px;
+  align-items:center;gap:8px;padding:10px 0;text-align:left;
+}
+.stats-cat__color{width:8px;height:8px;border-radius:3px}
+.stats-cat__name{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:13px;color:var(--ink-2);
+}
+.stats-cat__pct{font-family:var(--font-num);font-size:12px;color:var(--ink-3);text-align:right}
+.stats-cat__val{font-family:var(--font-num);font-size:12px;color:var(--ink);text-align:right}
+.stats-cat__chevron{display:inline-flex;color:var(--ink-3);transition:transform .2s var(--ease)}
+.stats-cat.is-open .stats-cat__chevron{transform:rotate(90deg)}
+.stats-subs{padding:0 0 10px 16px}
+.stats-sub-row{
+  display:grid;grid-template-columns:minmax(52px,1fr) minmax(54px,90px) 68px;
+  align-items:center;gap:10px;padding:5px 0;
+}
+.stats-sub-row__name{font-size:11px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stats-sub-row__track{height:5px;border-radius:999px;background:var(--surface-3);overflow:hidden}
+.stats-sub-row__fill{display:block;height:100%;border-radius:999px}
+.stats-sub-row__val{font-family:var(--font-num);font-size:11px;color:var(--ink-2);text-align:right}
+.stats-empty{padding:30px 10px;text-align:center;color:var(--ink-3);font-size:13px}
+
+.stats-status-list{display:grid;gap:9px}
+.stats-status-card{
+  display:flex;align-items:center;gap:12px;padding:13px 14px;
+  background:var(--surface-2);border:1px solid transparent;border-radius:12px;
+}
+.stats-status-card--active{background:#f2fbf6;border-color:#e1f5e9}
+.stats-status-card--retired{background:#f6f7f9;border-color:#eceef1}
+.stats-status-card--sold{background:#fff8ef;border-color:#ffedd8}
+.stats-status-card__mark{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.stats-status-card__body{min-width:0;flex:1}
+.stats-status-card__body b{display:block;font-size:13px;color:var(--ink)}
+.stats-status-card__body span{display:block;margin-top:3px;font-size:11px;color:var(--ink-3)}
+.stats-status-card__amount{text-align:right;white-space:nowrap}
+.stats-status-card__amount small{display:block;font-size:10px;color:var(--ink-3)}
+.stats-status-card__amount b{display:block;margin-top:4px;font-family:var(--font-num);font-size:14px;color:var(--ink)}
+
+/* 时间线 */
+.tl{position:relative;padding-left:26px}
+.tl::before{content:"";position:absolute;left:7px;top:6px;bottom:6px;width:2px;background:var(--line-strong)}
+.tl__year{font-size:15px;font-weight:600;margin:18px 0 10px;color:var(--ink)}
+.tl__year:first-child{margin-top:4px}
+.tl__item{position:relative;margin-bottom:12px}
+.tl__item::before{
+  content:"";position:absolute;left:-24px;top:18px;width:10px;height:10px;border-radius:50%;
+  background:var(--accent);border:2px solid var(--surface);box-shadow:0 0 0 2px var(--line-strong);
+}
+.tl__item[data-status="sold"]::before{background:var(--warn)}
+.tl__item[data-status="retired"]::before{background:var(--neutral)}
+.tl__card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:12px}
+.tl__head{display:flex;align-items:center;gap:8px}
+.tl__date{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.tl__desc{font-size:12px;color:var(--ink-2);line-height:1.55;margin-top:6px}
+
+/* 底部弹层 */
+.backdrop{
+  position:absolute;inset:0;background:rgba(20,24,29,.45);
+  display:flex;align-items:flex-end;justify-content:center;
+  animation:fade .2s var(--ease);
+}
+.backdrop--center{align-items:center}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.sheet-panel{
+  width:100%;background:var(--surface);border-radius:var(--r-sheet) var(--r-sheet) 0 0;
+  padding:8px 0 24px;animation:rise .26s var(--ease);max-height:86%;overflow-y:auto;
+}
+body[data-view="desktop"] .sheet-panel{max-width:460px;border-radius:var(--r-sheet);margin-bottom:auto;margin-top:auto}
+@keyframes rise{from{transform:translateY(18px);opacity:.4}to{transform:none;opacity:1}}
+.sheet-panel__head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--line);font-size:15px;font-weight:600;
+}
+.sheet-actions{display:flex;flex-direction:column;padding:6px 0}
+.sheet-actions button{
+  border:0;background:transparent;text-align:left;padding:15px 20px;font-size:15px;
+  display:flex;align-items:center;gap:12px;cursor:pointer;color:var(--ink);
+}
+.sheet-actions button:hover{background:var(--surface-2)}
+.sheet-actions button.is-danger{color:var(--danger)}
+.sheet-panel__foot{padding:12px 18px 0}
+.upload-box{
+  width:58px;height:58px;border:1px dashed var(--line-strong);border-radius:10px;
+  background:var(--surface-2);color:var(--ink-3);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex:0 0 auto;
+}
+.upload-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+
+/* 图片预览层 */
+.preview{
+  position:absolute;inset:0;background:#0b0e12;color:#fff;
+  display:flex;flex-direction:column;animation:fade .18s var(--ease);
+}
+.preview__bar{
+  display:flex;align-items:center;gap:12px;padding:calc(var(--safe-top) + 4px) 14px 10px;
+}
+body[data-view="desktop"] .preview__bar{padding-top:14px}
+.preview__canvas{
+  flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
+}
+.preview__ph{
+  width:78%;height:62%;border-radius:10px;background:linear-gradient(160deg,#22303f,#141b24);
+  display:flex;align-items:center;justify-content:center;color:#6e7d8c;font-size:13px;
+}
+.preview__foot{padding:0 16px 26px;font-size:12px;color:#93a1b1;display:flex;justify-content:space-between}
+.preview__count{font-family:var(--font-num)}
+
+/* Toast */
+.toast{
+  background:rgba(35,38,43,.92);color:#fff;font-size:13px;
+  padding:10px 16px;border-radius:10px;box-shadow:var(--shadow-2);
+  animation:fade .16s var(--ease);max-width:82%;text-align:center;
+}
+.toast--danger{background:rgba(238,10,36,.94)}
+.toast--ok{background:rgba(7,193,96,.94)}
+
+/* 其它页面问题清单 */
+.issue-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:14px 16px;margin-bottom:10px}
+.issue-card h4{margin:0 0 6px;font-size:14px;color:var(--ink)}
+.issue-card p{margin:0;color:var(--ink-2);font-size:13px;line-height:1.6}
+
+/* ---------- 交互说明面板 ---------- */
+.spec{
+  position:fixed;top:0;right:0;bottom:0;width:min(460px,92vw);z-index:80;
+  background:#101820;border-left:1px solid #1e2a37;padding:22px 22px 60px;
+  overflow-y:auto;transform:translateX(102%);transition:transform .3s var(--ease);
+  font-size:13px;line-height:1.7;color:#c2ccd8;
+}
+.spec.is-open{transform:none}
+.spec h2{font-size:15px;color:#fff;margin:0 0 12px}
+.spec h3{font-size:13px;color:#7fc0ff;margin:22px 0 8px;letter-spacing:0}
+.spec p{margin:0 0 10px;color:#93a1b1}
+.spec ul{margin:0;padding-left:18px}
+.spec li{margin-bottom:6px}
+.spec code{
+  background:#17222e;color:#a9d1ff;padding:1px 5px;border-radius:4px;
+  font-size:12px;font-family:var(--font-num);
+}
+.spec b{color:#e8eef6}
+.swatches{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0 4px}
+.swatch{display:flex;align-items:center;gap:8px;font-size:11px;color:#93a1b1}
+.swatch i{width:18px;height:18px;border-radius:5px;display:block;flex:0 0 auto;border:1px solid #24313f}
+.issue{border-left:2px solid var(--danger);padding-left:10px;margin:10px 0}
+.issue b{display:block;color:#ffb4bd;font-size:12px}
+
+@media (max-width:860px){
+  .stage{padding:16px 10px 48px}
+  body[data-view="desktop"] .device{width:100%;height:720px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;transition-duration:.001ms !important}
+}
+</style>
+</head>
+<body data-view="mobile">
+
+<header class="chrome">
+  <div class="chrome__title">资产管理 · 设计稿收口<span class="badge">v4 · 仅设计稿</span></div>
+  <div class="chrome__controls">
+    <div class="seg" id="viewportSeg">
+      <button type="button" data-view="mobile" class="is-active">手机</button>
+      <button type="button" data-view="desktop">桌面</button>
+    </div>
+    <label class="select-wrap">
+      查看页面
+      <select id="screenSelect">
+        <option value="list">资产 · 列表</option>
+        <option value="list-sold">资产 · 列表（筛选已卖出）</option>
+        <option value="detail">资产 · 详情（新）</option>
+        <option value="form">资产 · 新增 / 编辑表单</option>
+        <option value="stats">资产 · 统计</option>
+        <option value="timeline">资产 · 时间线</option>
+        <option value="manage">资产 · 分类管理</option>
+        <option value="preview">图片预览（返回栈演示）</option>
+        <option value="other">其它页面 · 问题清单</option>
+      </select>
+    </label>
+  </div>
+  <button type="button" class="ghost" id="specToggle">交互说明</button>
+</header>
+
+<main class="stage" id="stage">
+  <div class="device-wrap" id="deviceWrap">
+    <div class="device" id="device">
+      <div class="app" id="app">
+        <div id="base"></div>
+        <div class="overlay" id="overlay"></div>
+        <div class="toast-layer" id="toastLayer"></div>
+      </div>
+    </div>
+    <div class="devbar">
+      <button type="button" id="backKey">模拟 Android 返回键</button>
+      <button type="button" id="toastKey">触发保存成功 Toast</button>
+      <span class="stack-hint" id="stackHint">返回栈：空</span>
+    </div>
+  </div>
+</main>
+
+<aside class="spec" id="spec" aria-hidden="true"></aside>
+
+<script>
+(function () {
+  'use strict';
+
+  var TODAY = new Date(2026, 9, 7);
+  var DAY = 86400000;
+
+  /* ---------------- 图标 ---------------- */
+  var PATHS = {
+    back: '<path d="M15 5 8 12l7 7"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    more: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+    close: '<path d="M6 6l12 12M18 6 6 18"/>',
+    check: '<path d="m5 13 4 4 10-10"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    grid: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2m0 14v2M4.2 4.2l1.5 1.5m12.6 12.6 1.5 1.5M3 12h2m14 0h2M4.2 19.8l1.5-1.5M18.3 5.7l1.5-1.5"/>',
+    edit: '<path d="M4 20h4L20 8l-4-4L4 16v4Z"/><path d="M14 4l4 4"/>',
+    trash: '<path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m4 18 5-5 4 3 3-3 4 4"/>',
+    tag: '<path d="M3 12V4h8l9 9-8 8-9-9Z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
+    camera: '<path d="M4 8h3l1.6-2h6.8L17 8h3v11H4Z"/><circle cx="12" cy="13" r="3.2"/>',
+    swap: '<path d="M7 8h11l-3-3M17 16H6l3 3"/>',
+    next: '<path d="m9 6 6 6-6 6"/>'
+  };
+  function icon(name, size) {
+    var s = size || 18;
+    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      (PATHS[name] || '') + '</svg>';
+  }
+
+  /* ---------------- 样例数据 ---------------- */
+  var ASSETS = [
+    { id: 'a1', name: 'iPhone 15 Pro', cat: '数码', sub: '手机', status: 'active', price: 8999, purchaseDate: '2024-09-22', calcType: 'day', usageCount: 0, desc: '主力机 · 官网首发购入，含 AppleCare+。' },
+    { id: 'a2', name: 'MacBook Air M2', cat: '数码', sub: '电脑', status: 'active', price: 7499, purchaseDate: '2023-03-11', calcType: 'day', usageCount: 0, desc: '16G / 512G，日常开发主力。' },
+    { id: 'a3', name: 'Kindle Paperwhite', cat: '数码', sub: '平板', status: 'sold', price: 1099, purchaseDate: '2021-06-18', soldPrice: 420, soldDate: '2025-11-02', calcType: 'day', usageCount: 0, desc: '闲置太久，转给同事。' },
+    { id: 'a4', name: 'HHKB Pro 3', cat: '数码', sub: '配件', status: 'sold', price: 2300, purchaseDate: '2022-01-05', soldPrice: 2650, soldDate: '2026-02-14', calcType: 'day', usageCount: 0 },
+    { id: 'a5', name: '羽绒服', cat: '衣物', sub: '上衣', status: 'retired', price: 1299, purchaseDate: '2020-11-20', retiredDate: '2025-01-15', calcType: 'day', usageCount: 0, desc: '袖口磨损，退役留作备用。' },
+    { id: 'a6', name: 'Nintendo Switch', cat: '数码', sub: '配件', status: 'sold', price: 2099, purchaseDate: '2019-12-25', calcType: 'count', usageCount: 68, desc: '老数据：没有记录卖出价。' },
+    { id: 'a7', name: '罗技 MX Master 3', cat: '数码', sub: '配件', status: 'active', price: 649, purchaseDate: '2023-08-14', calcType: 'count', usageCount: 12, desc: '办公鼠标。' },
+    { id: 'a8', name: '洗衣凝珠', cat: '家电', sub: '生活电器', status: 'active', price: 89, purchaseDate: '2025-08-01', calcType: 'consumable', usageCount: 0, desc: '消耗品，不记录使用次数。' }
+  ];
+
+  /* 使用记录（现有「增加使用次数」写入的记录） */
+  var USAGE_RECORDS = {
+    a7: [
+      { at: '2026-10-05 09:12', note: '带去公司' },
+      { at: '2026-09-28 20:40', note: '' },
+      { at: '2026-09-21 08:05', note: '出差带着' }
+    ],
+    a6: [
+      { at: '2024-01-03 21:10', note: '' },
+      { at: '2023-12-31 22:00', note: '跨年一起玩' }
+    ]
+  };
+  function usageOf(id) { return USAGE_RECORDS[id] || []; }
+
+  /* 分类树（分类管理页与列表筛选共用） */
+  var CAT_TREE = {
+    '数码': ['手机', '电脑', '平板', '相机', '配件'],
+    '衣物': ['上衣', '裤子', '鞋靴', '包袋', '配饰'],
+    '家电': ['大家电', '厨房电器', '生活电器'],
+    '家具': ['桌椅', '储物', '床具'],
+    '图书': ['技术', '文学']
+  };
+  var CUSTOM_CATS = {};
+
+  /* ---------------- 工具 ---------------- */
+  function parseDate(str) {
+    var p = str.split('-');
+    return new Date(+p[0], +p[1] - 1, +p[2]);
+  }
+  function daysBetween(a, b) {
+    return Math.max(1, Math.floor((b - a) / DAY));
+  }
+  function money(n) {
+    return '¥' + Number(n || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function signed(n) {
+    var s = n > 0 ? '+' : n < 0 ? '-' : '';
+    return s + money(Math.abs(n));
+  }
+  function dateText(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  function derived(a) {
+    var purchase = parseDate(a.purchaseDate);
+    var frozenDate = a.status === 'sold' ? a.soldDate : a.status === 'retired' ? a.retiredDate : '';
+    var end = frozenDate ? parseDate(frozenDate) : TODAY;
+    var days = daysBetween(purchase, end);
+    var costPerDay = a.calcType === 'day' ? a.price / days : 0;
+    var costPerUse = a.calcType === 'count' ? (a.usageCount > 0 ? a.price / a.usageCount : a.price) : 0;
+    var profit = (a.status === 'sold' && typeof a.soldPrice === 'number') ? a.soldPrice - a.price : null;
+    return { days: days, costPerDay: costPerDay, costPerUse: costPerUse, profit: profit, endText: dateText(end) };
+  }
+  function stats() {
+    var heldValue = 0, dailyCost = 0, soldCount = 0;
+    ASSETS.forEach(function (a) {
+      var d = derived(a);
+      if (a.status === 'sold') {
+        soldCount++;
+        return;
+      }
+      heldValue += a.price;
+      dailyCost += a.price / d.days;
+    });
+    return {
+      heldValue: heldValue,
+      dailyCost: dailyCost,
+      soldCount: soldCount
+    };
+  }
+  function tagFor(status) {
+    if (status === 'active') return '<span class="tag tag--active">服役中</span>';
+    if (status === 'retired') return '<span class="tag tag--retired">已退役</span>';
+    return '<span class="tag tag--sold">已卖出</span>';
+  }
+  function statusLabel(status) {
+    return status === 'active' ? '服役中' : status === 'retired' ? '已退役' : '已卖出';
+  }
+  function matchesQuery(a, query) {
+    var q = String(query || '').trim().toLowerCase();
+    if (!q) return true;
+    return [a.name, a.cat, a.sub, a.desc, statusLabel(a.status)]
+      .join(' ')
+      .toLowerCase()
+      .indexOf(q) >= 0;
+  }
+
+  /* ---------------- 状态 ---------------- */
+  var store = {
+    view: 'mobile',
+    screen: 'list',
+    query: '',
+    filter: 'active',
+    cat: 'all',
+    sub: 'all',
+    expandedCat: null,
+    previewIndex: 0,
+    previewOpen: false,
+    detailId: 'a1',
+    form: null,
+    formErrors: {},
+    formDirty: false,
+    formReturn: 'list',
+    sheet: null,
+    sheetAsset: '',
+    sheetCat: '',
+    sheetSub: '',
+    sheetInput: '',
+    usageNote: '',
+    toast: null
+  };
+  var toastTimer = null;
+
+  function toast(text, kind) {
+    store.toast = { text: text, kind: kind || '' };
+    renderToast();
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      store.toast = null;
+      renderToast();
+    }, 1800);
+  }
+  function backStack() {
+    var stack = [];
+    if (store.toast) stack.push('Toast');
+    if (store.previewOpen) stack.push('图片预览');
+    if (store.sheet) stack.push('弹层：' + sheetLabel(store.sheet));
+    if (store.screen === 'form') stack.push('资产表单');
+    if (store.screen === 'detail') stack.push('资产详情');
+    return stack;
+  }
+  function sheetLabel(name) {
+    return {
+      asset: '资产操作',
+      use: '记录一次使用',
+      delete: '删除确认',
+      'cat-select': '选择分类',
+      'sub-select': '选择子分类',
+      date: '选择购入时间',
+      'date-sold': '选择卖出时间',
+      'date-retired': '选择退役时间',
+      'add-cat': '添加主分类',
+      'add-sub': '添加子分类',
+      'del-cat': '删除分类',
+      'del-sub': '删除子分类',
+      'discard-form': '放弃编辑'
+    }[name] || name;
+  }
+  /* 统一返回：从最上层开始关，最后才离开页面 */
+  function goBack() {
+    if (store.previewOpen) {
+      store.previewOpen = false;
+      render();
+      toast('返回键：关闭图片预览（页面保留）', 'ok');
+      return;
+    }
+    if (store.sheet) {
+      var name = sheetLabel(store.sheet);
+      store.sheet = null;
+      render();
+      toast('返回键：关闭「' + name + '」', 'ok');
+      return;
+    }
+    if (store.screen === 'form') {
+      if (store.formDirty) {
+        store.sheet = 'discard-form';
+        render();
+        return;
+      }
+      var returnTo = store.formReturn || 'list';
+      store.screen = returnTo;
+      store.form = null;
+      store.formErrors = {};
+      render();
+      toast('返回键：返回' + (returnTo === 'detail' ? '资产详情' : '资产列表'), 'ok');
+      return;
+    }
+    if (store.screen === 'detail') {
+      store.screen = 'list';
+      render();
+      toast('返回键：返回资产列表', 'ok');
+      return;
+    }
+    if (store.screen === 'other') {
+      store.screen = 'list';
+      render();
+      toast('返回键：回到资产列表', 'ok');
+      return;
+    }
+    toast('返回键：离开「我的资产」', '');
+  }
+
+  /* ---------------- 渲染入口 ---------------- */
+  var baseEl, overlayEl, toastEl, hintEl;
+
+  function render() {
+    document.body.setAttribute('data-view', store.view);
+    baseEl.innerHTML = renderScreen();
+    overlayEl.innerHTML = renderOverlay();
+    renderToast();
+    hintEl.textContent = '返回栈：' + (backStack().length ? backStack().join(' › ') : '空');
+  }
+  function renderToast() {
+    toastEl.innerHTML = store.toast
+      ? '<div class="toast ' + (store.toast.kind ? 'toast--' + store.toast.kind : '') + '">' + esc(store.toast.text) + '</div>'
+      : '';
+  }
+  function renderScreen() {
+    if (store.screen === 'other') return renderOtherIssues();
+    if (store.screen === 'form') return renderForm();
+    if (store.screen === 'detail') return renderDetail();
+    return renderAssetShell();
+  }
+
+  /* ---------------- 资产页壳 ---------------- */
+  var TABS = [
+    { key: 'list', label: '全部', icon: 'grid' },
+    { key: 'timeline', label: '时间线', icon: 'clock' },
+    { key: 'stats', label: '统计', icon: 'chart' },
+    { key: 'manage', label: '管理', icon: 'settings' }
+  ];
+  function isAssetModule() {
+    return ['list', 'timeline', 'stats', 'manage'].indexOf(store.screen) >= 0;
+  }
+  function renderAssetShell() {
+    var tab = isAssetModule() ? store.screen : 'list';
+    var titles = { list: '我的资产', timeline: '资产时间线', stats: '资产统计', manage: '分类与设置' };
+    var body = tab === 'list' ? renderAssetList()
+      : tab === 'timeline' ? renderTimeline()
+      : tab === 'stats' ? renderStats()
+      : renderManage();
+
+    var rail = '<aside class="rail">' +
+      '<div class="rail__brand">资产管理</div>' +
+      TABS.map(function (t) {
+        return '<button type="button" class="rail__item' + (t.key === tab ? ' is-active' : '') +
+          '" data-act="tab" data-id="' + t.key + '">' + icon(t.icon, 18) + t.label + '</button>';
+      }).join('') +
+      '<div class="rail__foot">桌面端：左侧栏常驻，右侧内容区最大 860px。</div>' +
+      '</aside>';
+
+    return '' +
+      '<div class="desktop-shell">' + rail +
+        '<div class="desktop-main">' +
+          appbar(titles[tab], '资产', tab) +
+          '<div class="screen__scroll"><div class="pad pad--wide">' + body + '</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="screen mobile-shell">' +
+        appbar(titles[tab], '共 ' + ASSETS.length + ' 件', tab) +
+        '<div class="screen__scroll"><div class="pad">' + body + '</div></div>' +
+        (tab === 'list' ? '<button type="button" class="fab" data-act="new" aria-label="添加资产">' + icon('plus', 22) + '</button>' : '') +
+        tabbar(tab) +
+      '</div>';
+  }
+  function appbar(title, sub, tab) {
+    var actions = tab === 'list'
+      ? '<button type="button" class="icon-btn" data-act="tab" data-id="manage" aria-label="分类管理">' + icon('tag') + '</button>' +
+        '<button type="button" class="icon-btn icon-btn--accent" data-act="new" aria-label="添加资产">' + icon('plus', 20) + '</button>'
+      : '';
+    return '<header class="appbar">' +
+      '<button type="button" class="icon-btn" data-act="nav-back" aria-label="返回">' + icon('back') + '</button>' +
+      '<div><div class="appbar__title">' + esc(title) + '</div>' +
+      (sub ? '<div class="appbar__sub">' + esc(sub) + '</div>' : '') + '</div>' +
+      '<div class="appbar__spacer"></div>' +
+      '<div class="appbar__actions">' + actions + '</div>' +
+      '</header>';
+  }
+  function tabbar(active) {
+    return '<nav class="tabbar">' + TABS.map(function (t) {
+      return '<button type="button" class="tabbar__item' + (t.key === active ? ' is-active' : '') +
+        '" data-act="tab" data-id="' + t.key + '">' + icon(t.icon, 20) + '<span>' + t.label + '</span></button>';
+    }).join('') + '</nav>';
+  }
+
+  /* ---------------- 列表 ---------------- */
+  function renderAssetList() {
+    var filters = [
+      { key: 'all', label: '全部', dot: '' },
+      { key: 'active', label: '服役中', dot: 'dot-active' },
+      { key: 'retired', label: '已退役', dot: 'dot-retired' },
+      { key: 'sold', label: '已卖出', dot: 'dot-sold' }
+    ];
+    var list = ASSETS.filter(function (a) {
+      if (!matchesQuery(a, store.query)) return false;
+      if (store.filter !== 'all' && a.status !== store.filter) return false;
+      if (store.cat !== 'all' && a.cat !== store.cat) return false;
+      if (store.cat !== 'all' && store.sub !== 'all' && a.sub !== store.sub) return false;
+      return true;
+    });
+    var subs = store.cat === 'all' ? [] : (CAT_TREE[store.cat] || []);
+
+    return '' +
+      summaryBlock() +
+      statusStrip() +
+      searchField() +
+      '<div class="chips">' + filters.map(function (f) {
+        return '<button type="button" class="chip' + (store.filter === f.key ? ' is-active' : '') + '" data-act="filter" data-id="' + f.key + '">' +
+          (f.dot ? '<i class="chip__dot ' + f.dot + '"></i>' : '') + f.label + '</button>';
+      }).join('') + '</div>' +
+      '<div class="cat-tabs">' +
+        '<button type="button" class="cat-tab' + (store.cat === 'all' ? ' is-active' : '') + '" data-act="cat" data-id="all">全部</button>' +
+        Object.keys(CAT_TREE).map(function (c) {
+          return '<button type="button" class="cat-tab' + (store.cat === c ? ' is-active' : '') + '" data-act="cat" data-id="' + c + '">' + c + '</button>';
+        }).join('') +
+      '</div>' +
+      (subs.length
+        ? '<div class="chips">' +
+            '<button type="button" class="chip chip--sm' + (store.sub === 'all' ? ' is-active' : '') + '" data-act="sub" data-id="all">全部子类</button>' +
+            subs.map(function (sb) {
+              return '<button type="button" class="chip chip--sm' + (store.sub === sb ? ' is-active' : '') + '" data-act="sub" data-id="' + sb + '">' + sb + '</button>';
+            }).join('') + '</div>'
+        : '<div class="chip-hint">选择分类可进一步按子类筛选</div>') +
+      (list.length ? list.map(assetCard).join('') : emptyState(store.query ? 'search' : 'filter'));
+  }
+  function searchField() {
+    var value = store.query || '';
+    return '<div class="search-bar">' +
+      '<span class="search-bar__icon">' + icon('search', 18) + '</span>' +
+      '<input class="search-bar__input" type="text" inputmode="search" autocomplete="off" ' +
+        'data-role="assetSearch" placeholder="搜索名称、分类或描述" value="' + esc(value) + '" />' +
+      (value
+        ? '<button type="button" class="search-bar__clear" data-act="clear-search" aria-label="清空搜索">' + icon('close', 15) + '</button>'
+        : '') +
+      '</div>';
+  }
+  function focusSearchInput() {
+    requestAnimationFrame(function () {
+      var scope = store.view === 'desktop' ? '.desktop-shell' : '.mobile-shell';
+      var input = document.querySelector(scope + ' [data-role="assetSearch"]');
+      if (!input) return;
+      input.focus();
+      var end = input.value.length;
+      if (input.setSelectionRange) input.setSelectionRange(end, end);
+    });
+  }
+  function summaryBlock() {
+    var s = stats();
+    return '<div class="summary">' +
+      '<div class="summary__row">' +
+        '<div class="summary__cell">' +
+          '<div class="summary__label">总资产估值</div>' +
+          '<div class="summary__value">' + money(s.heldValue) + '</div>' +
+          '<div class="summary__hint">不含已卖出</div>' +
+        '</div>' +
+        '<div class="summary__cell">' +
+          '<div class="summary__label">日均持有成本</div>' +
+          '<div class="summary__value">' + money(s.dailyCost) + '</div>' +
+          '<div class="summary__hint">仅当前持有</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  function statusStrip() {
+    var counts = { active: 0, retired: 0, sold: 0 };
+    ASSETS.forEach(function (a) { counts[a.status]++; });
+    var total = ASSETS.length || 1;
+    return '<div class="status-strip">' +
+      '<div class="status-strip__row">' +
+        '<span class="status-strip__item"><i class="chip__dot dot-active"></i>服役中 ' + counts.active + '</span>' +
+        '<span class="status-strip__item"><i class="chip__dot dot-retired"></i>已退役 ' + counts.retired + '</span>' +
+        '<span class="status-strip__item"><i class="chip__dot dot-sold"></i>已卖出 ' + counts.sold + '</span>' +
+      '</div>' +
+      '<div class="progress">' +
+        '<i style="width:' + (counts.active / total * 100) + '%;background:var(--ok)"></i>' +
+        '<i style="width:' + (counts.retired / total * 100) + '%;background:var(--neutral)"></i>' +
+        '<i style="width:' + (counts.sold / total * 100) + '%;background:var(--warn)"></i>' +
+      '</div></div>';
+  }
+  function assetCard(a) {
+    var d = derived(a);
+    var numValue, numLabel;
+    if (a.status === 'sold') {
+      numValue = '<span class="' + (d.profit === null ? 'num-flat' : d.profit >= 0 ? 'num-up' : 'num-down') + '">' +
+        (d.profit === null ? '未记录卖出价' : signed(d.profit)) + '</span>';
+      numLabel = d.profit === null ? '已卖出' : '卖出 ' + money(a.soldPrice);
+    } else if (a.calcType === 'count') {
+      numValue = money(d.costPerUse);
+      numLabel = a.usageCount > 0 ? '已用 ' + a.usageCount + ' 次' : '尚未使用';
+    } else if (a.calcType === 'day') {
+      numValue = money(d.costPerDay);
+      numLabel = '持有 ' + d.days + ' 天';
+    } else {
+      numValue = '消耗品';
+      numLabel = '不按次 / 不按天';
+    }
+    var quick = a.calcType === 'count' && a.status === 'active'
+      ? '<button type="button" class="btn btn--soft btn--icon" data-act="use" data-asset="' + a.id + '" aria-label="记录一次">' + icon('plus', 18) + '</button>'
+      : '';
+    var metaDate = a.status === 'retired' && a.retiredDate
+      ? '购入 ' + a.purchaseDate + ' · 退役 ' + a.retiredDate
+      : '购入 ' + a.purchaseDate;
+
+    return '<article class="asset-card">' +
+      '<button type="button" class="asset-card__thumb" data-act="preview" data-asset="' + a.id + '" aria-label="预览图片">' + icon('image', 22) + '</button>' +
+      '<div class="asset-card__body" data-act="detail" data-id="' + a.id + '">' +
+        '<div class="asset-card__head"><span class="asset-card__name">' + esc(a.name) + '</span>' + tagFor(a.status) + '</div>' +
+        '<div class="asset-card__meta"><span>' + esc(a.cat) + ' · ' + esc(a.sub) + '</span><span>' + esc(metaDate) + '</span></div>' +
+      '</div>' +
+      '<div class="asset-card__side">' +
+        '<div class="asset-card__num">' + numValue + '<small>' + numLabel + '</small></div>' +
+        '<div style="display:flex;align-items:center;gap:6px">' + quick +
+          '<button type="button" class="icon-btn" data-act="sheet" data-id="asset" data-asset="' + a.id + '" aria-label="更多">' + icon('more') + '</button>' +
+        '</div>' +
+      '</div>' +
+      '</article>';
+  }
+  function emptyState(mode) {
+    var isSearch = mode === 'search';
+    return '<div class="empty">' + icon('grid', 42) +
+      '<h4>' + (isSearch ? '没有找到匹配的资产' : '这个筛选下还没有资产') + '</h4>' +
+      '<p>' + (isSearch ? '换个关键词，或清空搜索查看全部资产。' : '切换筛选条件，或先添加一件资产开始记录持有成本。') + '</p>' +
+      (isSearch
+        ? '<button type="button" class="btn btn--plain" data-act="clear-search">' + icon('close', 16) + '清空搜索</button>'
+        : '<button type="button" class="btn btn--primary" data-act="new">' + icon('plus', 16) + '添加资产</button>') +
+      '</div>';
+  }
+
+  /* ---------------- 详情（新增页面） ---------------- */
+  function renderDetail() {
+    var a = ASSETS.filter(function (x) { return x.id === store.detailId; })[0] || ASSETS[0];
+    if (!a) {
+      return '<div class="screen">' +
+        '<header class="appbar"><button type="button" class="icon-btn" data-act="nav-back">' + icon('back') + '</button>' +
+          '<div class="appbar__title">资产详情</div></header>' +
+        '<div class="screen__scroll"><div class="pad">' + emptyState() + '</div></div></div>';
+    }
+    var d = derived(a);
+    var costLabel = a.calcType === 'count' ? '单次成本' : a.calcType === 'day' ? '日均成本' : '计费方式';
+    var costValue = a.calcType === 'count' ? money(d.costPerUse) : a.calcType === 'day' ? money(d.costPerDay) : '消耗品';
+    var rows = [
+      ['分类', a.cat + (a.sub ? ' · ' + a.sub : ''), true],
+      ['购入日期', a.purchaseDate, false],
+      ['购入价格', money(a.price), false],
+      ['持有天数', d.days + ' 天', false],
+      ['计费方式', a.calcType === 'count' ? '按次' : a.calcType === 'day' ? '按天' : '消耗品', true],
+      [costLabel, costValue, false]
+    ];
+    if (a.calcType === 'count') rows.push(['使用次数', a.usageCount + ' 次', false]);
+    if (a.desc) rows.push(['备注', a.desc, true]);
+    if (a.status === 'sold') {
+      rows.push(['卖出日期', a.soldDate || '未记录', true]);
+      rows.push(['卖出价格', typeof a.soldPrice === 'number' ? money(a.soldPrice) : '未记录', false]);
+    }
+    if (a.status === 'retired') {
+      rows.push(['退役日期', a.retiredDate || '未记录', true]);
+    }
+
+    return '<div class="screen">' +
+      '<header class="appbar"><button type="button" class="icon-btn" data-act="nav-back">' + icon('back') + '</button>' +
+        '<div class="appbar__title">资产详情</div><div class="appbar__spacer"></div>' +
+        '<button type="button" class="icon-btn" data-act="sheet" data-id="asset" data-asset="' + a.id + '">' + icon('more') + '</button></header>' +
+      '<div class="screen__scroll">' +
+        '<div class="detail-hero" data-act="preview" data-id="' + a.id + '"><div class="detail-hero__placeholder">' + icon('image', 38) + '</div></div>' +
+        '<div class="sheet">' +
+          '<div class="asset-card__head" style="gap:10px"><span style="font-size:19px;font-weight:600">' + esc(a.name) + '</span>' + tagFor(a.status) + '</div>' +
+          (a.desc ? '<div class="asset-card__meta" style="margin-top:8px">' + esc(a.desc) + '</div>' : '') +
+          '<div class="metric-grid">' +
+            '<div class="metric"><div class="metric__k">' + costLabel + '</div>' +
+              '<div class="metric__v">' + costValue + '</div></div>' +
+            '<div class="metric"><div class="metric__k">持有时长</div><div class="metric__v">' + d.days + ' 天</div></div>' +
+          '</div>' +
+          (d.profit !== null
+            ? '<div class="summary__foot" style="border-top:0;padding:12px 0"><span>该笔卖出盈亏</span>' +
+              '<b class="' + (d.profit >= 0 ? 'num-up' : 'num-down') + '">' + signed(d.profit) + '</b></div>'
+            : '') +
+          rows.map(function (r) {
+            return '<div class="kv"><span class="kv__k">' + r[0] + '</span><span class="kv__v' + (r[2] ? ' plain' : '') + '">' + esc(r[1]) + '</span></div>';
+          }).join('') +
+          usageSection(a) +
+          '<div class="detail-actions">' +
+            (a.calcType === 'count' && a.status === 'active'
+              ? '<button type="button" class="btn btn--soft" data-act="use" data-asset="' + a.id + '">' + icon('plus', 16) + '记录一次</button>'
+              : '') +
+            '<button type="button" class="btn btn--primary" data-act="edit" data-asset="' + a.id + '">' + icon('edit', 16) + '编辑</button>' +
+          '</div>' +
+          '<div class="detail-actions detail-actions--stack">' +
+            '<button type="button" class="btn btn--danger" data-act="ask-delete" data-asset="' + a.id + '">' + icon('trash', 16) + '删除资产</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '</div>';
+  }
+
+  /* ---------------- 表单 ---------------- */
+  function usageSection(a) {
+    if (a.calcType !== 'count') return '';
+    var recs = usageOf(a.id);
+    var readOnly = a.status !== 'active';
+    return '<div style="margin-top:18px">' +
+      '<div style="font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px">使用记录' +
+        (recs.length ? '<span style="color:var(--ink-3);font-weight:400">共 ' + recs.length + ' 条</span>' : '') +
+      '</div>' +
+      (readOnly
+        ? '<div style="font-size:12px;color:' + (a.status === 'sold' ? 'var(--warn)' : 'var(--ink-3)') + ';line-height:1.7;margin-bottom:6px">' +
+          (a.status === 'sold' ? '已卖出' : '已退役') + '，使用次数已冻结，仅可查看历史记录。</div>'
+        : '') +
+      (recs.length
+        ? '<div>' + recs.map(function (r) {
+            return '<div class="kv"><span class="kv__k plain" style="font-size:13px">' + esc(r.at) + '</span>' +
+              '<span class="kv__v plain" style="font-weight:400;color:var(--ink-2);font-size:13px">' + esc(r.note || '无备注') + '</span></div>';
+          }).join('') + '</div>'
+        : '<div style="font-size:12px;color:var(--ink-3);line-height:1.7">' + (readOnly ? '暂无历史记录。' : '暂无记录，点「记录一次」开始累计使用次数。') + '</div>') +
+      '</div>';
+  }
+
+  function emptyForm(a) {
+    return {
+      id: a ? a.id : '',
+      name: a ? a.name : '',
+      cat: a ? a.cat : '',
+      sub: a ? a.sub : '',
+      status: a ? a.status : 'active',
+      price: a && a.price !== undefined ? String(a.price) : '',
+      purchaseDate: a ? a.purchaseDate : '',
+      calcType: a ? a.calcType : 'count',
+      usageCount: a ? a.usageCount : 0,
+      soldPrice: a && typeof a.soldPrice === 'number' ? String(a.soldPrice) : '',
+      soldDate: a && a.soldDate ? a.soldDate : '',
+      retiredDate: a && a.retiredDate ? a.retiredDate : '',
+      desc: a && a.desc ? a.desc : '',
+      image: a ? (a.image || 'demo-image') : ''
+    };
+  }
+  function renderForm() {
+    var f = store.form || emptyForm(null);
+    var editing = !!f.id;
+    var isSold = f.status === 'sold';
+    var isRetired = f.status === 'retired';
+    var err = store.formErrors;
+    var imageControl = f.image
+      ? '<button type="button" class="asset-card__thumb" data-act="preview">' + icon('image', 20) + '</button>' +
+        '<div class="upload-actions">' +
+          '<button type="button" class="chip chip--sm" data-act="pick-image">更换</button>' +
+          '<button type="button" class="chip chip--sm" data-act="clear-image">移除</button>' +
+        '</div>'
+      : '<button type="button" class="upload-box" data-act="pick-image" aria-label="选择图片">' + icon('plus', 20) + '</button>' +
+        '<span class="field__value is-empty" style="flex:0 0 auto">支持上传 / 预览 / 移除</span>';
+
+    function field(label, value, opts) {
+      opts = opts || {};
+      var key = opts.key || '';
+      return '<div class="field' + (err[key] ? ' is-error' : '') + '"' +
+        (opts.dataAct ? ' data-act="' + opts.dataAct + '" style="cursor:pointer"' : '') + '>' +
+        '<span class="field__label">' + (opts.required ? '<i class="req">*</i>' : '') + label + '</span>' +
+        (opts.control || ('<span class="field__value' + (value ? '' : ' is-empty') + '">' + esc(value || opts.placeholder || '') + '</span>')) +
+        (opts.tap ? icon('next', 16) : '') +
+        '</div>' +
+        (err[key] ? '<div class="field__err">' + esc(err[key]) + '</div>' : '');
+    }
+
+    return '<div class="screen">' +
+      '<header class="appbar"><button type="button" class="icon-btn" data-act="nav-back">' + icon('close', 20) + '</button>' +
+        '<div class="appbar__title">' + (editing ? '编辑资产' : '添加资产') + '</div><div class="appbar__spacer"></div>' +
+        '<button type="button" class="btn btn--primary" data-act="save">保存</button></header>' +
+      '<div class="screen__scroll"><div class="pad">' +
+        '<div class="form-group">' +
+          '<div class="form-group__title">图片</div>' +
+          '<div class="field"><span class="field__label">主图</span>' +
+            '<div style="display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end">' +
+              imageControl +
+            '</div></div>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<div class="form-group__title">基本信息</div>' +
+          field('物品名', f.name, { key: 'name', required: true, tap: false, control: '<input class="field__input" data-role="name" placeholder="请输入物品名称" value="' + esc(f.name) + '" />' }) +
+          field('分类', f.cat || '选择分类', { key: 'cat', required: true, tap: true, control: '<span class="field__value' + (f.cat ? '' : ' is-empty') + '">' + esc(f.cat || '选择分类') + '</span>', dataAct: 'open-cat' }) +
+          field('子分类', f.sub || '未选择', { key: 'sub', tap: true, control: '<span class="field__value' + (f.sub ? '' : ' is-empty') + '">' + esc(f.sub || '未选择') + '</span>', dataAct: 'open-sub' }) +
+          '<div class="field"><span class="field__label"><i class="req">*</i>状态</span>' +
+            '<div class="seg-inline">' +
+              ['active', 'retired', 'sold'].map(function (s) {
+                return '<button type="button" class="' + (f.status === s ? 'is-active' : '') + '" data-act="status" data-id="' + s + '">' + statusLabel(s) + '</button>';
+              }).join('') +
+            '</div></div>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<div class="form-group__title">价格与时间</div>' +
+          field('购入价', f.price !== '' ? money(f.price) : '', { key: 'price', required: true, control: '<input class="field__input" type="number" data-role="price" placeholder="0.00" value="' + esc(f.price) + '" />' }) +
+          field('购入时间', f.purchaseDate, { key: 'purchaseDate', required: true, tap: true, placeholder: '点击选择日期', control: '<span class="field__value' + (f.purchaseDate ? '' : ' is-empty') + '">' + esc(f.purchaseDate || '点击选择日期') + '</span>', dataAct: 'purchase' }) +
+        '</div>' +
+        (isSold
+          ? '<div class="form-group sold-block">' +
+              '<div class="form-group__title" style="background:transparent;color:var(--warn)">卖出信息（必填）</div>' +
+              field('卖出价', f.soldPrice !== '' ? money(f.soldPrice) : '', { key: 'soldPrice', required: true, control: '<input class="field__input" type="number" data-role="soldPrice" placeholder="0.00" value="' + esc(f.soldPrice) + '" />' }) +
+              field('卖出时间', f.soldDate, { key: 'soldDate', required: true, tap: true, placeholder: '点击选择日期', control: '<span class="field__value' + (f.soldDate ? '' : ' is-empty') + '">' + esc(f.soldDate || '点击选择日期') + '</span>', dataAct: 'sold' }) +
+              '<div class="field" style="border-top:0;padding-top:0"><span class="field__label"></span>' +
+                '<span class="field__value" style="text-align:left;font-size:12px;color:' +
+                (f.soldPrice !== '' && f.price !== '' ? ((+f.soldPrice - +f.price) >= 0 ? 'var(--danger)' : 'var(--ok)') : 'var(--ink-3)') + '">' +
+                (f.soldPrice !== '' && f.price !== '' ? '预计盈亏 ' + signed(+f.soldPrice - +f.price) : '填写后自动计算盈亏') + '</span></div>' +
+            '</div>'
+          : '') +
+        (isRetired
+          ? '<div class="form-group retired-block">' +
+              '<div class="form-group__title" style="background:transparent;color:var(--ink-2)">退役信息（必填）</div>' +
+              field('退役时间', f.retiredDate, { key: 'retiredDate', required: true, tap: true, placeholder: '点击选择日期', control: '<span class="field__value' + (f.retiredDate ? '' : ' is-empty') + '">' + esc(f.retiredDate || '点击选择日期') + '</span>', dataAct: 'retired' }) +
+              '<div class="field" style="border-top:0;padding-top:0"><span class="field__label"></span>' +
+                '<span class="field__value" style="text-align:left;font-size:12px;color:var(--ink-3)">退役后停止记录使用，持有天数按退役时间冻结。</span></div>' +
+            '</div>'
+          : '') +
+        '<div class="form-group">' +
+          '<div class="form-group__title">计费方式与备注</div>' +
+          '<div class="field"><span class="field__label">计费方式</span>' +
+            '<div class="seg-inline">' +
+              [['count', '按次'], ['day', '按天'], ['consumable', '消耗品']].map(function (c) {
+                return '<button type="button" class="' + (f.calcType === c[0] ? 'is-active' : '') + '" data-act="calc" data-id="' + c[0] + '">' + c[1] + '</button>';
+              }).join('') +
+            '</div></div>' +
+          '<div class="field" style="border-top:0;padding-top:0"><span class="field__label"></span>' +
+            '<span class="field__value" style="text-align:left;font-size:12px;color:var(--ink-3)">只有「按次」计费才会出现记录一次与使用记录。</span></div>' +
+          field('描述', f.desc, { control: '<input class="field__input field__input--left" data-role="desc" placeholder="选填" value="' + esc(f.desc) + '" />' }) +
+        '</div>' +
+        '<p style="font-size:12px;color:var(--ink-3);line-height:1.7;margin:6px 2px 0">' +
+          '分类、子分类、日期日历、图片预览全部进同一个返回栈：返回键先关最上层，不会直接退出页面。</p>' +
+      '</div></div></div>';
+  }
+
+  /* ---------------- 统计 ---------------- */
+  function renderStats() {
+    var s = stats();
+    var cats = categoryStats();
+    var counts = { active: 0, retired: 0, sold: 0 };
+    var catColors = ['#1989fa', '#10b9a3', '#ff8f1f', '#7a5cff', '#ff5f87', '#4b9cff'];
+    ASSETS.forEach(function (a) { counts[a.status]++; });
+    var soldProfit = 0;
+    var hasSoldProfit = false;
+    ASSETS.forEach(function (a) {
+      if (a.status !== 'sold' || typeof a.soldPrice !== 'number') return;
+      soldProfit += a.soldPrice - a.price;
+      hasSoldProfit = true;
+    });
+    var donutCursor = 0;
+    var donutSegments = cats.map(function (cat, index) {
+      var start = donutCursor;
+      donutCursor += cat.percentage;
+      return catColors[index % catColors.length] + ' ' + start.toFixed(2) + '% ' + donutCursor.toFixed(2) + '%';
+    }).join(', ');
+
+    return '' +
+      '<section class="stats-hero">' +
+        '<div class="stats-hero__head">' +
+          '<span class="stats-hero__eyebrow">资产健康概览</span>' +
+          '<span class="stats-hero__badge">当前持有</span>' +
+        '</div>' +
+        '<div class="stats-hero__grid">' +
+          '<div class="stats-hero__metric">' +
+            '<div class="stats-hero__label">总资产估值</div>' +
+            '<div class="stats-hero__value">' + money(s.heldValue) + '</div>' +
+            '<div class="stats-hero__hint">不含已卖出资产</div>' +
+          '</div>' +
+          '<div class="stats-hero__metric">' +
+            '<div class="stats-hero__label">日均持有成本</div>' +
+            '<div class="stats-hero__value">' + money(s.dailyCost) + '</div>' +
+            '<div class="stats-hero__hint">仅统计当前持有</div>' +
+          '</div>' +
+        '</div>' +
+      '</section>' +
+      '<section class="stats-panel">' +
+        '<div class="stats-panel__head">' +
+          '<div><h3 class="stats-panel__title">资产构成</h3><div class="stats-panel__sub">按当前持有资产估值计算，已卖出不计入</div></div>' +
+          '<span class="stats-panel__meta">' + cats.length + ' 个分类</span>' +
+        '</div>' +
+        (cats.length
+          ? '<div class="stats-donut-wrap">' +
+              '<div class="stats-donut" style="background:conic-gradient(' + donutSegments + ')">' +
+                '<div class="stats-donut__center"><b>' + money(s.heldValue).replace('.00', '') + '</b><span>持有资产</span></div>' +
+              '</div>' +
+              '<div class="stats-cat-list">' + cats.map(function (cat, index) {
+                var color = catColors[index % catColors.length];
+                var open = store.expandedCat === cat.name;
+                return '<div class="stats-cat' + (open ? ' is-open' : '') + '">' +
+                  '<button type="button" class="stats-cat__row" data-act="stats-cat" data-id="' + esc(cat.name) + '">' +
+                    '<i class="stats-cat__color" style="background:' + color + '"></i>' +
+                    '<span class="stats-cat__name">' + esc(cat.name) + '</span>' +
+                    '<span class="stats-cat__pct">' + cat.percentage.toFixed(1) + '%</span>' +
+                    '<span class="stats-cat__val">' + money(cat.value) + '</span>' +
+                    '<span class="stats-cat__chevron">' + icon('next', 14) + '</span>' +
+                  '</button>' +
+                  (open
+                    ? '<div class="stats-subs">' + cat.subs.map(function (sub) {
+                        return '<div class="stats-sub-row">' +
+                          '<span class="stats-sub-row__name">' + esc(sub.name) + '</span>' +
+                          '<span class="stats-sub-row__track"><i class="stats-sub-row__fill" style="width:' + sub.percentage.toFixed(1) + '%;background:' + color + '"></i></span>' +
+                          '<span class="stats-sub-row__val">' + money(sub.value) + '</span>' +
+                        '</div>';
+                      }).join('') + '</div>'
+                    : '') +
+                '</div>';
+              }).join('') + '</div>' +
+            '</div>'
+          : '<div class="stats-empty">还没有可统计的持有资产</div>') +
+      '</section>' +
+      '<section class="stats-panel">' +
+        '<div class="stats-panel__head">' +
+          '<div><h3 class="stats-panel__title">资产状态</h3><div class="stats-panel__sub">包含全部状态，已卖出单独汇总收益</div></div>' +
+          '<span class="stats-panel__meta">共 ' + ASSETS.length + ' 件</span>' +
+        '</div>' +
+        '<div class="stats-status-list">' +
+          statusCard('服役中', counts.active, money(byCatSum('active')), 'dot-active', 'active', '资产原值') +
+          statusCard('已退役', counts.retired, money(byCatSum('retired')), 'dot-retired', 'retired', '资产原值') +
+          statusCard('已卖出', counts.sold, hasSoldProfit ? signed(soldProfit) : '未记录', 'dot-sold', 'sold', '卖出盈亏',
+            hasSoldProfit ? (soldProfit >= 0 ? 'num-up' : 'num-down') : '') +
+        '</div>' +
+      '</section>';
+  }
+  function categoryStats() {
+    var map = {};
+    ASSETS.forEach(function (a) {
+      if (a.status === 'sold') return;
+      var catName = a.cat || '未分类';
+      var subName = a.sub || '未分类';
+      if (!map[catName]) map[catName] = { name: catName, value: 0, subs: {} };
+      map[catName].value += a.price;
+      map[catName].subs[subName] = (map[catName].subs[subName] || 0) + a.price;
+    });
+    var total = Object.keys(map).reduce(function (n, k) { return n + map[k].value; }, 0) || 1;
+    return Object.keys(map).map(function (k) {
+      var cat = map[k];
+      var subs = Object.keys(cat.subs).map(function (name) {
+        return { name: name, value: cat.subs[name], percentage: cat.value > 0 ? (cat.subs[name] / cat.value) * 100 : 0 };
+      }).sort(function (a, b) { return b.value - a.value; });
+      return { name: cat.name, value: cat.value, percentage: (cat.value / total) * 100, subs: subs };
+    }).sort(function (a, b) { return b.value - a.value; });
+  }
+  function byCatSum(status) {
+    return ASSETS.filter(function (a) { return a.status === status; })
+      .reduce(function (n, a) { return n + a.price; }, 0);
+  }
+  function statusCard(name, count, value, dot, tone, amountLabel, valueClass) {
+    return '<div class="stats-status-card stats-status-card--' + tone + '">' +
+      '<i class="stats-status-card__mark ' + dot + '"></i>' +
+      '<div class="stats-status-card__body"><b>' + name + '</b><span>' + count + ' 件资产</span></div>' +
+      '<div class="stats-status-card__amount"><small>' + amountLabel + '</small>' +
+        '<b class="' + (valueClass || '') + '">' + value + '</b></div>' +
+      '</div>';
+  }
+
+  /* ---------------- 时间线 ---------------- */
+  function renderTimeline() {
+    if (!ASSETS.length) {
+      return '<div class="summary" style="padding:16px">' + emptyState() + '</div>';
+    }
+    var groups = {};
+    ASSETS.slice().sort(function (a, b) {
+      return a.purchaseDate < b.purchaseDate ? 1 : -1;
+    }).forEach(function (a) {
+      var y = a.purchaseDate.slice(0, 4);
+      (groups[y] = groups[y] || []).push(a);
+    });
+
+    return '<div style="font-size:12px;color:var(--ink-3);margin-bottom:6px">按购入年份分组，卖出项带橙色标记</div>' +
+      '<div class="tl">' + Object.keys(groups).map(function (y) {
+        return '<div class="tl__year">' + y + '</div>' + groups[y].map(function (a) {
+      var d = derived(a);
+      var meta = a.status === 'sold'
+        ? '购入 ' + a.purchaseDate + ' · 卖出 ' + (a.soldDate || '未记录') + ' · 持有 ' + d.days + ' 天'
+        : a.status === 'retired'
+          ? '购入 ' + a.purchaseDate + ' · 退役 ' + (a.retiredDate || '未记录') + ' · 持有 ' + d.days + ' 天'
+          : '购入 ' + a.purchaseDate + ' · 持有 ' + d.days + ' 天';
+      return '<div class="tl__item" data-status="' + a.status + '">' +
+        '<div class="tl__card" data-act="detail" data-id="' + a.id + '" style="cursor:pointer">' +
+          '<div class="tl__head"><span class="asset-card__name" style="flex:1">' + esc(a.name) + '</span>' +
+            '<span class="asset-card__num">' + money(a.price) + '</span>' + tagFor(a.status) + '</div>' +
+          '<div class="asset-card__meta" style="margin-top:6px">' +
+            '<span class="tag tag--ghost">' + esc(a.cat + (a.sub ? ' / ' + a.sub : '')) + '</span>' +
+            '<span class="tl__date">' + meta + '</span></div>' +
+          (a.status === 'sold' && d.profit !== null
+            ? '<div class="asset-card__meta" style="margin-top:6px">卖出 ' + money(a.soldPrice) +
+              '<b class="' + (d.profit >= 0 ? 'num-up' : 'num-down') + '" style="font-weight:600">盈亏 ' + signed(d.profit) + '</b></div>'
+            : '') +
+          (a.desc ? '<div class="tl__desc">' + esc(a.desc) + '</div>' : '') +
+        '</div></div>';
+    }).join('');
+      }).join('') + '</div>';
+  }
+
+  /* ---------------- 分类管理 ---------------- */
+  function catList() {
+    return Object.keys(CAT_TREE).map(function (name) {
+      return { name: name, system: !CUSTOM_CATS[name], subs: CAT_TREE[name] };
+    });
+  }
+  function renderManage() {
+    return '' +
+      '<div class="summary" style="padding:16px;margin-bottom:14px">' +
+        '<div style="font-size:14px;font-weight:600">分类</div>' +
+        '<div style="font-size:12px;color:var(--ink-3);margin-top:6px;line-height:1.6">' +
+          '系统分类不可删除；删除分类会同时删除其下所有子分类。' +
+        '</div>' +
+      '</div>' +
+      catList().map(function (c) {
+        return '<div class="summary" style="margin-bottom:10px">' +
+          '<div class="field" style="border-top:0"><span class="field__label" style="width:auto;flex:1;color:var(--ink);font-weight:500">' + esc(c.name) + '</span>' +
+            '<span class="tag ' + (c.system ? 'tag--ghost' : 'tag--active') + '">' + (c.system ? '系统' : '自定义') + '</span></div>' +
+          '<div class="field" style="padding-top:0;flex-wrap:wrap;gap:8px">' +
+            c.subs.map(function (s) {
+              return c.system
+                ? '<span class="tag tag--ghost">' + esc(s) + '</span>'
+                : '<button type="button" class="tag tag--ghost" data-act="ask-del-sub" data-cat="' + esc(c.name) + '" data-sub="' + esc(s) + '">' + esc(s) + ' ×</button>';
+            }).join('') +
+            '<button type="button" class="chip" data-act="add-sub" data-cat="' + esc(c.name) + '">' + icon('plus', 14) + '添加</button>' +
+          '</div>' +
+          (c.system ? '' : '<div class="field" style="border-top:1px solid var(--line)"><button type="button" class="btn btn--danger" data-act="ask-del-cat" data-cat="' + esc(c.name) + '">删除该分类</button></div>') +
+          '</div>';
+      }).join('') +
+      '<button type="button" class="btn btn--plain" style="width:100%;justify-content:center;margin-top:6px" data-act="add-cat">' + icon('plus', 16) + '添加主分类</button>';
+  }
+
+  /* ---------------- 其它页面：本轮只收集问题 ---------------- */
+  function renderOtherIssues() {
+    var items = [
+      ['相册列表', '图片预览必须和资产图片一样进入返回栈；本轮不重做网格、筛选和相册交互。'],
+      ['设置', '只记录二级页与弹窗的返回语义问题；分组卡片、图标和文案建议留到下一轮。'],
+      ['首页 / 发现', '检查从发现进入资产后，返回是否回到来源页；不在本轮增加首页新功能。'],
+      ['体重 / 事件 / 收藏 / 云盘', '先按同一返回栈与反馈规范做问题清单，不产出完整页面设计稿。']
+    ];
+    return '<div class="screen">' +
+      '<header class="appbar"><button type="button" class="icon-btn" data-act="nav-back">' + icon('back') + '</button>' +
+        '<div class="appbar__title">其它页面 · 问题清单</div></header>' +
+      '<div class="screen__scroll"><div class="pad">' +
+        '<div class="summary" style="padding:16px;margin-bottom:14px">' +
+          '<div style="font-size:14px;font-weight:600">本轮不出完整设计稿</div>' +
+          '<div style="font-size:12px;color:var(--ink-3);margin-top:6px;line-height:1.7">' +
+            '先锁定资产模块；其它页面只保留交互问题和一致性建议，避免把重构范围铺得过大。</div>' +
+        '</div>' +
+        items.map(function (item) {
+          return '<div class="issue-card"><h4>' + item[0] + '</h4><p>' + item[1] + '</p></div>';
+        }).join('') +
+      '</div></div></div>';
+  }
+
+  /* ---------------- 浮层 ---------------- */
+  function renderOverlay() {
+    var html = '';
+    if (store.previewOpen) html += renderPreview();
+    if (store.sheet) html += renderSheet();
+    return html;
+  }
+  function renderPreview() {
+    return '<div class="preview">' +
+      '<div class="preview__bar"><button type="button" class="icon-btn" style="color:#fff" data-act="close-preview">' + icon('close', 20) + '</button>' +
+        '<div style="font-size:14px">图片预览</div><div style="flex:1"></div>' +
+        '<span class="preview__count" style="color:#93a1b1">' + (store.previewIndex + 1) + ' / 3</span></div>' +
+      '<div class="preview__canvas"><div class="preview__ph">图片占位 · 支持左右滑动</div></div>' +
+      '<div class="preview__foot"><span>返回键 / 下滑 / 点右上角关闭</span><span>原图 4032 × 3024</span></div>' +
+      '</div>';
+  }
+  function currentSheetAsset() {
+    return ASSETS.filter(function (x) { return x.id === store.sheetAsset; })[0] || null;
+  }
+  function dateOptions(bounded) {
+    var base = ['2020-01-01', '2022-01-05', '2023-03-11', '2024-09-22', '2026-02-14', dateText(TODAY)];
+    var min = bounded && store.form ? store.form.purchaseDate : '';
+    return base.filter(function (d, i) {
+      if (base.indexOf(d) !== i) return false;
+      if (d > dateText(TODAY)) return false;
+      if (bounded && min && d < min) return false;
+      return true;
+    });
+  }
+  function renderSheet() {
+    var a = currentSheetAsset();
+
+    /* 资产操作菜单（编辑 / 删除 / 记录一次 / 查看详情） */
+    if (store.sheet === 'asset') {
+      if (!a) return '';
+      var actions = [
+        { icon: 'image', label: '查看详情', act: 'detail' },
+        { icon: 'edit', label: '编辑资产', act: 'edit' }
+      ];
+      if (a.calcType === 'count' && a.status === 'active') {
+        actions.push({ icon: 'swap', label: '记录一次使用', act: 'use' });
+      }
+      return '<div class="backdrop" data-act="close-sheet">' +
+        '<div class="sheet-panel" data-stop="1">' +
+          '<div class="sheet-panel__head"><span>' + esc(a.name) + '</span>' + tagFor(a.status) + '</div>' +
+          '<div class="sheet-actions">' +
+            actions.map(function (x) {
+              return '<button type="button" data-act="' + x.act + '" data-asset="' + a.id + '">' + icon(x.icon, 18) + x.label + '</button>';
+            }).join('') +
+            '<button type="button" data-act="preview" data-asset="' + a.id + '">' + icon('image', 18) + '预览图片</button>' +
+            '<button type="button" class="is-danger" data-act="ask-delete" data-asset="' + a.id + '">' + icon('trash', 18) + '删除资产</button>' +
+          '</div>' +
+        '</div></div>';
+    }
+
+    /* 记录一次使用（保留现有的备注录入） */
+    if (store.sheet === 'use' && a && a.calcType === 'count' && a.status === 'active') {
+      return '<div class="backdrop" data-act="close-sheet">' +
+        '<div class="sheet-panel" data-stop="1">' +
+          '<div class="sheet-panel__head"><span>记录一次使用</span></div>' +
+          '<div style="padding:16px 18px">' +
+            '<div style="font-size:13px;color:var(--ink-2);margin-bottom:10px">' + esc(a.name) +
+              ' · 已用 <b>' + a.usageCount + '</b> 次</div>' +
+            '<textarea class="note-input" data-role="usageNote" rows="3" placeholder="备注（选填），例如：出差带着">' + esc(store.usageNote) + '</textarea>' +
+            '<div style="display:flex;gap:10px;margin-top:14px">' +
+              '<button type="button" class="btn btn--plain" style="flex:1;justify-content:center" data-act="close-sheet">取消</button>' +
+              '<button type="button" class="btn btn--primary" style="flex:1;justify-content:center" data-act="save-use">确认记录</button>' +
+            '</div>' +
+            '<div style="font-size:12px;color:var(--ink-3);margin-top:12px;line-height:1.7">' +
+              '确认后写入使用记录并让使用次数 +1，可在资产详情的「使用记录」里回看。</div>' +
+          '</div>' +
+        '</div></div>';
+    }
+
+    /* 删除确认（保留现有的二次确认） */
+    if (store.sheet === 'delete' && a) {
+      return '<div class="backdrop backdrop--center" data-act="close-sheet">' +
+        '<div class="sheet-panel" data-stop="1" style="border-radius:16px;max-width:320px;padding:0">' +
+          '<div class="sheet-panel__head"><span>删除资产</span></div>' +
+          '<p style="margin:16px 18px;color:var(--ink-2);font-size:14px;line-height:1.6">删除「' + esc(a.name) + '」后无法恢复，历史使用记录会保留。确认删除吗？</p>' +
+          '<div class="sheet-panel__foot" style="display:flex;gap:10px;padding-bottom:18px">' +
+            '<button type="button" class="btn btn--plain" style="flex:1;justify-content:center" data-act="close-sheet">取消</button>' +
+            '<button type="button" class="btn btn--danger" style="flex:1;justify-content:center" data-act="confirm-delete" data-asset="' + a.id + '">确认删除</button>' +
+          '</div></div></div>';
+    }
+
+    /* 表单里的分类选择：主分类 -> 子分类分开，和现有表单一致 */
+    if (store.sheet === 'cat-select') {
+      return '<div class="backdrop" data-act="close-sheet">' +
+        '<div class="sheet-panel" data-stop="1">' +
+          '<div class="sheet-panel__head"><span>选择分类</span></div>' +
+          '<div class="sheet-actions">' +
+            catList().map(function (c) {
+              var active = store.form && store.form.cat === c.name;
+              return '<button type="button" data-act="pick-cat" data-id="' + esc(c.name) + '">' +
+                '<span style="flex:1">' + esc(c.name) + '</span>' +
+                '<span style="font-size:12px;color:var(--ink-3)">' + c.subs.length + ' 个子分类</span>' +
+                (active ? icon('check', 18) : icon('next', 16)) + '</button>';
+            }).join('') +
+          '</div>' +
+        '</div></div>';
+    }
+    if (store.sheet === 'sub-select' && store.form) {
+      var subs = CAT_TREE[store.form.cat] || [];
+      return '<div class="backdrop" data-act="close-sheet">' +
+        '<div class="sheet-panel" data-stop="1">' +
+          '<div class="sheet-panel__head"><span>选择子分类 · ' + esc(store.form.cat) + '</span></div>' +
+          '<div class="sheet-actions">' +
+            '<button type="button" data-act="pick-sub" data-id=""><span style="flex:1">不选择子分类</span>' +
+              (!store.form.sub ? icon('check', 18) : '') + '</button>' +
+            subs.map(function (s) {
+              var active = store.form.sub === s;
+              return '<button type="button" data-act="pick-sub" data-id="' + esc(s) + '"><span style="flex:1">' + esc(s) + '</span>' +
+                (active ? icon('check', 18) : '') + '</button>';
+            }).join('') +
+          '</div>' +
+        '</div></div>';
+    }
+
+    /* 表单里的日期选择 */
+    if (store.sheet === 'date' || store.sheet === 'date-sold' || store.sheet === 'date-retired') {
+      var sold = store.sheet === 'date-sold';
+      var retired = store.sheet === 'date-retired';
+      var bounded = sold || retired;
+      var datePrefix = sold ? 'sold:' : retired ? 'retired:' : 'buy:';
+      var options = dateOptions(bounded);
+      return '<div class="backdrop" data-act="close-sheet">' +
+        '<div class="sheet-panel" data-stop="1">' +
+          '<div class="sheet-panel__head"><span>' + (sold ? '选择卖出时间' : retired ? '选择退役时间' : '选择购入时间') + '</span>' +
+            '<button type="button" class="icon-btn" data-act="close-sheet">' + icon('close', 18) + '</button></div>' +
+          '<div style="padding:16px 18px">' +
+            '<div style="font-size:12px;color:var(--ink-3);margin-bottom:10px">' +
+              (bounded ? '可选范围：' + esc((store.form && store.form.purchaseDate) || '购入日期') + ' ~ ' + dateText(TODAY) : '可选范围：2020-01-01 ~ ' + dateText(TODAY)) + '</div>' +
+            '<div class="chips" style="flex-wrap:wrap;overflow:visible">' +
+              options.map(function (d) {
+                return '<button type="button" class="chip chip--sm" data-act="pick-date" data-id="' + datePrefix + d + '">' + d + '</button>';
+              }).join('') +
+            '</div>' +
+            '<div style="font-size:12px;color:var(--ink-3);margin-top:12px;line-height:1.7">' +
+              '真实实现为 <code>van-calendar</code>，同样需要 <code>preventBack</code>。</div>' +
+          '</div>' +
+        '</div></div>';
+    }
+
+    /* 分类管理里的新增 / 删除 */
+    if (store.sheet === 'add-cat' || store.sheet === 'add-sub') {
+      var isSub = store.sheet === 'add-sub';
+      return '<div class="backdrop backdrop--center" data-act="close-sheet">' +
+        '<div class="sheet-panel" data-stop="1" style="border-radius:16px;max-width:340px;padding:0">' +
+          '<div class="sheet-panel__head"><span>' + (isSub ? '添加子分类' : '添加主分类') + '</span></div>' +
+          '<div style="padding:16px 18px">' +
+            (isSub ? '<div style="font-size:12px;color:var(--ink-3);margin-bottom:8px">所属分类：' + esc(store.sheetCat) + '</div>' : '') +
+            '<input class="note-input" data-role="' + (isSub ? 'subName' : 'catName') + '" placeholder="' + (isSub ? '子分类名称' : '分类名称') + '" value="' + esc(store.sheetInput) + '" />' +
+            '<div style="display:flex;gap:10px;margin-top:8px">' +
+              '<button type="button" class="btn btn--plain" style="flex:1;justify-content:center" data-act="close-sheet">取消</button>' +
+              '<button type="button" class="btn btn--primary" style="flex:1;justify-content:center" data-act="' + (isSub ? 'save-sub' : 'save-cat') + '">确认</button>' +
+            '</div></div></div></div>';
+    }
+    if (store.sheet === 'del-cat' || store.sheet === 'del-sub') {
+      var isSubDel = store.sheet === 'del-sub';
+      return '<div class="backdrop" data-act="close-sheet">' +
+        '<div class="sheet-panel" data-stop="1" style="border-radius:16px;max-width:340px;padding:0">' +
+          '<div class="sheet-panel__head"><span>' + (isSubDel ? '删除子分类' : '删除分类') + '</span></div>' +
+          '<p style="margin:16px 18px;color:var(--ink-2);font-size:14px;line-height:1.6">' +
+            (isSubDel ? '确认删除「' + esc(store.sheetSub) + '」吗？' : '删除分类将同时删除其下所有子分类。确认删除「' + esc(store.sheetCat) + '」吗？') +
+          '</p>' +
+          '<div class="sheet-panel__foot" style="display:flex;gap:10px;padding-bottom:18px">' +
+            '<button type="button" class="btn btn--plain" style="flex:1;justify-content:center" data-act="close-sheet">取消</button>' +
+            '<button type="button" class="btn btn--danger" style="flex:1;justify-content:center" data-act="' + (isSubDel ? 'confirm-del-sub' : 'confirm-del-cat') + '">确认删除</button>' +
+          '</div></div></div>';
+    }
+
+    /* 表单未保存时返回，先确认放弃 */
+    if (store.sheet === 'discard-form') {
+      return '<div class="backdrop backdrop--center" data-act="close-sheet">' +
+        '<div class="sheet-panel" data-stop="1" style="border-radius:16px;max-width:340px;padding:0">' +
+          '<div class="sheet-panel__head"><span>放弃编辑？</span></div>' +
+          '<p style="margin:16px 18px;color:var(--ink-2);font-size:14px;line-height:1.6">当前修改还没有保存，返回后会丢失。</p>' +
+          '<div class="sheet-panel__foot" style="display:flex;gap:10px;padding-bottom:18px">' +
+            '<button type="button" class="btn btn--plain" style="flex:1;justify-content:center" data-act="close-sheet">继续编辑</button>' +
+            '<button type="button" class="btn btn--danger" style="flex:1;justify-content:center" data-act="confirm-discard">放弃</button>' +
+          '</div></div></div>';
+    }
+
+    return '<div class="backdrop" data-act="close-sheet">' +
+      '<div class="sheet-panel" data-stop="1">' +
+        '<div class="sheet-panel__head"><span>' + esc(store.sheet || '操作') + '</span></div>' +
+        '<div class="sheet-actions">' +
+          '<button type="button" data-act="close-sheet">' + icon('check', 18) + '确认</button>' +
+          '<button type="button" data-act="close-sheet">' + icon('close', 18) + '取消</button>' +
+        '</div>' +
+        '<p style="padding:0 20px;font-size:12px;color:var(--ink-3);line-height:1.7">' +
+          '这是原型占位，用于演示「底部抽屉同样进返回栈」。</p>' +
+      '</div></div>';
+  }
+
+  /* ---------------- 事件 ---------------- */
+  function findAsset(id) {
+    return ASSETS.filter(function (x) { return x.id === id; })[0] || null;
+  }
+  function markFormDirty() {
+    if (store.screen === 'form') store.formDirty = true;
+  }
+  function openForm(id) {
+    var a = id ? findAsset(id) : null;
+    store.formReturn = store.screen === 'detail' ? 'detail' : 'list';
+    store.form = emptyForm(a || null);
+    store.formErrors = {};
+    store.formDirty = false;
+    store.sheet = null;
+    store.screen = 'form';
+    render();
+  }
+  function saveForm() {
+    var f = store.form || emptyForm(null);
+    var err = {};
+    if (!f.name) err.name = '请填写物品名称';
+    if (!f.cat) err.cat = '请选择分类';
+    if (f.price === '' || isNaN(+f.price) || +f.price <= 0) err.price = '请填写正确的购入价';
+    if (!f.purchaseDate) err.purchaseDate = '请选择购入时间';
+    if (f.status === 'sold') {
+      if (f.soldPrice === '' || isNaN(+f.soldPrice) || +f.soldPrice < 0) err.soldPrice = '请填写卖出价（可为 0）';
+      if (!f.soldDate) err.soldDate = '请选择卖出时间';
+      else if (f.purchaseDate && f.soldDate < f.purchaseDate) err.soldDate = '卖出时间不能早于购入时间';
+      else if (f.soldDate > dateText(TODAY)) err.soldDate = '卖出时间不能晚于今天';
+    }
+    if (f.status === 'retired') {
+      if (!f.retiredDate) err.retiredDate = '请选择退役时间';
+      else if (f.purchaseDate && f.retiredDate < f.purchaseDate) err.retiredDate = '退役时间不能早于购入时间';
+      else if (f.retiredDate > dateText(TODAY)) err.retiredDate = '退役时间不能晚于今天';
+    }
+    store.formErrors = err;
+    if (Object.keys(err).length) {
+      render();
+      toast('还有 ' + Object.keys(err).length + ' 项没填好', 'danger');
+      return;
+    }
+    var asset = {
+      id: f.id || ('n' + Date.now()),
+      name: f.name,
+      cat: f.cat,
+      sub: f.sub || '',
+      status: f.status,
+      price: +f.price,
+      purchaseDate: f.purchaseDate,
+      soldPrice: f.status === 'sold' ? +f.soldPrice : null,
+      soldDate: f.status === 'sold' ? f.soldDate : null,
+      retiredDate: f.status === 'retired' ? f.retiredDate : null,
+      calcType: f.calcType,
+      usageCount: f.usageCount || 0,
+      desc: f.desc || '',
+      image: f.image || ''
+    };
+    if (f.id) {
+      var index = ASSETS.findIndex(function (x) { return x.id === f.id; });
+      if (index >= 0) ASSETS[index] = asset;
+    } else {
+      ASSETS.unshift(asset);
+    }
+    store.detailId = asset.id;
+    store.form = null;
+    store.formErrors = {};
+    store.formDirty = false;
+    store.sheet = null;
+    store.screen = store.formReturn || 'list';
+    render();
+    toast('保存成功', 'ok');
+  }
+  function deleteAsset(id) {
+    ASSETS = ASSETS.filter(function (x) { return x.id !== id; });
+    if (store.detailId === id) {
+      store.detailId = ASSETS[0] ? ASSETS[0].id : '';
+    }
+  }
+  function onClick(e) {
+    var el = e.target.closest('[data-act]');
+    if (!el) return;
+    if (e.target.closest('[data-stop]') && el === e.target.closest('.backdrop')) return;
+    var act = el.getAttribute('data-act');
+    var id = el.getAttribute('data-id');
+    var assetId = el.getAttribute('data-asset') || id;
+    var cat = el.getAttribute('data-cat');
+    var sub = el.getAttribute('data-sub');
+
+    if (act === 'tab') { store.screen = id; store.sheet = null; store.previewOpen = false; render(); return; }
+    if (act === 'nav-back') { goBack(); return; }
+    if (act === 'new') { openForm(null); return; }
+    if (act === 'edit') { openForm(assetId); return; }
+    if (act === 'detail') { store.detailId = assetId; store.screen = 'detail'; store.sheet = null; render(); return; }
+    if (act === 'clear-search') { store.query = ''; render(); focusSearchInput(); return; }
+    if (act === 'filter') { store.filter = id; render(); return; }
+    if (act === 'cat') { store.cat = id; store.sub = 'all'; render(); return; }
+    if (act === 'sub') { store.sub = id; render(); return; }
+    if (act === 'stats-cat') { store.expandedCat = store.expandedCat === id ? null : id; render(); return; }
+    if (act === 'use') {
+      var useAsset = findAsset(assetId);
+      if (!useAsset || useAsset.calcType !== 'count' || useAsset.status !== 'active') {
+        toast('只有服役中的按次资产才能记录使用', 'danger');
+        return;
+      }
+      store.sheet = 'use';
+      store.sheetAsset = useAsset.id;
+      store.usageNote = '';
+      render();
+      return;
+    }
+    if (act === 'sheet') { store.sheet = id === 'asset' ? 'asset' : id; store.sheetAsset = assetId; render(); return; }
+    if (act === 'close-sheet') { store.sheet = null; render(); return; }
+    if (act === 'ask-delete') { store.sheet = 'delete'; store.sheetAsset = assetId; render(); return; }
+    if (act === 'confirm-delete') {
+      deleteAsset(assetId);
+      store.sheet = null;
+      if (store.screen === 'detail') store.screen = 'list';
+      render();
+      toast('已删除（原型演示）', 'ok');
+      return;
+    }
+    if (act === 'preview') { store.sheetAsset = assetId || store.sheetAsset; store.previewOpen = true; store.previewIndex = 0; render(); return; }
+    if (act === 'close-preview') { store.previewOpen = false; render(); return; }
+    if (act === 'save') { saveForm(); return; }
+    if (act === 'status') {
+      if (!store.form) return;
+      store.form.status = id;
+      if (id !== 'sold') { store.form.soldPrice = ''; store.form.soldDate = ''; }
+      if (id !== 'retired') store.form.retiredDate = '';
+      markFormDirty();
+      render();
+      return;
+    }
+    if (act === 'calc') { if (!store.form) return; store.form.calcType = id; markFormDirty(); render(); return; }
+    if (act === 'purchase') { if (!store.form) return; store.sheet = 'date'; render(); return; }
+    if (act === 'sold') { if (!store.form) return; store.sheet = 'date-sold'; render(); return; }
+    if (act === 'retired') { if (!store.form) return; store.sheet = 'date-retired'; render(); return; }
+    if (act === 'pick-date') {
+      if (!store.form) return;
+      var parts = String(id).split(':');
+      var dateValue = parts[1] || '';
+      if (parts[0] === 'sold') {
+        if (store.form.purchaseDate && dateValue < store.form.purchaseDate) {
+          toast('卖出时间不能早于购入时间', 'danger');
+          return;
+        }
+        store.form.soldDate = dateValue;
+      } else if (parts[0] === 'retired') {
+        if (store.form.purchaseDate && dateValue < store.form.purchaseDate) {
+          toast('退役时间不能早于购入时间', 'danger');
+          return;
+        }
+        store.form.retiredDate = dateValue;
+      } else {
+        store.form.purchaseDate = dateValue;
+      }
+      markFormDirty();
+      store.sheet = null;
+      render();
+      return;
+    }
+    if (act === 'open-cat') { if (!store.form) return; store.sheet = 'cat-select'; render(); return; }
+    if (act === 'open-sub') { if (!store.form) return; store.sheet = 'sub-select'; render(); return; }
+    if (act === 'pick-cat') {
+      if (!store.form) return;
+      store.form.cat = id;
+      store.form.sub = '';
+      markFormDirty();
+      store.sheet = 'sub-select';
+      render();
+      return;
+    }
+    if (act === 'pick-sub') {
+      if (!store.form) return;
+      store.form.sub = id || '';
+      markFormDirty();
+      store.sheet = null;
+      render();
+      return;
+    }
+    if (act === 'pick-image') { if (!store.form) return; store.form.image = 'demo-image'; markFormDirty(); render(); return; }
+    if (act === 'clear-image') { if (!store.form) return; store.form.image = ''; markFormDirty(); render(); return; }
+    if (act === 'add-cat') { store.sheet = 'add-cat'; store.sheetInput = ''; render(); return; }
+    if (act === 'add-sub') { store.sheet = 'add-sub'; store.sheetCat = cat || ''; store.sheetInput = ''; render(); return; }
+    if (act === 'ask-del-cat') { store.sheet = 'del-cat'; store.sheetCat = cat || ''; render(); return; }
+    if (act === 'ask-del-sub') { store.sheet = 'del-sub'; store.sheetCat = cat || ''; store.sheetSub = sub || ''; render(); return; }
+    if (act === 'save-cat') {
+      var catName = String(store.sheetInput || '').trim();
+      if (!catName || CAT_TREE[catName]) { toast('请输入不重复的分类名称', 'danger'); return; }
+      CAT_TREE[catName] = [];
+      CUSTOM_CATS[catName] = true;
+      store.sheet = null;
+      store.sheetInput = '';
+      render();
+      toast('分类已添加', 'ok');
+      return;
+    }
+    if (act === 'save-sub') {
+      var subName = String(store.sheetInput || '').trim();
+      var subList = CAT_TREE[store.sheetCat] || [];
+      if (!subName || subList.indexOf(subName) >= 0) { toast('请输入不重复的子分类名称', 'danger'); return; }
+      if (!CAT_TREE[store.sheetCat]) CAT_TREE[store.sheetCat] = [];
+      CAT_TREE[store.sheetCat].push(subName);
+      store.sheet = null;
+      store.sheetInput = '';
+      render();
+      toast('子分类已添加', 'ok');
+      return;
+    }
+    if (act === 'confirm-del-cat') {
+      if (CUSTOM_CATS[store.sheetCat]) {
+        delete CAT_TREE[store.sheetCat];
+        delete CUSTOM_CATS[store.sheetCat];
+        if (store.cat === store.sheetCat) store.cat = 'all';
+      }
+      store.sheet = null;
+      render();
+      toast('分类已删除', 'ok');
+      return;
+    }
+    if (act === 'confirm-del-sub') {
+      var currentSubs = CAT_TREE[store.sheetCat] || [];
+      CAT_TREE[store.sheetCat] = currentSubs.filter(function (x) { return x !== store.sheetSub; });
+      ASSETS.forEach(function (asset) {
+        if (asset.cat === store.sheetCat && asset.sub === store.sheetSub) asset.sub = '';
+      });
+      store.sheet = null;
+      render();
+      toast('子分类已删除', 'ok');
+      return;
+    }
+    if (act === 'save-use') {
+      var target = findAsset(store.sheetAsset);
+      if (target && target.calcType === 'count' && target.status === 'active') {
+        target.usageCount += 1;
+        if (!USAGE_RECORDS[target.id]) USAGE_RECORDS[target.id] = [];
+        USAGE_RECORDS[target.id].unshift({
+          at: dateText(TODAY) + ' ' + String(new Date().getHours()).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0'),
+          note: String(store.usageNote || '').trim()
+        });
+      }
+      store.sheet = null;
+      store.usageNote = '';
+      render();
+      toast('已记录一次使用', 'ok');
+      return;
+    }
+    if (act === 'confirm-discard') {
+      store.formDirty = false;
+      store.form = null;
+      store.sheet = null;
+      store.screen = store.formReturn || 'list';
+      render();
+      toast('已放弃编辑', '');
+      return;
+    }
+  }
+  function onInput(e) {
+    var role = e.target.getAttribute('data-role');
+    if (!role) return;
+    if (role === 'assetSearch') { store.query = e.target.value; render(); focusSearchInput(); return; }
+    if (role === 'usageNote') { store.usageNote = e.target.value; return; }
+    if (role === 'catName' || role === 'subName') { store.sheetInput = e.target.value; return; }
+    if (!store.form) return;
+    if (role === 'name') { store.form.name = e.target.value; markFormDirty(); }
+    if (role === 'price') { store.form.price = e.target.value; markFormDirty(); }
+    if (role === 'soldPrice') { store.form.soldPrice = e.target.value; markFormDirty(); }
+    if (role === 'desc') { store.form.desc = e.target.value; markFormDirty(); }
+    if (role === 'price' || role === 'soldPrice') {
+      // 只刷新盈亏提示，不重建整个表单，避免输入被打断
+      var tip = document.querySelector('.sold-block .field__value[style*="font-size:12px"]');
+      if (tip && store.form.price !== '' && store.form.soldPrice !== '') {
+        var diff = +store.form.soldPrice - +store.form.price;
+        tip.textContent = '预计盈亏 ' + signed(diff);
+        tip.style.color = diff >= 0 ? 'var(--danger)' : 'var(--ok)';
+      }
+    }
+  }
+
+  /* ---------------- 说明面板 ---------------- */
+  function buildSpec() {
+    var swatches = [
+      ['#1989fa', '主色 · 仅用于操作/选中'],
+      ['#f6f7f9', '页面底'],
+      ['#ffffff', '卡片面'],
+      ['#eceef1', '分隔线'],
+      ['#23262b', '正文'],
+      ['#8f949c', '辅助'],
+      ['#07c160', '服役中 / 亏损'],
+      ['#ff8f1f', '已卖出'],
+      ['#ee0a24', '盈利 / 危险']
+    ];
+    return '' +
+      '<h2>资产管理 · 设计稿收口 v4（仅设计稿）</h2>' +
+      '<p>目标：本轮只修正设计稿。严格保留现有功能，补充列表实时搜索；排序、分类编辑/拖动仍不在范围内，并统一详情、使用记录条件和浮层返回行为。</p>' +
+
+      '<h3>功能对齐基线</h3>' +
+      '<ul><li><b>列表</b>：实时搜索、状态筛选、分类 Tab、子分类筛选；搜索不设确认按钮，有内容时才显示清空按钮。</li>' +
+      '<li><b>概览</b>：总资产估值、日均成本、状态数量与进度条。</li>' +
+      '<li><b>条目</b>：图片预览、成本/持有天数/使用次数、卖出价与盈亏、快捷记录一次、编辑、删除；实际实现保留左滑操作。</li>' +
+      '<li><b>详情</b>：完整字段、按次资产历史记录；按次且未卖出才可记录一次，已卖出只读。</li>' +
+      '<li><b>表单</b>：图片、名称、分类、子分类、状态、金额、购入日期、卖出价格/日期、计费方式、描述与校验全部保留。</li>' +
+      '<li><b>统计 / 时间线 / 分类管理</b>：现有口径与操作保留，卖出资产继续显示标签与盈亏。</li></ul>' +
+
+      '<h3>设计令牌</h3>' +
+      '<div class="swatches">' + swatches.map(function (s) {
+        return '<div class="swatch"><i style="background:' + s[0] + '"></i>' + s[0] + ' ' + s[1] + '</div>';
+      }).join('') + '</div>' +
+      '<p>卡片圆角 12px、按钮 8px、弹层 16px，间距 8px 体系，动效统一 <code>cubic-bezier(.16,1,.3,1)</code>。' +
+      '品牌蓝只出现在「主按钮 / 选中态 / 链接」，状态与盈亏用语义色承载，页面不再整屏蓝。</p>' +
+
+      '<h3>现状问题（含根因）</h3>' +
+      '<div class="issue"><b>1. 图片预览不进返回栈，返回直接退页</b>' +
+      '<code>AssetItem.vue</code> 与 <code>AssetForm.vue</code> 用的是 Vant 命令式 <code>showImagePreview()</code>，不经过 <code>preventBack</code>，' +
+      '安卓返回键会穿透到路由 <code>back()</code>。项目里 <code>PreviewImage.vue</code> 走的是 <code>preventBack(show)</code>，资产模块没有复用它。</div>' +
+      '<div class="issue"><b>2. 表单里的选择器 / 日历没进返回栈</b>' +
+      '分类、子分类、状态选择器与购入日历只有 <code>v-model:show</code>，没有 <code>preventBack</code>，按返回会直接关掉整个表单并丢掉已填内容。</div>' +
+      '<div class="issue"><b>3. 还有一批裸浮层</b>' +
+      '<code>AssetList</code> 的「增加使用次数」对话框、<code>AssetManage</code> 的两个新增分类对话框、<code>handleDelete</code> 的确认框都没有进返回栈。</div>' +
+      '<div class="issue"><b>4. 时间线看不到日期</b>' +
+      '<code>AssetTimeline.vue</code> 里 <code>.time-column</code> 被 <code>display:none</code> 掉，日期节点实际不可见，只剩年份分组。</div>' +
+      '<div class="issue"><b>5. 左侧返回语义不统一</b>' +
+      '列表页是 <code>router.back()</code>，统计 / 时间线 / 管理页是 <code>router.push(\'/discovery\')</code>，同一个模块里返回手势不一致。</div>' +
+      '<div class="issue"><b>6. keep-alive 导致统计页数据不刷新</b>' +
+      '<code>AssetLayout</code> 用了 <code>keep-alive</code>，统计页只在 <code>onMounted</code> 拉一次；新增资产后切回统计，数字可能是旧的。</div>' +
+      '<div class="issue"><b>7. 时间线 / 统计依赖别的页先把 store 装满</b>' +
+      '<code>AssetTimeline</code> 没有 <code>loadData()</code>，直接进入会出现「暂无资产记录」。</div>' +
+      '<div class="issue"><b>8. 缺少详情页，使用记录口径不清晰</b>' +
+      '列表只能左滑编辑 / 删除，没有地方看一件资产的完整信息；设计稿还错误地给按天 / 消耗品展示了使用记录。</div>' +
+
+      '<h3>信息架构调整</h3>' +
+      '<ul><li>底部四个页签保留：<b>全部 / 时间线 / 统计 / 管理</b>，但把「分类管理」从独立页降级为管理页内的一块 + 右上角入口。</li>' +
+      '<li>新增<b>资产详情页</b>：大图 + 关键指标 + 全量字段 + 按次资产的编辑 / 记录一次 / 只读历史。</li>' +
+      '<li>列表保留现有<b>状态筛选</b>与<b>分类 / 子分类筛选</b>，默认仍按现有实现展示「服役中」。</li>' +
+      '<li>使用记录只属于<b>服役中的按次资产</b>；按天、消耗品、已退役、已卖出都不提供记录入口。</li>' +
+      '<li>已退役资产补充<b>退役时间</b>，用于表示不再使用，并冻结持有天数与日均成本。</li>' +
+      '<li>删除分类仍按现有实现：同时删除其下子分类，不新增资产迁移逻辑。</li></ul>' +
+
+      '<h3>页面结构</h3>' +
+      '<ul><li><b>手机</b>：AppBar（返回 / 标题 / 分类入口 / 添加）→ 摘要卡（总资产估值 / 日均成本）→ 状态 chips → 实时搜索 → 分类 Tab / 子分类 chips → 资产卡列表 → 底部页签。</li>' +
+      '<li><b>桌面（≥480）</b>：左侧 196px 常驻导航（四个页签纵向），右侧内容区最大 860px 居中，抽屉改为居中面板。</li>' +
+      '<li><b>资产卡</b>：缩略图 + 名称 + 状态标签 + 分类与购入日期 + 右侧关键数字（按次显示单次成本、按天显示日均成本、已卖出显示盈亏）。</li>' +
+      '<li><b>表单</b>：主图置顶，后接「基本信息 / 价格与时间 / 计费与备注」；选到「已退役」就展开「退役信息（必填）」，选到「已卖出」就展开橙色「卖出信息（必填）」并实时显示预计盈亏。</li>' +
+      '<li><b>时间线</b>：年份分组 + 时间轴节点，节点颜色跟随状态，卡片内直接显示购入 / 卖出日期与持有天数，已卖出带橙色标签和盈亏。</li></ul>' +
+
+      '<h3>返回栈规范（本次重点）</h3>' +
+      '<p>所有浮层都注册到 <code>@/lib/router</code> 的 <code>preventBack</code>，返回键<b>从最上层开始关</b>，顺序固定：</p>' +
+      '<ul><li>Toast（不拦截）→ <b>图片预览</b> → <b>选择器 / 日历 / 日期</b> → <b>底部抽屉 / 对话框</b> → <b>表单</b> → <b>详情</b> → <b>列表</b> → 离开模块。</li>' +
+      '<li>图片预览优先复用项目已有的 <code>PreviewImage</code> 组件（自带 <code>preventBack</code> 与滑动切换）；资产这种轻量单图场景若继续用 Vant 预览，需用受控 <code>show</code> 包一层 <code>preventBack</code>。</li>' +
+      '<li>当表单内浮层打开时，返回键只关浮层，绝不能丢弃未保存的表单内容；若表单已有改动再退一层，先弹「放弃编辑？」确认。</li>' +
+      '<li>原型右下角「模拟 Android 返回键」可直接验证优先级与栈内容。</li></ul>' +
+
+      '<h3>状态覆盖</h3>' +
+      '<ul><li>加载：卡片骨架屏（不用 spinner）。空态：无资产 → 引导添加；筛选无结果 → 引导切换筛选。</li>' +
+      '<li>失败：列表失败给整块重试；保存失败保留表单并提示具体字段，不整页弹 toast 兜底。</li>' +
+      '<li>历史退役数据缺退役时间：显示「未记录」，不冻结持有天数，编辑时才要求补齐。</li>' +
+      '<li>历史卖出数据缺卖出价：显示「未记录卖出价」，卖出状态卡显示「未记录」，编辑时才要求补齐。</li>' +
+      '<li>动效统一 <code>cubic-bezier(.16,1,.3,1)</code>，<code>prefers-reduced-motion</code> 下降级为淡入。</li></ul>' +
+
+      '<h3>其它页面（本轮只收集问题）</h3>' +
+      '<ul><li><b>相册列表</b>：图片预览必须和资产图片一样进入返回栈；本轮不重做网格和筛选。</li>' +
+      '<li><b>设置</b>：只记录二级页与弹窗的返回语义问题；分组卡片、图标和文案建议留到下一轮。</li>' +
+      '<li><b>首页 / 发现 / 体重 / 事件 / 收藏 / 云盘</b>：先按同一返回栈与反馈规范做问题清单，不产出完整设计稿。</li></ul>' +
+
+      '<h3>Vue 落地映射（评审通过后）</h3>' +
+      '<ul><li>拆出 <code>AssetCard.vue</code>、<code>AssetSummary.vue</code>、<code>AssetDetailView.vue</code>、<code>AssetActionSheet.vue</code>、<code>useAssetBackStack.ts</code>。</li>' +
+      '<li><code>AssetForm</code> 的四个选择器 + 日历 + 图片预览全部补 <code>preventBack</code>；表单状态改 <code>seg</code> 控件；校验改为字段级 <code>formErrors</code>。</li>' +
+      '<li><code>AssetList</code> 的 <code>showIncrementDialog</code>、<code>handleDelete</code> 确认框补 <code>preventBack</code>；记录入口限定为服役中的按次资产。</li>' +
+      '<li><code>AssetTimeline</code> 恢复日期显示；<code>AssetStats</code>/<code>AssetTimeline</code> 改为 <code>onActivated</code> 时按需 <code>loadData()</code>，解决 keep-alive 陈旧问题。</li>' +
+      '<li>返回语义统一：模块内子页统一 <code>router.back()</code>，仅在栈空时兜底回 <code>/discovery</code>。</li>' +
+      '<li>双模式：远程 API 与本地 Tauri 两条路径同时实现，卖出字段沿用 <code>soldPrice</code>/<code>soldDate</code>；退役时间若进入实现，需要同步补 <code>retiredDate</code>。</li></ul>' +
+
+      '<h3>验收清单</h3>' +
+      '<ul><li>图片预览打开时按返回，只关预览、页面保留。</li><li>列表输入关键词立即过滤；有内容时显示清空图标，点击清空后恢复完整列表。</li>' +
+      '<li>表单里逐层打开选择器 / 日历，返回逐层关闭且表单内容不丢。</li>' +
+      '<li>只有服役中的按次资产显示记录一次与使用记录；按天、消耗品、已退役、已卖出不显示或只读。</li>' +
+      '<li>360–1440 宽不破版；手机 / 桌面两套布局可切换。</li><li>已卖出资产在列表、详情、时间线三处都能看到状态标签与盈亏，颜色一致。</li>' +
+      '<li>空 / 加载 / 失败 / 筛选无结果四种状态可达。</li><li>reduced-motion 下无位移动画；键盘 Tab 焦点可见。</li></ul>';
+  }
+
+  /* ---------------- 启动 ---------------- */
+  baseEl = document.getElementById('base');
+  overlayEl = document.getElementById('overlay');
+  toastEl = document.getElementById('toastLayer');
+  hintEl = document.getElementById('stackHint');
+
+  document.addEventListener('click', onClick);
+  document.addEventListener('input', onInput);
+  document.getElementById('backKey').addEventListener('click', goBack);
+  document.getElementById('toastKey').addEventListener('click', function () { toast('保存成功', 'ok'); });
+
+  document.getElementById('viewportSeg').addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-view]');
+    if (!btn) return;
+    store.view = btn.getAttribute('data-view');
+    Array.prototype.forEach.call(this.querySelectorAll('button'), function (b) {
+      b.classList.toggle('is-active', b === btn);
+    });
+    render();
+  });
+
+  document.getElementById('screenSelect').addEventListener('change', function () {
+    var v = this.value;
+    store.sheet = null;
+    store.previewOpen = false;
+    store.formErrors = {};
+    store.formDirty = false;
+    store.expandedCat = null;
+    if (v === 'list-sold') { store.screen = 'list'; store.filter = 'sold'; }
+    else if (v === 'detail') { store.detailId = 'a3'; store.screen = 'detail'; }
+    else if (v === 'form') { store.form = emptyForm(findAsset('a3')); store.formReturn = 'list'; store.screen = 'form'; }
+    else if (v === 'preview') { store.screen = 'detail'; store.detailId = 'a1'; store.previewOpen = true; }
+    else if (v === 'other') { store.screen = 'other'; }
+    else { store.screen = v; store.filter = 'active'; store.cat = 'all'; store.sub = 'all'; }
+    render();
+  });
+
+  var spec = document.getElementById('spec');
+  spec.innerHTML = buildSpec();
+  document.getElementById('specToggle').addEventListener('click', function () {
+    var open = spec.classList.toggle('is-open');
+    spec.setAttribute('aria-hidden', open ? 'false' : 'true');
+    this.textContent = open ? '收起说明' : '交互说明';
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { goBack(); }
+  });
+
+  render();
+  window.__proto = store;
+})();
+</script>
+</body>
+</html>

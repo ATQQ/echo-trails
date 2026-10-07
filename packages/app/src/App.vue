@@ -20,7 +20,13 @@ const { isDesktop } = useResponsive();
 const { collapsed: sideNavCollapsed } = useSideNavCollapsed();
 const showNav = computed(() => route.meta.nav === true)
 const isSwipePage = computed(() => !isDesktop.value && ['/home', '/'].includes(route.path))
-const showSideNav = computed(() => isDesktop.value && route.name !== 'login' && authStore.isLoggedIn)
+const isAssetModule = computed(() => route.path === '/asset' || route.path.startsWith('/asset/'))
+const showSideNav = computed(() => (
+  isDesktop.value
+  && route.name !== 'login'
+  && authStore.isLoggedIn
+  && !isAssetModule.value
+))
 const isTauriDesktop = computed(() => isTauri && isDesktop.value)
 const isSideNavCollapsed = computed(() => showSideNav.value && sideNavCollapsed.value)
 const isAlbumScrolled = ref(false)

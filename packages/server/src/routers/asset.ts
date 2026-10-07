@@ -171,15 +171,30 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       // Calculation logic for costPerUse and daysHeld
       const now = Date.now();
       const pDate = new Date(a.purchaseDate).getTime();
-      const daysHeld = Math.max(1, Math.floor((now - pDate) / (1000 * 60 * 60 * 24)));
+      const soldTime = a.soldDate ? new Date(a.soldDate).getTime() : 0;
+      const retiredTime = a.retiredDate ? new Date(a.retiredDate).getTime() : 0;
+      const isSold = a.status === 'sold';
+      const isRetired = a.status === 'retired';
+      // 已卖出 / 已退役且有时间时，持有天数冻结到对应时间
+      const endTime = isSold && soldTime > 0
+        ? soldTime
+        : isRetired && retiredTime > 0
+          ? retiredTime
+          : now;
+      const daysHeld = Math.max(1, Math.floor((endTime - pDate) / (1000 * 60 * 60 * 24)));
 
       let costPerUse = 0;
       let costPerDay = 0;
+      let profit: number | undefined = undefined;
 
       if (a.calcType === 'count') {
           costPerUse = a.usageCount > 0 ? a.price / a.usageCount : a.price;
       } else if (a.calcType === 'day') {
           costPerDay = a.price / daysHeld;
+      }
+
+      if (isSold && a.soldPrice !== null && a.soldPrice !== undefined) {
+          profit = a.soldPrice - a.price;
       }
 
       return {
@@ -190,6 +205,9 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         status: a.status,
         price: a.price,
         purchaseDate: pDate,
+        soldPrice: a.soldPrice ?? null,
+        soldDate: soldTime || null,
+        retiredDate: retiredTime || null,
         usageCount: a.usageCount,
         calcType: a.calcType,
         description: a.description,
@@ -200,7 +218,8 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
         // Computed fields
         costPerUse,
         costPerDay,
-        daysHeld
+        daysHeld,
+        profit
       };
     }));
 
@@ -212,13 +231,21 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const body = await ctx.req.json();
     const username = ctx.get('username');
     const operator = ctx.get('operator');
+    const isSold = body.status === 'sold';
 
     const asset = new Asset({
       ...body,
       username,
       createdBy: operator,
       updatedBy: operator,
-      purchaseDate: new Date(body.purchaseDate)
+      purchaseDate: new Date(body.purchaseDate),
+      soldPrice: isSold && body.soldPrice !== null && body.soldPrice !== undefined
+        ? Number(body.soldPrice)
+        : null,
+      soldDate: isSold && body.soldDate ? new Date(body.soldDate) : null,
+      retiredDate: body.status === 'retired' && body.retiredDate
+        ? new Date(body.retiredDate)
+        : null
     });
     await asset.save();
 
@@ -237,6 +264,26 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     Object.assign(asset, updates);
     if (updates.purchaseDate) {
         asset.purchaseDate = new Date(updates.purchaseDate);
+    }
+    if (updates.soldDate !== undefined) {
+        asset.set('soldDate', updates.soldDate ? new Date(updates.soldDate) : null);
+    }
+    if (updates.soldPrice !== undefined) {
+        asset.set('soldPrice', updates.soldPrice === null || updates.soldPrice === ''
+          ? null
+          : Number(updates.soldPrice));
+    }
+    if (updates.retiredDate !== undefined) {
+        asset.set('retiredDate', updates.retiredDate ? new Date(updates.retiredDate) : null);
+    }
+    // 非卖出状态不应保留卖出信息
+    if (asset.status !== 'sold') {
+        asset.set('soldPrice', null);
+        asset.set('soldDate', null);
+    }
+    // 非退役状态不应保留退役信息
+    if (asset.status !== 'retired') {
+        asset.set('retiredDate', null);
     }
     asset.updatedBy = operator;
     await asset.save();
@@ -262,13 +309,26 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     // This logic mimics the frontend computed properties
     let totalValue = 0;
     let dailyCost = 0;
+    let realizedProfit = 0;
     const now = Date.now();
     assets.forEach(item => {
+        // 已卖出资产不再计入总资产估值/日均成本，只累计已实现盈亏
+        if (item.status === 'sold') {
+            if (item.soldPrice !== null && item.soldPrice !== undefined) {
+                realizedProfit += item.soldPrice - item.price;
+            }
+            return;
+        }
+
         totalValue += item.price;
 
         // Daily cost calculation
         const pDate = new Date(item.purchaseDate).getTime();
-        const days = Math.max(1, Math.floor((now - pDate) / (1000 * 60 * 60 * 24)));
+        const retiredTime = item.status === 'retired' && item.retiredDate
+            ? new Date(item.retiredDate).getTime()
+            : 0;
+        const endTime = retiredTime > 0 ? retiredTime : now;
+        const days = Math.max(1, Math.floor((endTime - pDate) / (1000 * 60 * 60 * 24)));
 
         // Sum of daily cost of each item
         dailyCost += (item.price / days);
@@ -277,8 +337,9 @@ export default function assetRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     return ctx.json({
         code: 0,
         data: {
-            totalValue,
-            dailyCost
+            totalValue: Math.round(totalValue * 100) / 100,
+            dailyCost: Math.round(dailyCost * 100) / 100,
+            realizedProfit: Math.round(realizedProfit * 100) / 100
         }
     });
   });

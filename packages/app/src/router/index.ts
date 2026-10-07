@@ -288,6 +288,16 @@ const router = createRouter({
           meta: { nav: false }
         }
       ]
+    },
+    {
+      path: '/asset/detail/:id',
+      name: 'asset-detail',
+      component: () => import('../views/asset/AssetDetail.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'AssetDetail'
+      }
     }
   ]
 })

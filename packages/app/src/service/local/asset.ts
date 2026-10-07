@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { buildCoverUrl, buildPreviewUrl } from './fileUrl'
+import { calcAssetFields, calcAssetStats } from '@/lib/assetCalc'
 
 const DEFAULT_CATEGORIES = [
   { name: '数码', subs: ['手机', '电脑', '平板', '相机', '配件'] },
@@ -18,19 +19,30 @@ function normalizeTimestamp(value: any) {
   return Number.isFinite(time) ? time : Date.now()
 }
 
-function calcDaysHeld(purchaseDate: number) {
-  return Math.max(1, Math.floor((Date.now() - purchaseDate) / (1000 * 60 * 60 * 24)))
-}
-
 async function mapAsset(row: any): Promise<any> {
   const purchaseDate = normalizeTimestamp(row.purchaseDate)
   const usageCount = Number(row.usageCount || 0)
   const price = Number(row.price || 0)
   const calcType = row.calcType || 'count'
-  const daysHeld = calcDaysHeld(purchaseDate)
+  const soldDate = row.soldDate ? normalizeTimestamp(row.soldDate) : undefined
+  const retiredDate = row.retiredDate ? normalizeTimestamp(row.retiredDate) : undefined
+  const soldPrice =
+    row.soldPrice === undefined || row.soldPrice === null || row.soldPrice === ''
+      ? undefined
+      : Number(row.soldPrice)
   const image = row.image || ''
   const cover = row.cover || (image ? await buildCoverUrl(image, true) : '')
   const preview = row.preview || (image ? await buildPreviewUrl(image, true) : '')
+  const { daysHeld, costPerUse, costPerDay, profit } = calcAssetFields({
+    status: row.status,
+    price,
+    purchaseDate,
+    soldDate,
+    soldPrice,
+    retiredDate,
+    usageCount,
+    calcType,
+  })
 
   return {
     ...row,
@@ -40,12 +52,16 @@ async function mapAsset(row: any): Promise<any> {
     purchaseDate,
     usageCount,
     calcType,
+    soldDate: soldDate ?? null,
+    soldPrice: soldPrice ?? null,
+    retiredDate: retiredDate ?? null,
     cover,
     preview,
     createTime: normalizeTimestamp(row.createdAt || row.updated_at || row.updatedAt),
     daysHeld,
-    costPerUse: calcType === 'count' ? (usageCount > 0 ? price / usageCount : price) : 0,
-    costPerDay: calcType === 'day' ? price / daysHeld : 0,
+    costPerUse,
+    costPerDay,
+    ...(profit !== undefined ? { profit } : {}),
   }
 }
 
@@ -114,9 +130,15 @@ export async function getAssets(params?: { categoryId?: string, subCategoryId?: 
 }
 
 export async function createAsset(data: any) {
+  const payload = {
+    ...data,
+    soldPrice: data.status === 'sold' ? data.soldPrice : null,
+    soldDate: data.status === 'sold' ? data.soldDate : null,
+    retiredDate: data.status === 'retired' ? data.retiredDate : null,
+  }
   const result = await invoke<any>('db_asset_create', {
     data: JSON.stringify({
-      ...data,
+      ...payload,
       createdAt: new Date().toISOString(),
     }),
   })
@@ -137,14 +159,5 @@ export async function deleteAsset(id: string) {
 
 export async function getAssetStats() {
   const assets = await getAssets()
-  const stats = assets.reduce((acc, asset) => {
-    acc.totalValue += asset.price || 0
-    acc.dailyCost += asset.price / calcDaysHeld(asset.purchaseDate)
-    return acc
-  }, { totalValue: 0, dailyCost: 0 })
-
-  return {
-    totalValue: Math.round(stats.totalValue * 100) / 100,
-    dailyCost: Math.round(stats.dailyCost * 100) / 100,
-  }
+  return calcAssetStats(assets)
 }

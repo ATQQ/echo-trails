@@ -1,12 +1,16 @@
 <template>
   <div class="asset-layout">
-    <router-view v-slot="{ Component }">
-      <keep-alive>
-        <component :is="Component" />
-      </keep-alive>
-    </router-view>
+    <main class="asset-main">
+      <router-view v-slot="{ Component }">
+        <keep-alive>
+          <component :is="Component" />
+        </keep-alive>
+      </router-view>
+    </main>
 
-    <BottomActions :menus="menus" />
+    <div class="asset-bottom-actions">
+      <BottomActions :menus="menus" />
+    </div>
   </div>
 </template>
 
@@ -30,29 +34,29 @@ const handleTabClick = (path: string) => {
 
 const menus = [
   {
-    icon: 'clock-o',
-    text: '时间线',
-    path: '/asset/timeline',
-    activeIcon: 'clock',
-    activeColor: '#2196f3',
-    replace: true,
-    handleClick: () => handleTabClick('/asset/timeline')
-  },
-  {
     icon: 'apps-o',
     text: '全部',
     path: '/asset/list',
     activeIcon: 'apps-o',
-    activeColor: '#2196f3',
+    activeColor: '#1989fa',
     replace: true,
     handleClick: () => handleTabClick('/asset/list')
+  },
+  {
+    icon: 'clock-o',
+    text: '时间线',
+    path: '/asset/timeline',
+    activeIcon: 'clock',
+    activeColor: '#1989fa',
+    replace: true,
+    handleClick: () => handleTabClick('/asset/timeline')
   },
   {
     icon: 'chart-trending-o',
     text: '统计',
     path: '/asset/stats',
     activeIcon: 'chart-trending-o',
-    activeColor: '#2196f3',
+    activeColor: '#1989fa',
     replace: true,
     handleClick: () => handleTabClick('/asset/stats')
   },
@@ -61,7 +65,7 @@ const menus = [
     text: '管理',
     path: '/asset/manage',
     activeIcon: 'setting',
-    activeColor: '#2196f3',
+    activeColor: '#1989fa',
     replace: true,
     handleClick: () => handleTabClick('/asset/manage')
   }
@@ -73,24 +77,175 @@ const menus = [
 
 .asset-layout {
   min-height: 100vh;
-  background-color: #f7f8fa;
+  background-color: #f6f7f9;
   box-sizing: border-box;
-  /* Tabbar height */
+  color: #23262b;
+
+  :deep(.van-nav-bar) {
+    --van-nav-bar-height: 56px;
+    --van-nav-bar-background: rgba(255, 255, 255, 0.94);
+    --van-nav-bar-title-text-color: #23262b;
+    --van-nav-bar-icon-color: #5c6169;
+    background: rgba(255, 255, 255, 0.94);
+    border-bottom: 1px solid #eceef1;
+    backdrop-filter: saturate(160%) blur(12px);
+  }
+
+  :deep(.van-nav-bar__title) {
+    max-width: none;
+    margin: 0;
+    padding: 0 84px 0 44px;
+    box-sizing: border-box;
+    text-align: left;
+  }
+
+  :deep(.van-nav-bar__left) {
+    padding: 0 4px 0 12px;
+  }
+
+  :deep(.van-nav-bar__right) {
+    padding-right: 12px;
+  }
+
+  :deep(.asset-page-title) {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    line-height: 1.1;
+
+    span {
+      color: #23262b;
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    small {
+      color: #8f949c;
+      font-size: 11px;
+      font-weight: 400;
+      white-space: nowrap;
+    }
+  }
+}
+
+.asset-main {
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.asset-bottom-actions {
+  :deep(.footer-nav) {
+    border-top: 1px solid #eceef1;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: none;
+    backdrop-filter: saturate(160%) blur(12px);
+  }
+
+  :deep(.footer-nav .van-grid-item__text) {
+    color: #8f949c;
+    font-size: 11px;
+  }
+
+  :deep(.footer-nav .van-grid-item.is-active .van-grid-item__text) {
+    color: #1989fa;
+    font-weight: 500;
+  }
 }
 
 @include desktop {
-  // 全局 `--footer-area-height` 在桌面端被置为 0（因为全局 FooterNav 已隐藏），
-  // 但资产页保留自己的 BottomActions，所以需要在此为子视图恢复底部占位。
   .asset-layout {
-    --footer-area-height: 60px;
+    --footer-area-height: 0px;
   }
 
-  // 与 App.vue 中 `body.body-has-side-nav .van-nav-bar--fixed` 一致的处理：
-  // 让固定底部 BottomActions 偏移到 SideNav 右侧，不遮盖左侧导航。
-  :deep(.footer-nav) {
-    left: var(--side-nav-width, 0px);
-    width: calc(100vw - var(--side-nav-width, 0px));
-    transition: left 0.2s ease, width 0.2s ease;
+  .asset-main {
+    padding-left: 196px;
+
+    :deep(.van-nav-bar--fixed) {
+      left: 196px;
+      width: calc(100vw - 196px);
+    }
+  }
+
+  .asset-bottom-actions {
+    :deep(.footer-nav) {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      width: 196px;
+      height: 100vh;
+      padding: 18px 12px;
+      border-top: 0;
+      border-right: 1px solid #eceef1;
+      background: #fff;
+      box-shadow: none;
+      box-sizing: border-box;
+    }
+
+    :deep(.footer-nav::before) {
+      content: '资产管理';
+      flex: 0 0 auto;
+      padding: 6px 10px 15px;
+      color: #23262b;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    :deep(.footer-nav .van-grid) {
+      display: flex;
+      width: 100%;
+      height: auto;
+      flex: 0 0 auto;
+      flex-wrap: nowrap;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    :deep(.footer-nav .van-grid-item) {
+      flex: 0 0 40px;
+      width: 100%;
+      height: 40px;
+    }
+
+    :deep(.footer-nav .van-grid-item__content) {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      width: 100%;
+      height: 40px;
+      min-height: 40px;
+      padding: 0 12px;
+      box-sizing: border-box;
+      border-radius: 10px;
+      color: #5c6169;
+    }
+
+    :deep(.footer-nav .van-grid-item__content::after) {
+      display: none;
+    }
+
+    :deep(.footer-nav .van-grid-item__icon) {
+      margin: 0;
+    }
+
+    :deep(.footer-nav .van-grid-item__text) {
+      margin: 0;
+      color: currentColor;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    :deep(.footer-nav .van-grid-item.is-active .van-grid-item__content) {
+      background: rgba(25, 137, 250, 0.1);
+      color: #1989fa;
+      font-weight: 500;
+    }
   }
 }
 </style>

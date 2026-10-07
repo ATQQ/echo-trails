@@ -27,6 +27,7 @@ const iconColor = (menu: any) => (isMatch(menu) || menu.active) ? menu.activeCol
   <footer class="footer-nav safe-padding-bottom">
     <van-grid :column-num="menus.length" :border="false">
       <van-grid-item v-for="menu in menus" :key="menu.icon"
+        :class="{ 'is-active': isMatch(menu) || menu.active }"
         :text="menu.text" :to="menu.to" :replace="menu.replace"
         @click="menu.handleClick">
         <template #icon>

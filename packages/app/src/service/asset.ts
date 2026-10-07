@@ -40,5 +40,5 @@ export function deleteAsset(id: string) {
 
 export function getAssetStats() {
   if (isLocalMode()) return local.getAssetStats()
-  return api.get<ServerResponse<{ totalValue: number, dailyCost: number }>>('asset/stats').json().then(res => res.data);
+  return api.get<ServerResponse<{ totalValue: number, dailyCost: number, realizedProfit: number }>>('asset/stats').json().then(res => res.data);
 }

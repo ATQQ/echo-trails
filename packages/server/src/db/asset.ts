@@ -12,6 +12,9 @@ const assetSchema = new mongoose.Schema({
   },
   price: { type: Number, required: true },
   purchaseDate: { type: Date, required: true },
+  soldPrice: { type: Number, default: null },
+  soldDate: { type: Date, default: null },
+  retiredDate: { type: Date, default: null },
   usageCount: { type: Number, default: 0 },
   calcType: { 
     type: String, 

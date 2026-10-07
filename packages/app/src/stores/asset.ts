@@ -18,6 +18,9 @@ export interface Asset {
   status: 'active' | 'retired' | 'sold';
   price: number;
   purchaseDate: number; // timestamp
+  soldPrice?: number | null; // 卖出价格，仅 status 为 sold 时有值
+  soldDate?: number | null; // 卖出时间，仅 status 为 sold 时有值
+  retiredDate?: number | null; // 退役时间，仅 status 为 retired 时有值
   usageCount: number;
   image?: string;
   cover?: string;
@@ -28,6 +31,7 @@ export interface Asset {
   costPerUse?: number;
   costPerDay?: number;
   daysHeld?: number;
+  profit?: number; // 已实现盈亏 = soldPrice - price
 }
 
 export interface SubCategory {

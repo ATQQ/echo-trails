@@ -247,15 +247,14 @@ pub async fn db_asset_delete(state: State<'_, TursoDb>, id: String) -> Result<()
 pub async fn db_asset_stats(state: State<'_, TursoDb>) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
     let mut rows = conn
-        .query(
-            "SELECT data FROM assets WHERE deleted = 0 AND json_extract(data, '$.status') = 'active'",
-            (),
-        )
+        .query("SELECT data FROM assets WHERE deleted = 0", ())
         .await
         .map_err(|e| e.to_string())?;
 
     let mut total_value = 0.0f64;
     let mut total_daily_cost = 0.0f64;
+    let mut realized_profit = 0.0f64;
+    let now_ms = chrono::Utc::now().timestamp_millis();
 
     while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
         let data_str = row
@@ -266,14 +265,29 @@ pub async fn db_asset_stats(state: State<'_, TursoDb>) -> Result<JsonValue, Stri
             .to_string();
         if let Ok(data) = serde_json::from_str::<JsonValue>(&data_str) {
             let price = data.get("price").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let status = data
+                .get("status")
+                .and_then(|v| v.as_str())
+                .unwrap_or("active");
+
+            // 已卖出资产不再计入总资产估值/日均成本，只累计已实现盈亏
+            if status == "sold" {
+                if let Some(sold_price) = data.get("soldPrice").and_then(|v| v.as_f64()) {
+                    realized_profit += sold_price - price;
+                }
+                continue;
+            }
+
             total_value += price;
 
-            let purchase_date = data
-                .get("purchaseDate")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            if let Ok(pd) = chrono::NaiveDate::parse_from_str(purchase_date, "%Y-%m-%d") {
-                let days = (chrono::Local::now().date_naive() - pd).num_days().max(1) as f64;
+            if let Some(purchase_ms) = parse_timestamp_ms(data.get("purchaseDate")) {
+                let retired_ms = if status == "retired" {
+                    parse_timestamp_ms(data.get("retiredDate")).unwrap_or(0)
+                } else {
+                    0
+                };
+                let end_ms = if retired_ms > 0 { retired_ms } else { now_ms };
+                let days = ((end_ms - purchase_ms) as f64 / 86_400_000.0).max(1.0);
                 if days > 0.0 {
                     total_daily_cost += price / days;
                 }
@@ -284,9 +298,33 @@ pub async fn db_asset_stats(state: State<'_, TursoDb>) -> Result<JsonValue, Stri
     Ok(json!({
         "data": {
             "totalValue": (total_value * 100.0).round() / 100.0,
-            "dailyCost": (total_daily_cost * 100.0).round() / 100.0
+            "dailyCost": (total_daily_cost * 100.0).round() / 100.0,
+            "realizedProfit": (realized_profit * 100.0).round() / 100.0
         }
     }))
+}
+
+/// 兼容本地存储的多种日期形态：毫秒时间戳（数字或数字字符串）、
+/// `YYYY-MM-DD` 以及 RFC3339 字符串。
+fn parse_timestamp_ms(value: Option<&JsonValue>) -> Option<i64> {
+    match value? {
+        JsonValue::Number(n) => n.as_i64().or_else(|| n.as_f64().map(|f| f as i64)),
+        JsonValue::String(s) => {
+            if let Ok(ts) = s.parse::<i64>() {
+                return Some(ts);
+            }
+            if let Ok(date) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+                if let Some(dt) = date.and_hms_opt(0, 0, 0) {
+                    return Some(dt.and_utc().timestamp_millis());
+                }
+            }
+            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+                return Some(dt.timestamp_millis());
+            }
+            None
+        }
+        _ => None,
+    }
 }
 
 async fn get_asset_data(conn: &turso::Connection, id: &str) -> Result<JsonValue, String> {

@@ -4,6 +4,7 @@ import { getAssetStats } from '@/service/asset';
 export function useAssetStats(refreshTrigger?: any) {
   const totalValue = ref(0);
   const dailyCost = ref(0);
+  const realizedProfit = ref(0);
   const loading = ref(false);
 
   const fetchStats = async () => {
@@ -12,6 +13,7 @@ export function useAssetStats(refreshTrigger?: any) {
       const data = await getAssetStats();
       totalValue.value = data.totalValue;
       dailyCost.value = data.dailyCost;
+      realizedProfit.value = data.realizedProfit ?? 0;
     } catch (e) {
       console.error('Failed to fetch asset stats', e);
     } finally {
@@ -26,6 +28,7 @@ export function useAssetStats(refreshTrigger?: any) {
   return {
     totalValue,
     dailyCost,
+    realizedProfit,
     loading,
     refreshStats: fetchStats
   };
