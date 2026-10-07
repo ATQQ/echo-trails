@@ -173,6 +173,7 @@ pub fn run() {
             db_event_delete,
             db_event_record_list,
             db_event_record_create,
+            db_event_record_update,
             db_event_record_delete,
             // Sync
             db_get_pending_sync,

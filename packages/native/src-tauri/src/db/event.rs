@@ -23,7 +23,10 @@ pub async fn db_event_list(
     let family_id = family_id.unwrap_or_else(|| "default".to_string());
     let mut rows = conn
         .query(
-            "SELECT * FROM events WHERE deleted = 0 AND family_id = ?1 ORDER BY json_extract(data, '$.createdAt') DESC",
+            // sortOrder 升序为主，缺省为 0；同一序号回退到创建时间，保证顺序稳定
+            "SELECT * FROM events WHERE deleted = 0 AND family_id = ?1 \
+             ORDER BY COALESCE(json_extract(data, '$.sortOrder'), 0) ASC, \
+             json_extract(data, '$.createdAt') ASC",
             (family_id,),
         )
         .await
@@ -43,6 +46,9 @@ pub async fn db_event_create(
     family_id: Option<String>,
     name: String,
     emoji: Option<String>,
+    unit: Option<String>,
+    default_amount: Option<f64>,
+    sort_order: Option<i64>,
 ) -> Result<JsonValue, String> {
     if name.trim().is_empty() {
         return Err("name is required".to_string());
@@ -54,7 +60,9 @@ pub async fn db_event_create(
     let data = json!({
         "name": name,
         "emoji": emoji.unwrap_or_default(),
-        "sortOrder": 0,
+        "unit": unit.unwrap_or_default(),
+        "defaultAmount": default_amount,
+        "sortOrder": sort_order.unwrap_or(0),
         "createdAt": now,
     })
     .to_string();
@@ -88,6 +96,7 @@ pub async fn db_event_update(
     id: String,
     name: Option<String>,
     emoji: Option<String>,
+    data: Option<String>,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
 
@@ -117,6 +126,14 @@ pub async fn db_event_update(
         }
         if let Some(e) = emoji {
             obj.insert("emoji".to_string(), json!(e));
+        }
+        // 按 key 合并：能区分「字段没传」与「显式清空成 '' / null」
+        if let Some(raw) = data {
+            if let Ok(JsonValue::Object(patch)) = serde_json::from_str::<JsonValue>(&raw) {
+                for (key, value) in patch {
+                    obj.insert(key, value);
+                }
+            }
         }
     }
 
@@ -215,6 +232,7 @@ pub async fn db_event_record_create(
     occurred_at: String,
     date: String,
     note: Option<String>,
+    amount: Option<f64>,
     data: Option<String>,
 ) -> Result<JsonValue, String> {
     let conn = state.0.connect().map_err(|e| e.to_string())?;
@@ -265,6 +283,7 @@ pub async fn db_event_record_create(
             "occurredAt": occurred_at,
             "date": date,
             "note": note.unwrap_or_default(),
+            "amount": amount,
         })
         .to_string()
     });
@@ -291,6 +310,64 @@ pub async fn db_event_record_create(
         Ok(json!({ "code": 0, "data": merge_record_row(&val) }))
     } else {
         Err("Failed to create event record".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn db_event_record_update(
+    state: State<'_, TursoDb>,
+    id: String,
+    data: Option<String>,
+) -> Result<JsonValue, String> {
+    let conn = state.0.connect().map_err(|e| e.to_string())?;
+
+    let mut rows = conn
+        .query(
+            "SELECT data FROM event_records WHERE id = ?1 AND deleted = 0",
+            (id.clone(),),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut existing = match rows.next().await.map_err(|e| e.to_string())? {
+        Some(row) => {
+            let data_str = row
+                .get_value(0)
+                .map_err(|e| e.to_string())?
+                .as_text()
+                .map_or("{}", |v| v)
+                .to_string();
+            serde_json::from_str::<JsonValue>(&data_str).unwrap_or(json!({}))
+        }
+        None => return Err("Event record not found".to_string()),
+    };
+
+    // 按 key 合并：能区分「字段没传」与「显式清空成 '' / null」
+    if let Some(raw) = data {
+        if let Ok(JsonValue::Object(patch)) = serde_json::from_str::<JsonValue>(&raw) {
+            if let Some(obj) = existing.as_object_mut() {
+                for (key, value) in patch {
+                    obj.insert(key, value);
+                }
+            }
+        }
+    }
+
+    conn.execute(
+        "UPDATE event_records SET data = ?1, updated_at = datetime('now') WHERE id = ?2",
+        (existing.to_string(), id.clone()),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut rows = conn
+        .query("SELECT * FROM event_records WHERE id = ?1", (id,))
+        .await
+        .map_err(|e| e.to_string())?;
+    if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+        let val = record_row_to_json(&row)?;
+        Ok(json!({ "code": 0, "data": merge_record_row(&val) }))
+    } else {
+        Err("Event record not found".to_string())
     }
 }
 

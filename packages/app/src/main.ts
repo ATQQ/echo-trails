@@ -2,6 +2,7 @@ import 'vant/es/toast/style';
 import 'vant/es/image-preview/style'
 import 'vant/es/notify/style'
 import 'vant/es/dialog/style'
+import './components/event/event-ui.scss'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { Lazyload, ImagePreview } from 'vant';
@@ -129,5 +130,4 @@ presetTauriMode().then(async () => {
     goLogin()
   })
 })
-
 

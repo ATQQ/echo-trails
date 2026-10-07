@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import dayjs from 'dayjs'
 import { Event, EventRecord } from "../db/event";
 
-const EVENT_FIELDS = ['name', 'emoji', 'sortOrder'] as const;
+const EVENT_FIELDS = ['name', 'emoji', 'unit', 'defaultAmount', 'sortOrder'] as const;
 type EventPayload = Partial<Record<typeof EVENT_FIELDS[number], any>>;
 
 function pickEventPayload(body: Record<string, any>): EventPayload {
@@ -22,6 +22,8 @@ function formatEventResponse(e: any) {
     familyId: e.familyId || 'default',
     name: e.name,
     emoji: e.emoji || '',
+    unit: e.unit || '',
+    defaultAmount: e.defaultAmount ?? null,
     sortOrder: e.sortOrder ?? 0,
     createdAt: new Date(e.createdAt).getTime(),
     updatedAt: new Date(e.updatedAt).getTime(),
@@ -38,6 +40,7 @@ function formatRecordResponse(r: any) {
     occurredAt: new Date(r.occurredAt).getTime(),
     date: r.date || '',
     note: r.note || '',
+    amount: r.amount ?? null,
     createdAt: new Date(r.createdAt).getTime(),
     updatedAt: new Date(r.updatedAt).getTime(),
   };
@@ -60,6 +63,13 @@ function resolveDate(occurredAt: Date, date?: string): string {
   return dayjs(occurredAt.getTime() + 8 * 3600 * 1000).format('YYYY-MM-DD');
 }
 
+/** 数量归一化：空值 / 非数字 → null（按「一次」处理） */
+function resolveAmount(value: any): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 export default function eventRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
   // ==================== 事件定义 ====================
@@ -68,7 +78,7 @@ export default function eventRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const username = ctx.get('username');
     const familyId = ctx.req.query('familyId') || 'default';
     const events = await Event.find({ username, familyId, deleted: false })
-      .sort({ createdAt: -1 });
+      .sort({ sortOrder: 1, createdAt: 1 });
     return ctx.json({ code: 0, data: events.map(formatEventResponse) });
   });
 
@@ -87,6 +97,8 @@ export default function eventRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const event = new Event({
       name: String(payload.name).trim(),
       emoji: payload.emoji || '',
+      unit: payload.unit || '',
+      defaultAmount: resolveAmount(payload.defaultAmount),
       sortOrder: typeof payload.sortOrder === 'number' ? payload.sortOrder : count,
       familyId,
       username,
@@ -108,6 +120,9 @@ export default function eventRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
 
     if (updates.name !== undefined) event.name = String(updates.name).trim();
     if (updates.emoji !== undefined) event.emoji = updates.emoji;
+    if (updates.unit !== undefined) event.unit = updates.unit || '';
+    // 模型字段类型从 type: Number 推断成 number（不含 null），但 schema 允许存 null 表示「未设置」
+    if (updates.defaultAmount !== undefined) event.defaultAmount = resolveAmount(updates.defaultAmount) as number;
     if (updates.sortOrder !== undefined) event.sortOrder = Number(updates.sortOrder);
     event.updatedBy = operator;
     await event.save();
@@ -154,7 +169,7 @@ export default function eventRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
     const body = await ctx.req.json();
     const username = ctx.get('username');
     const operator = ctx.get('operator');
-    const { eventId, occurredAt, date, note, familyId } = body;
+    const { eventId, occurredAt, date, note, familyId, amount } = body;
 
     if (!eventId) {
       return ctx.json({ code: 1, message: 'eventId is required' });
@@ -175,8 +190,22 @@ export default function eventRouter(router: Hono<BlankEnv, BlankSchema, "/">) {
       occurredAt: at,
       date: resolveDate(at, date),
       note: note || '',
+      amount: resolveAmount(amount),
       createdBy: operator,
     });
+    await record.save();
+    return ctx.json({ code: 0, data: formatRecordResponse(record) });
+  });
+
+  router.put('record/update', async (ctx) => {
+    const { id, amount, note } = await ctx.req.json();
+    const username = ctx.get('username');
+    const record = await EventRecord.findOne({ _id: id, username, deleted: false });
+    if (!record) return ctx.json({ code: 1, message: 'not found' });
+
+    // 同 defaultAmount：null 表示这次没记数量，统计按 1 次处理
+    if (amount !== undefined) record.amount = resolveAmount(amount) as number;
+    if (note !== undefined) record.note = note || '';
     await record.save();
     return ctx.json({ code: 0, data: formatRecordResponse(record) });
   });

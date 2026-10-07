@@ -1,11 +1,14 @@
 import mongoose from 'mongoose';
 
 // 事件定义：用户创建的、可一键打卡的事件（emoji + 名称，按家人隔离）
+// unit / defaultAmount 为可选项：不设置单位时，一次打卡固定记为 1 次
 const eventSchema = new mongoose.Schema({
   username: { type: String, required: true },
   familyId: { type: String, default: 'default' },
   name: { type: String, required: true },
   emoji: { type: String, default: '' },
+  unit: { type: String, default: '' },
+  defaultAmount: { type: Number, default: null },
   sortOrder: { type: Number, default: 0 },
   deleted: { type: Boolean, default: false },
   createdBy: { type: String, required: false },
@@ -25,6 +28,8 @@ const eventRecordSchema = new mongoose.Schema({
   // 冗余快照：事件被改名/删除后，历史记录仍可展示与筛选
   eventName: { type: String, default: '' },
   emoji: { type: String, default: '' },
+  // 本次记录的数量（可选）：缺省为 null，统计时按 1 次计入
+  amount: { type: Number, default: null },
   occurredAt: { type: Date, required: true },
   date: { type: String, required: true }, // YYYY-MM-DD，用于按天查询与聚合
   note: { type: String, default: '' },
