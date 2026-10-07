@@ -1,31 +1,31 @@
 {
-  "version": "0.9.4",
-  "notes": "本次更新\n- 新增静默 OTA 热更新，纯前端改动无需重新发版\n- 设置页展示壳版本与离线包版本\n- 修复局域网 API 请求被拦截的问题",
-  "pub_date": "2026-10-05T09:30:57.485Z",
+  "version": "0.9.5",
+  "notes": "资产管理改版：支持卖出价、卖出时间与已实现盈亏；新增事件记录与打卡统计",
+  "pub_date": "2026-10-07T13:59:25.705Z",
   "platforms": {
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWVuOTJMYTRwR04zV2JXOUJwUFFHN0hRQm4rQm9NRlZNQjV6VlhzTVRqV3ZlYUlsL282WkU1ajhvaWZaMTN1T2xRTlNhMElFMzhOaitwOFc3a2JjZndvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTkyMzQ4CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS40X2FtZDY0LkFwcEltYWdlClRQWjg1WElqSldJM0VyakVGSGI1Mlp5OU45WEVOZmJkUVhyNHlSbmVaRFJSRlF5YjRLZHVvb2MwUVZ1MGg3TnZWcGlTOHpWNkVqTURIVk5jeE1hNURRPT0K",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.4/EchoTrails_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWJEb2J6RWRYL3NrNm9KZ1RXZ2M1R2tEcWpsdEJRdmtkRjFNNkVMT3FEd25UT01ZRTUvVnRHa1Urb0FnVzU3ckxPSThrUURwV3JpTVpMVnZsZElrZlEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMzgxMjM5CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS41X2FtZDY0LkFwcEltYWdlCjR2UGxxcSs3cHBKMXRIWUR1R04zeUcrcE1UU1ZyckdWNmlEVDRGNEJTaW1QVWJzT1g5V0RtaWhOOXdLbFR5MzFVYzY0ZzNtSW1KRXZGaFFmM0VmbkFBPT0K",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.5/EchoTrails_amd64.AppImage"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWVSbDZiTGducitJY0tKY1Q4Mk81T25GR3c0aU05b3RBU3FPSUdNZFJZK1ZkSzU3Qm9ZN3o5dlJVUStiQWpaY01vaEw3cHBrWkdHVjFQang0Y0g5Q3dJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTkyNTgyCWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKRWprbDJ6T2NOTFk0QTFQU3AvV1V6UlNxODVyYVRCUmN2WWZYQmJFYzIzeHB0ODEvRzM5WndvVjBjRlVWVldGK2ROeXl6TUlmc05pSi9jbDVPcGNoRHc9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.4/EchoTrails_x64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWVBQjZnYURXMm1lMG1TMHU0aFFuQ2FzbHZPb1lhbWU0SmtyOFBNSHZuVkdQN3ArbVBzMWxPVDA5MmdBZVIrYnRCU2M2ZlJiOWxYcVMvWVlVNldHM3dJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMzgxNDY4CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKMU5FTlFkN1BLeU9kYnIrcDdFazJmdGdUTC9YTkxDSitUMElzTWJNZ0JDelN2SlJnWWpxTFB5SjF2RC9wWWZUeFZ1KzRIZElmZENLbGlWY21GendTRFE9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.5/EchoTrails_x64.app.tar.gz"
     },
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVhHeGluU2x6MG00eWNTS3FVbzR0RU5rQmUxT0FVMHhqZDhBekFSN3NEa2tXeWpjYWt0WXRPRTRHcktienVPc0FiNjF1cnpOS1NoWXZuK1gwREpyNFFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTkyNDM5CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKVXlkVkFrQnlGc1UzSkU0RHhlbWRad1pZTFEvREtKbitGWm44T3h1YzJBZkdnSjZFUmxDVmJvYWhMMWJpK2JzTG9pRnlUQlpUalVMTkF1dnVkTG4xQnc9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.4/EchoTrails_aarch64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVRYejl0c0UwcTRid1ZDbkh2dVN1bGZ4SVM5azJhTHM2RGU5TWhadGZhV3BsK2JQMnVVS2puUnhBREdVSXE5Mi92T21lK2g3dFZYVTJVMVJGR0ZnSFFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMzgxMTY2CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKYmpOdWphU2JROXdBaWx5ekNxbmJQdHNicmFKajR0eUNsZXNmbUE4Qml1QlhNZFdyaU9YRWR0RHJpdkJoSTNiT2RMLy9pQmd2dFE4ejZMQ2d0NnhnRGc9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.5/EchoTrails_aarch64.app.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVFOZG5aU3hxSjNGTlRpd0s4OUhEL2FZeXBLNUFlVGg3WERaMmtHZWF6bnpJNVAyTW1SR2M1MU5qUzFxcCsyeHR0WlZFbVZnOUo1NXV2QktJeWU5SUEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTkyNTQ3CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS40X3g2NC1zZXR1cC5leGUKbUd1cE9ScDdJUDVXYTh5VzJGT0tlcU0xaDdjeUtDcFAwVGRzSlFzZXZIc2lXSzV3c1YzSVJKWUJkRkNDTVZoZzFLTVpsQjR4SFAveDF4eUlBVWY1REE9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.4/EchoTrails_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVNGSEFwVDBXc0hYWFBiSVdYV1A3bjdHSWNGcmJMaXN6YURWVXZRYXV0c2VFV0I3bGd0eU90ZXpsa3NjSWNMNmU4Rjh5ZUdxYkJycVk3VmlTK3lYeVFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMzgxMzgwCWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS41X3g2NC1zZXR1cC5leGUKajV6ZzYybXVzZzRJYzFsTEozVDYyY1lNcEtBMTBRTlVXT0szM3J4eEI4c1pTemV3T0VlQmpWSk1Wem9JWTkzWUU3Y3UvQWZuVC9FL1ovaVp6MEpDQ3c9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.5/EchoTrails_x64-setup.exe"
     }
   },
   "android": {
-    "version": "0.9.4",
-    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.4/echo-trails-release-0.9.4.apk",
+    "version": "0.9.5",
+    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.5/echo-trails-release-0.9.5.apk",
     "forceUpdate": false,
-    "description": "本次更新\n- 新增静默 OTA 热更新，纯前端改动无需重新发版\n- 设置页展示壳版本与离线包版本\n- 修复局域网 API 请求被拦截的问题",
-    "md5": "798c616362807fa255ce0f4e67f73a90",
-    "nativeHash": "ed99733ae58f457e"
+    "description": "资产管理改版：支持卖出价、卖出时间与已实现盈亏；新增事件记录与打卡统计",
+    "md5": "19f55b1d09a28f28ddbd61328fbd51ad",
+    "nativeHash": "a99deb86fa77b045"
   }
 }
