@@ -5,6 +5,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { isTauri } from '@/constants';
 import { isAutoCheckUpdateEnabled } from '@/composables/useAutoCheckUpdate';
 import { useAppUpdate } from '@/composables/useAppUpdate';
+import { type AppUpdateInfo } from '@/lib/app-update';
+import NotificationBanner from '@/components/NotificationBanner/NotificationBanner.vue';
 import MainLayout from '@/components/MainLayout.vue';
 import SideNav from '@/components/SideNav/SideNav.vue';
 import { useFooterStore } from '@/stores/footer';
@@ -18,6 +20,13 @@ const footerStore = useFooterStore();
 const authStore = useAuthStore();
 const { isDesktop } = useResponsive();
 const { collapsed: sideNavCollapsed } = useSideNavCollapsed();
+const {
+  check: checkAppUpdate,
+  activateWebUpdate,
+  downloadApkUpdate,
+  downloading,
+  downloadStatus,
+} = useAppUpdate();
 const showNav = computed(() => route.meta.nav === true)
 const isSwipePage = computed(() => !isDesktop.value && ['/home', '/'].includes(route.path))
 const isAssetModule = computed(() => route.path === '/asset' || route.path.startsWith('/asset/'))
@@ -31,6 +40,56 @@ const isTauriDesktop = computed(() => isTauri && isDesktop.value)
 const isSideNavCollapsed = computed(() => showSideNav.value && sideNavCollapsed.value)
 const isAlbumScrolled = ref(false)
 const showAlbumBlur = computed(() => route.path === '/' && isAlbumScrolled.value)
+const showUpdateBanner = ref(false);
+const updateBannerTitle = ref('');
+const updateBannerMessage = ref('');
+const updateBannerBusy = ref(false);
+const updateBannerAction = ref<null | (() => void | Promise<void>)>(null);
+
+watch([downloading, downloadStatus], ([isDownloading, status]) => {
+  if (!updateBannerBusy.value || !isDownloading) return;
+  updateBannerMessage.value = status || '正在下载更新…';
+});
+
+function showStartupUpdate(info: AppUpdateInfo) {
+  const description = info.description.trim();
+  updateBannerBusy.value = false;
+  updateBannerAction.value = info.updateKind === 'web'
+    ? () => activateWebUpdate(info)
+    : () => downloadApkUpdate(info);
+  updateBannerTitle.value = info.updateKind === 'web'
+    ? '发现新版本 - 点击立即更新'
+    : '发现新版本 - 点击开始下载';
+  updateBannerMessage.value = `v${info.latestVersion}${description ? ` ${description}` : ''}`;
+  showUpdateBanner.value = true;
+}
+
+async function handleUpdateBannerClick() {
+  if (updateBannerBusy.value) return;
+  const action = updateBannerAction.value;
+  if (!action) {
+    showUpdateBanner.value = false;
+    return;
+  }
+
+  updateBannerBusy.value = true;
+  updateBannerTitle.value = '正在处理更新…';
+  updateBannerMessage.value = '请稍候…';
+  try {
+    await action();
+  } finally {
+    updateBannerBusy.value = false;
+    updateBannerAction.value = null;
+    showUpdateBanner.value = false;
+  }
+}
+
+async function checkStartupUpdate() {
+  const info = await checkAppUpdate({ silent: true });
+  if (!info?.hasUpdate || info.updateKind === 'none') return;
+  showStartupUpdate(info);
+}
+
 const getRouteViewKey = (viewRoute: RouteLocationNormalizedLoaded) => {
   if (viewRoute.matched.some(record => record.path === '/asset')) {
     return 'asset-layout'
@@ -75,8 +134,7 @@ onMounted(() => {
   // 初始化 vConsole 调试控制台（依据设置页调试面板的开关状态）
   useVConsole()
   if (!isTauri || !isAutoCheckUpdateEnabled.value) return;
-  // 静默检查：Web 离线包后台下载，未交互则在启动窗口内直接启用刷新
-  void useAppUpdate().check({ silent: true });
+  void checkStartupUpdate();
 })
 
 watch([showSideNav, isSideNavCollapsed], ([hasSideNav, collapsedValue]) => {
@@ -111,6 +169,14 @@ onBeforeUnmount(() => {
   <div v-if="showAlbumBlur && !isDesktop" class="album-top-blur-mask" aria-hidden="true"></div>
   <!-- 底部菜单（仅移动端） -->
   <footer-nav v-show="showNav && footerStore.isVisible && !isDesktop"></footer-nav>
+
+  <NotificationBanner
+    v-model:show="showUpdateBanner"
+    :title="updateBannerTitle"
+    :message="updateBannerMessage"
+    :duration="10000"
+    @click="handleUpdateBannerClick"
+  />
 </template>
 
 <style>

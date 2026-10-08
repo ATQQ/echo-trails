@@ -297,6 +297,10 @@ async function check(opts?: { silent?: boolean }): Promise<AppUpdateInfo | null>
 
     // updateKind === 'apk'
     closeToast()
+    if (silent) {
+      // 启动自动检查由 App.vue 使用通知条承接，点击后再进入下载流程。
+      return info
+    }
     if (platform === 'android') {
       showConfirmDialog({
         title: '发现新版本',

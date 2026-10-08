@@ -652,6 +652,8 @@ const handleSave = async () => {
         await store.addAsset(assetData);
     }
 
+    // 保存完成后先解除锁，再触发父级动作和关闭，避免 close 被保存态拦截。
+    isSaving.value = false;
     closeToast();
     showToast('保存成功');
     emit('save');
