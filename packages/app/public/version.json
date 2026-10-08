@@ -3,37 +3,61 @@
     "version": "0.9.5",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "资产管理改版：支持卖出价、卖出时间与已实现盈亏；新增事件记录与打卡统计",
+    "description": "修复资产保存返回并恢复启动更新通知",
     "nativeHash": "a99deb86fa77b045",
     "md5": "",
-    "fileSize": 0
+    "fileSize": 0,
+    "webPackage": {
+      "version": "0.9.6",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.6.zip",
+      "md5": "e2ecaf94fa88bca5b332fe11121371a1",
+      "fileSize": 4479365
+    }
   },
   "windows": {
     "version": "0.9.5",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "资产管理改版：支持卖出价、卖出时间与已实现盈亏；新增事件记录与打卡统计",
+    "description": "修复资产保存返回并恢复启动更新通知",
     "nativeHash": "a99deb86fa77b045",
     "md5": "",
-    "fileSize": 0
+    "fileSize": 0,
+    "webPackage": {
+      "version": "0.9.6",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.6.zip",
+      "md5": "e2ecaf94fa88bca5b332fe11121371a1",
+      "fileSize": 4479365
+    }
   },
   "linux": {
     "version": "0.9.5",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "资产管理改版：支持卖出价、卖出时间与已实现盈亏；新增事件记录与打卡统计",
+    "description": "修复资产保存返回并恢复启动更新通知",
     "nativeHash": "a99deb86fa77b045",
     "md5": "",
-    "fileSize": 0
+    "fileSize": 0,
+    "webPackage": {
+      "version": "0.9.6",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.6.zip",
+      "md5": "e2ecaf94fa88bca5b332fe11121371a1",
+      "fileSize": 4479365
+    }
   },
   "android": {
     "version": "0.9.5",
     "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.5.apk",
     "forceUpdate": false,
-    "description": "资产管理改版：支持卖出价、卖出时间与已实现盈亏；新增事件记录与打卡统计",
+    "description": "修复资产保存返回并恢复启动更新通知",
     "md5": "19f55b1d09a28f28ddbd61328fbd51ad",
     "nativeHash": "a99deb86fa77b045",
-    "fileSize": 0
+    "fileSize": 0,
+    "webPackage": {
+      "version": "0.9.6",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.6.zip",
+      "md5": "e2ecaf94fa88bca5b332fe11121371a1",
+      "fileSize": 4479365
+    }
   },
   "ios": {
     "version": "0.1.2",
