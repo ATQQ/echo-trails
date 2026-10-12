@@ -94,8 +94,39 @@ export async function initImageCache() {
 // Ensure it's initialized but don't strictly block export, just in case
 initImageCache();
 
-// Use a promise cache to prevent concurrent processing of the same image
+function normalizeImagePath(value: string) {
+  return value
+    .replace(/\\/g, '/')
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '');
+}
+
+function getStableUrlIdentity(url: string) {
+  try {
+    const parsed = new URL(url);
+    const path = normalizeImagePath(parsed.pathname);
+    return path ? `${parsed.host}/${path}` : parsed.host;
+  } catch {
+    return normalizeImagePath(url.split('?')[0].split('#')[0]);
+  }
+}
+
+/**
+ * Build an identity that survives presigned URL refreshes. A caller-provided
+ * key is already an object identity; a URL-only identity uses its stable path.
+ */
+export function resolveImageCacheKey(url: string | undefined, cacheKey?: string) {
+  const normalizedKey = cacheKey
+    ? (cacheKey.startsWith('http') ? getStableUrlIdentity(cacheKey) : normalizeImagePath(cacheKey))
+    : '';
+  return normalizedKey || (url ? getStableUrlIdentity(url) : '');
+}
+
+// Use a promise cache to prevent concurrent path checks for the same image
 const processingCache = new Map<string, Promise<string>>();
+// Keep download promises alive after path checks return the remote URL immediately
+const downloadTasks = new Map<string, Promise<void>>();
 
 /**
  * Cache an image URL to local filesystem and return the local path.
@@ -105,12 +136,12 @@ const processingCache = new Map<string, Promise<string>>();
  */
 export async function deleteSingleImageCache(url: string, cacheKey?: string) {
   if (!isTauri) return;
-  const memKey = cacheKey ? `key:${cacheKey}` : url;
+  const cacheIdentity = resolveImageCacheKey(url, cacheKey);
+  const memKey = `key:${cacheIdentity}`;
 
   if (memoryCache.has(memKey)) {
-    const hashContent = cacheKey || url;
-    const hash = SparkMD5.hash(hashContent);
-    const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
+    const hash = SparkMD5.hash(cacheIdentity);
+    const ext = getStableUrlIdentity(url).split('.').pop() || 'jpg';
     const safeExt = ext.replace(/[^a-z0-9]/gi, '').substring(0, 4) || 'jpg';
     const filename = `${hash}.${safeExt}`;
     const filePath = `${CACHE_DIR_NAME}/${filename}`;
@@ -148,8 +179,9 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
 
   const totalStart = performance.now();
 
-  // Use cacheKey for memory cache if available, otherwise URL
-  const memKey = cacheKey ? `key:${cacheKey}` : url;
+  const cacheIdentity = resolveImageCacheKey(url, cacheKey);
+  if (!cacheIdentity) return url;
+  const memKey = `key:${cacheIdentity}`;
 
   if (!forceRefresh && memoryCache.has(memKey)) {
     return memoryCache.get(memKey)!;
@@ -158,6 +190,12 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
   // If this exact image is already being processed, wait for that promise instead of starting a new one
   if (!forceRefresh && processingCache.has(memKey)) {
     return processingCache.get(memKey)!;
+  }
+
+  // A path check may already have handed the remote URL to the UI while the
+  // background download is still running. Keep that URL fast path alive.
+  if (!forceRefresh && downloadTasks.has(memKey)) {
+    return url;
   }
 
   const processPromise = limit(async () => {
@@ -172,9 +210,8 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
       // but we await it here just to be safe if it wasn't ready yet.
 
       const hashStart = performance.now();
-      const hashContent = cacheKey || url;
-      const hash = SparkMD5.hash(hashContent);
-      const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
+      const hash = SparkMD5.hash(cacheIdentity);
+      const ext = getStableUrlIdentity(url).split('.').pop() || 'jpg';
       const safeExt = ext.replace(/[^a-z0-9]/gi, '').substring(0, 4) || 'jpg';
       const filename = `${hash}.${safeExt}`;
       const filePath = `${CACHE_DIR_NAME}/${filename}`;
@@ -239,8 +276,13 @@ export async function cacheImage(url: string, cacheKey?: string, forceRefresh = 
           }
         };
 
-        // Fire and forget
-        downloadLimit(() => fetchAndCache());
+        // Keep the promise alive until download/write completes so repeated misses dedupe.
+        const downloadTask = downloadLimit(() => fetchAndCache());
+        downloadTasks.set(memKey, downloadTask.finally(() => {
+          if (downloadTasks.get(memKey) === downloadTask) {
+            downloadTasks.delete(memKey);
+          }
+        }));
 
         // console.log(`[Cache Miss/Return URL] ${filename} - Returned in ${(performance.now() - totalStart).toFixed(2)}ms`);
         return url;
@@ -282,7 +324,7 @@ export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: May
       (newValues, oldValues) => {
         const [newUrl, newKey] = newValues || [undefined, undefined];
         const [oldUrl, oldKey] = oldValues || [undefined, undefined];
-        const isSameImage = newKey && oldKey && newKey === oldKey;
+        const isSameImage = resolveImageCacheKey(newUrl, newKey) === resolveImageCacheKey(oldUrl, oldKey);
         // In Web, updating to a new presigned URL causes van-image to flicker.
         // If we already have it loaded for the same cacheKey, we skip the update to avoid flicker.
         if (isSameImage && cachedSrc.value) {
@@ -311,7 +353,8 @@ export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: May
       }
 
       // Check memory cache synchronously to avoid microtask flicker
-      const memKey = newKey ? `key:${newKey}` : newUrl;
+      const stableKey = resolveImageCacheKey(newUrl, newKey);
+      const memKey = `key:${stableKey}`;
       if (memoryCache.has(memKey)) {
         cachedSrc.value = memoryCache.get(memKey)!;
         return;
@@ -320,7 +363,7 @@ export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: May
       // Clear the previous image before starting async work
       // ONLY if it's a completely different image (to prevent displaying old images when recycled in virtual lists).
       // If it's the same image (same cacheKey), keep showing the old one while processing
-      const isSameImage = newKey && oldKey && newKey === oldKey;
+      const isSameImage = stableKey === resolveImageCacheKey(oldUrl, oldKey);
       if (!isSameImage) {
         cachedSrc.value = '';
       }
@@ -328,7 +371,8 @@ export function useCachedImage(url: MaybeRef<string | undefined>, cacheKey?: May
       const result = await cacheImage(newUrl, newKey);
 
       // Prevent race conditions if URL changed while caching
-      if (toValue(url) === newUrl) {
+      const currentUrl = toValue(url);
+      if (currentUrl === newUrl || result.includes('image_cache')) {
         cachedSrc.value = result;
       }
     },

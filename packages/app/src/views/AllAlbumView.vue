@@ -229,6 +229,8 @@ onDeactivated(() => {
 onUnmounted(() => {
   stopScrollStateWatcher()
   stopAlbumsChangedListener?.()
+  clearAllAlbumTouchTimers()
+  clearAllFolderTouchTimers()
 })
 
 // 弹窗和按钮逻辑
@@ -370,9 +372,25 @@ const handleAddFolderClick = () => {
   showFolderModal.value = true
 }
 
+const folderLongPressTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const folderLongPressTriggered = new Set<string>()
+
+const clearFolderTouchTimer = (folderId: string) => {
+  const timer = folderLongPressTimers.get(folderId)
+  if (timer) {
+    clearTimeout(timer)
+    folderLongPressTimers.delete(folderId)
+  }
+}
+
+const clearAllFolderTouchTimers = () => {
+  folderLongPressTimers.forEach(timer => clearTimeout(timer))
+  folderLongPressTimers.clear()
+}
+
 const goToFolderDetail = (folderId: string) => {
-  if (folderLongPressTriggered) {
-    folderLongPressTriggered = false
+  if (folderLongPressTriggered.has(folderId)) {
+    folderLongPressTriggered.delete(folderId)
     return
   }
   if (folderSelectMode.value) {
@@ -382,50 +400,57 @@ const goToFolderDetail = (folderId: string) => {
   router.push({ name: 'album-folder', params: { folderId } })
 }
 
-let folderTouchTimer: ReturnType<typeof setTimeout> | null = null
-let folderLongPressTriggered = false
-
 const handleFolderTouchStart = (folder: AlbumFolder) => {
-  folderLongPressTriggered = false
-  if (folderTouchTimer) clearTimeout(folderTouchTimer)
-  folderTouchTimer = setTimeout(() => {
-    folderLongPressTriggered = true
+  clearFolderTouchTimer(folder._id)
+  folderLongPressTriggered.delete(folder._id)
+  folderLongPressTimers.set(folder._id, setTimeout(() => {
+    folderLongPressTimers.delete(folder._id)
+    folderLongPressTriggered.add(folder._id)
     enterFolderSelectMode(folder._id)
-  }, 500)
+  }, 500))
 }
 
-const handleFolderTouchEnd = () => {
-  if (folderTouchTimer) {
-    clearTimeout(folderTouchTimer)
-    folderTouchTimer = null
+const handleFolderTouchEnd = (folderId: string) => {
+  clearFolderTouchTimer(folderId)
+}
+
+const albumLongPressTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const albumLongPressTriggered = new Set<string>()
+
+const clearAlbumTouchTimer = (albumId: string) => {
+  const timer = albumLongPressTimers.get(albumId)
+  if (timer) {
+    clearTimeout(timer)
+    albumLongPressTimers.delete(albumId)
   }
 }
 
+const clearAllAlbumTouchTimers = () => {
+  albumLongPressTimers.forEach(timer => clearTimeout(timer))
+  albumLongPressTimers.clear()
+}
+
 const goToDetail = (albumId: string) => {
-  if (isLongPressTriggered) {
-    isLongPressTriggered = false
+  if (albumLongPressTriggered.has(albumId)) {
+    albumLongPressTriggered.delete(albumId)
     return
   }
   addRecent(albumId)
   router.push({ name: 'album-photo', params: { albumId } })
 }
 
-let touchTimer: any = null
-let isLongPressTriggered = false
-
 const handleTouchStart = (album: Album) => {
-  isLongPressTriggered = false
-  if (touchTimer) clearTimeout(touchTimer)
-  touchTimer = setTimeout(() => {
-    isLongPressTriggered = true
+  clearAlbumTouchTimer(album._id)
+  albumLongPressTriggered.delete(album._id)
+  albumLongPressTimers.set(album._id, setTimeout(() => {
+    albumLongPressTimers.delete(album._id)
+    albumLongPressTriggered.add(album._id)
     handleLongPress(album)
-  }, 500)
+  }, 500))
 }
-const handleTouchEnd = () => {
-  if (touchTimer) {
-    clearTimeout(touchTimer)
-    touchTimer = null
-  }
+
+const handleTouchEnd = (albumId: string) => {
+  clearAlbumTouchTimer(albumId)
 }
 
 preventBack(showAddModal)
@@ -501,9 +526,9 @@ preventBack(folderSelectMode)
                        @click.stop.prevent="goToDetail(album._id)"
                        @contextmenu="handleContextMenu($event, album)"
                        @touchstart="handleTouchStart(album)"
-                       @touchend="handleTouchEnd"
-                       @touchcancel="handleTouchEnd"
-                       @touchmove="handleTouchEnd">
+                       @touchend="handleTouchEnd(album._id)"
+                       @touchcancel="handleTouchEnd(album._id)"
+                       @touchmove="handleTouchEnd(album._id)">
                     <ImageCell :src="album.cover" :cache-key="album.coverKey ? album.coverKey + '_cover' : undefined" />
                     <div class="title-desc">
                       <h2>{{ album.name }}</h2>
@@ -538,9 +563,9 @@ preventBack(folderSelectMode)
                   }"
                   @click="goToFolderDetail(folder._id)"
                   @touchstart="handleFolderTouchStart(folder)"
-                  @touchend="handleFolderTouchEnd"
-                  @touchcancel="handleFolderTouchEnd"
-                  @touchmove="handleFolderTouchEnd"
+                  @touchend="handleFolderTouchEnd(folder._id)"
+                  @touchcancel="handleFolderTouchEnd(folder._id)"
+                  @touchmove="handleFolderTouchEnd(folder._id)"
                 >
                   <div class="folder-left">
                     <div class="folder-cover">
