@@ -2,6 +2,11 @@
   <div class="todo-view page-container">
     <van-nav-bar title="待办事项" left-arrow @click-left="onClickLeft" fixed placeholder />
 
+    <div class="todo-toolbar">
+      <span class="completed-toggle-label">显示已完成</span>
+      <van-switch v-model="showCompleted" size="18px" />
+    </div>
+
     <div class="matrix-header">
       <span class="axis-col urgent">紧急</span>
       <span class="axis-col not-urgent">不紧急</span>
@@ -17,7 +22,9 @@
           </div>
         </div>
         <div class="quadrant-body">
-          <div v-if="todosOf(q.value).length === 0" class="empty-tip">暂无待办</div>
+          <div v-if="todosOf(q.value).length === 0" class="empty-tip">
+            {{ showCompleted ? '暂无待办' : '暂无未完成待办' }}
+          </div>
           <div v-for="todo in todosOf(q.value)" :key="todo.id" class="todo-item" @click="openEdit(todo)">
             <van-checkbox :model-value="todo.completed" @click.stop @update:model-value="handleToggle(todo)" />
             <div class="todo-info">
@@ -156,6 +163,7 @@ const quadrants = [
 
 const todos = ref<TodoItem[]>([]);
 const statuses = ref<TodoStatusItem[]>([]);
+const showCompleted = ref(false);
 const showForm = ref(false);
 const showDatePicker = ref(false);
 const showStatusDialog = ref(false);
@@ -188,7 +196,10 @@ const onClickLeft = () => {
   router.back();
 };
 
-const todosOf = (quadrant: number) => todos.value.filter((t) => t.quadrant === quadrant);
+const todosOf = (quadrant: number) =>
+  todos.value
+    .filter((t) => t.quadrant === quadrant && (showCompleted.value || !t.completed))
+    .sort((a, b) => Number(a.completed) - Number(b.completed));
 const activeCount = (quadrant: number) => todosOf(quadrant).filter((t) => !t.completed).length;
 
 const isOverdue = (todo: TodoItem) => {
@@ -413,6 +424,19 @@ const onStatusBeforeClose = async (action: string) => {
 
   :deep(.van-nav-bar__placeholder > .van-nav-bar--fixed) {
     padding-top: var(--safe-area-top);
+  }
+
+  .todo-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 8px 16px 0;
+
+    .completed-toggle-label {
+      font-size: 12px;
+      color: #969799;
+    }
   }
 
   // 本页无底部 tabbar，覆写 AddButton 继承的全局 footer 高度
