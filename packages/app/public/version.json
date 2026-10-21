@@ -3,60 +3,60 @@
     "version": "0.9.5",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "修复相册封面缓存与筛选后点击失效",
+    "description": "待办事项支持隐藏已完成，并优先展示未完成项",
     "nativeHash": "a99deb86fa77b045",
     "md5": "",
     "fileSize": 0,
     "webPackage": {
-      "version": "0.9.7",
-      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.7.zip",
-      "md5": "77686c59d5d643a588897bff2a7ac67c",
-      "fileSize": 4479483
+      "version": "0.9.8",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.8.zip",
+      "md5": "4edede8cea817e4fc83e16b0436395b2",
+      "fileSize": 4479703
     }
   },
   "windows": {
     "version": "0.9.5",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "修复相册封面缓存与筛选后点击失效",
+    "description": "待办事项支持隐藏已完成，并优先展示未完成项",
     "nativeHash": "a99deb86fa77b045",
     "md5": "",
     "fileSize": 0,
     "webPackage": {
-      "version": "0.9.7",
-      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.7.zip",
-      "md5": "77686c59d5d643a588897bff2a7ac67c",
-      "fileSize": 4479483
+      "version": "0.9.8",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.8.zip",
+      "md5": "4edede8cea817e4fc83e16b0436395b2",
+      "fileSize": 4479703
     }
   },
   "linux": {
     "version": "0.9.5",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "修复相册封面缓存与筛选后点击失效",
+    "description": "待办事项支持隐藏已完成，并优先展示未完成项",
     "nativeHash": "a99deb86fa77b045",
     "md5": "",
     "fileSize": 0,
     "webPackage": {
-      "version": "0.9.7",
-      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.7.zip",
-      "md5": "77686c59d5d643a588897bff2a7ac67c",
-      "fileSize": 4479483
+      "version": "0.9.8",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.8.zip",
+      "md5": "4edede8cea817e4fc83e16b0436395b2",
+      "fileSize": 4479703
     }
   },
   "android": {
     "version": "0.9.5",
     "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.5.apk",
     "forceUpdate": false,
-    "description": "修复相册封面缓存与筛选后点击失效",
+    "description": "待办事项支持隐藏已完成，并优先展示未完成项",
     "md5": "19f55b1d09a28f28ddbd61328fbd51ad",
     "nativeHash": "a99deb86fa77b045",
     "fileSize": 0,
     "webPackage": {
-      "version": "0.9.7",
-      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.7.zip",
-      "md5": "77686c59d5d643a588897bff2a7ac67c",
-      "fileSize": 4479483
+      "version": "0.9.8",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.8.zip",
+      "md5": "4edede8cea817e4fc83e16b0436395b2",
+      "fileSize": 4479703
     }
   },
   "ios": {
