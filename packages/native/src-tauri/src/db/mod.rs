@@ -13,6 +13,7 @@ pub mod event;
 pub mod family;
 pub mod memorial;
 pub mod photo;
+pub mod requirement;
 pub mod sync;
 pub mod todo;
 pub mod usage_record;
@@ -28,6 +29,7 @@ pub use event::*;
 pub use family::*;
 pub use memorial::*;
 pub use photo::*;
+pub use requirement::*;
 pub use sync::*;
 pub use todo::*;
 pub use usage_record::*;
@@ -230,6 +232,15 @@ pub fn schema_statements() -> &'static [&'static str] {
             data TEXT NOT NULL DEFAULT '{}'
         )",
         "CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed)",
+        // Requirement workspace (projects, ideas, tasks)
+        "CREATE TABLE IF NOT EXISTS requirements (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            updated_at TEXT DEFAULT (datetime('now')),
+            deleted INTEGER DEFAULT 0,
+            data TEXT NOT NULL DEFAULT '{}'
+        )",
+        "CREATE INDEX IF NOT EXISTS idx_requirements_kind ON requirements(kind, deleted, updated_at)",
         // Drive files (云盘文件/文件夹)
         "CREATE TABLE IF NOT EXISTS drive_files (
             id TEXT PRIMARY KEY,

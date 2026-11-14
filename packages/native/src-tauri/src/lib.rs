@@ -152,6 +152,10 @@ pub fn run() {
             db_todo_update,
             db_todo_toggle,
             db_todo_delete,
+            db_requirement_list,
+            db_requirement_create,
+            db_requirement_update,
+            db_requirement_delete,
             // Drive File CRUD (云盘)
             db_drive_file_list,
             db_drive_file_create_folder,

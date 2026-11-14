@@ -228,6 +228,16 @@ const router = createRouter({
       }
     },
     {
+      path: '/requirements',
+      name: 'requirements',
+      component: () => import('../views/RequirementsView.vue'),
+      meta: {
+        keepAlive: false,
+        nav: false,
+        componentName: 'RequirementsView'
+      }
+    },
+    {
       path: '/events',
       name: 'events',
       component: () => import('../views/event/EventView.vue'),
