@@ -1,0 +1,286 @@
+<template>
+  <div class="requirements-view" :class="{ 'is-tauri-desktop': isTauriDesktop }">
+    <nav class="module-tabs" aria-label="需求面板导航">
+      <button v-for="item in tabs" :key="item.key" :class="{ active: view === item.key }" @click="navigateView(item.key)">
+        <van-icon :name="item.icon" /><span>{{ item.label }}</span><em v-if="'count' in item">{{ item.count }}</em>
+      </button>
+    </nav>
+
+    <main class="module-main">
+      <div v-if="loading" class="state-box"><van-loading size="24px" vertical>正在加载</van-loading></div>
+      <div v-else>
+        <section v-if="view === 'home'" class="home-view">
+          <div class="heading-row"><div><span class="eyebrow">{{ todayLabel }}</span><h2>今天，也有几件重要的事</h2><p>先处理眼前的一步，剩下的自然会清楚。</p></div><div class="heading-actions"><van-button plain size="small" @click="openIdea()">记下灵感</van-button><van-button type="primary" size="small" icon="plus" @click="openTask()">新建任务</van-button></div></div>
+          <div class="stats-grid"><div v-for="stat in stats" :key="stat.label" class="stat-card"><div><span>{{ stat.label }}</span><strong>{{ stat.value }}<small>{{ stat.unit }}</small></strong></div><van-icon :name="stat.icon" /></div></div>
+          <div class="home-grid">
+            <section class="panel"><div class="panel-head"><h3>接下来要做 <small>{{ upcomingTasks.length }} 项</small></h3><button @click="navigateView('tasks')">查看全部 <van-icon name="arrow" /></button></div><div class="task-list"><TaskRow v-for="task in upcomingTasks" :key="task.id" :task="task" @edit="openTask(task)" @toggle="toggleTask(task)" /><div v-if="!upcomingTasks.length" class="empty">没有待处理任务，给自己一点喘息时间。</div></div></section>
+            <div class="side-panels"><section class="panel"><div class="panel-head"><h3>项目进展</h3><button @click="navigateView('projects')">全部项目</button></div><div class="project-list"><button v-for="project in activeProjects.slice(0, 4)" :key="project.id" class="project-row" @click="openProjectTasks(project.id)"><i :style="{ background: projectColor(project.id) }"></i><span><strong>{{ project.name }}</strong><small>{{ projectTaskCount(project.id) }} 项任务 · {{ projectProgress(project.id) }}% 完成</small><b><i :style="{ width: `${projectProgress(project.id)}%` }"></i></b></span><em>{{ projectProgress(project.id) }}%</em></button><div v-if="!activeProjects.length" class="empty">还没有项目</div></div></section><section class="panel"><div class="panel-head"><h3>最近的灵感</h3><button @click="navigateView('ideas')">收件箱</button></div><button v-for="idea in data.ideas.slice(0, 3)" :key="idea.id" class="idea-row" @click="openIdea(idea)"><van-icon name="bulb-o" /><span><strong>{{ idea.title }}</strong><small>{{ idea.tag }} · {{ relativeDate(idea.created) }}</small></span></button><div v-if="!data.ideas.length" class="empty">灵感会在这里等你</div></section></div>
+          </div>
+        </section>
+
+        <section v-else-if="view === 'tasks'" class="list-view"><div class="heading-row"><div><span class="eyebrow">任务看板</span><h2>{{ selectedProject ? selectedProject.name : '所有任务' }}</h2><p>{{ selectedProject?.description || '' }}</p></div><van-button type="primary" size="small" icon="plus" @click="openTask()">新建任务</van-button></div><div class="toolbar"><label class="search-field"><van-icon name="search" /><input v-model="search" type="search" placeholder="搜索任务或项目" aria-label="搜索任务或项目" /><button v-if="search" class="search-clear" type="button" aria-label="清空搜索" @click="search = ''"><van-icon name="cross" /></button></label><div class="segmented segmented--status" role="group" aria-label="任务状态筛选"><button v-for="option in statusOptions" :key="option.value" type="button" :class="{ active: statusFilter === option.value }" :aria-pressed="statusFilter === option.value" @click="statusFilter = option.value">{{ option.text }}</button></div><van-button v-if="selectedProject" plain size="small" icon="setting-o" @click="openProject(selectedProject)">项目设置</van-button></div><div class="column-switcher" role="group" aria-label="看板状态切换"><button v-for="(column, index) in columns" :key="column.key" type="button" :class="{ active: mobileStatusIndex === index }" :aria-pressed="mobileStatusIndex === index" @click="selectBoardColumn(index)">{{ column.label }} <em>{{ tasksForStatus(column.key) }}</em></button></div><div class="board"><section v-for="column in visibleColumns" :key="column.key" class="board-column"><div class="column-title"><span class="status-dot" :class="column.key"></span><strong>{{ column.label }}</strong><small>{{ filteredTasks(column.key).length }}</small><button v-if="column.key === 'todo'" class="column-add" type="button" aria-label="新建任务" @click="openTask()"><van-icon name="plus" /></button></div><div class="board-cards"><button v-for="task in filteredTasks(column.key)" :key="task.id" class="task-card" @click="openTask(task)"><strong>{{ task.title }}</strong><p v-if="task.note">{{ task.note }}</p><footer><span><i :style="{ background: projectColor(task.projectId) }"></i>{{ projectName(task.projectId) }}</span><b>{{ task.progress }}%</b></footer><van-progress :percentage="task.progress" :show-pivot="false" stroke-width="3" color="#3b82f6" /></button><div v-if="!filteredTasks(column.key).length" class="empty">暂无任务</div></div></section></div></section>
+
+        <section v-else-if="view === 'ideas'" class="list-view"><div class="heading-row"><div><span class="eyebrow">先捕捉，再整理</span><h2>灵感收件箱</h2><p>不必立刻想清楚，把值得保留的念头记下来。</p></div><van-button type="primary" size="small" icon="bulb-o" @click="openIdea()">记下灵感</van-button></div><div class="toolbar toolbar--ideas"><div class="segmented segmented--ideas" role="group" aria-label="灵感分类筛选"><button v-for="option in ideaOptions" :key="option.value" type="button" :class="{ active: ideaFilter === option.value }" :aria-pressed="ideaFilter === option.value" @click="ideaFilter = option.value">{{ option.text }}</button></div><span class="toolbar-count">{{ filteredIdeas.length }} 条记录</span></div><div class="idea-grid"><button v-for="idea in filteredIdeas" :key="idea.id" class="idea-card" @click="openIdea(idea)"><span>{{ idea.tag }}</span><strong>{{ idea.title }}</strong><p>{{ idea.body || '还没有补充说明' }}</p><small>{{ relativeDate(idea.created) }}</small></button><button class="idea-card add-card" @click="openIdea()"><van-icon name="plus" /><span>记录一个新想法</span></button><div v-if="!filteredIdeas.length" class="empty">还没有灵感，先记录下来再说。</div></div></section>
+
+        <section v-else class="list-view"><div class="heading-row"><div><span class="eyebrow">把注意力放在重要的事</span><h2>我的项目</h2><p>项目保持轻量，让每一步进展都看得见。</p></div><van-button type="primary" size="small" icon="plus" @click="openProject()">新建项目</van-button></div><div class="project-grid"><button v-for="project in activeProjects" :key="project.id" class="project-card" @click="openProjectTasks(project.id)"><header><i :style="{ background: `${projectColor(project.id)}20`, color: projectColor(project.id) }">{{ project.name.slice(0, 1) }}</i><span><strong>{{ project.name }}</strong><small>{{ projectTaskCount(project.id) }} 项任务</small></span><van-icon name="ellipsis" @click.stop="openProject(project)" /></header><p>{{ project.description || '暂无项目描述' }}</p><footer><span>{{ projectOpenCount(project.id) }} 项进行中</span><b>{{ projectProgress(project.id) }}%</b></footer><van-progress :percentage="projectProgress(project.id)" :show-pivot="false" stroke-width="4" color="#3b82f6" /></button><button class="project-card add-card" @click="openProject()"><van-icon name="plus" /><span>添加一个项目</span></button><section v-if="archivedProjects.length" class="archived-projects"><h3>已归档</h3><button v-for="project in archivedProjects" :key="project.id" class="archived-project" @click="openProject(project)"><span>{{ project.name }}</span><small>恢复</small></button></section></div></section>
+      </div>
+    </main>
+
+    <BottomActions class="requirements-bottom-actions" :menus="mobileMenuItems" />
+
+    <div v-if="showTask" class="custom-modal" @click.self="showTask = false">
+      <section class="custom-dialog" role="dialog" aria-modal="true" aria-labelledby="task-dialog-title">
+        <header class="custom-dialog__head"><div><span class="dialog-kicker">任务管理</span><h3 id="task-dialog-title">{{ editingTask ? '编辑任务' : '新建任务' }}</h3></div><button class="dialog-close" type="button" aria-label="关闭" @click="showTask = false">×</button></header>
+        <form class="custom-form" @submit.prevent="saveTask">
+          <div class="custom-form__body">
+            <label class="form-field form-field--wide"><span>任务名称 <b>*</b></span><input v-model="taskForm.title" required maxlength="120" placeholder="这一步要完成什么？" /></label>
+            <div class="form-grid"><fieldset class="form-field inline-options"><legend>所属项目</legend><div class="option-list"><label v-for="option in projectOptions" :key="option.value" class="option-chip" :class="{ active: taskForm.projectId === option.value }"><input v-model="taskForm.projectId" type="radio" name="task-project" :value="option.value" /><span>{{ option.text }}</span></label></div></fieldset><div class="form-field"><span>当前状态</span><div class="choice-row"><button v-for="status in statusChoices" :key="status.value" type="button" class="choice" :class="{ active: taskForm.status === status.value }" @click="taskForm.status = status.value">{{ status.label }}</button></div></div></div>
+            <div class="form-field"><div class="field-label-row"><span>完成进度</span><strong>{{ taskForm.progress }}%</strong></div><input v-model.number="taskForm.progress" class="range-input" type="range" min="0" max="100" step="5" /></div>
+            <div class="form-grid"><div class="form-field"><span>优先级</span><div class="choice-row choice-row--compact"><button v-for="priority in priorityChoices" :key="priority.value" type="button" class="choice" :class="[`choice--${priority.value}`, { active: taskForm.priority === priority.value }]" @click="taskForm.priority = priority.value">{{ priority.label }}</button></div></div><label class="form-field"><span>截止日期</span><input v-model="taskForm.due" type="date" /></label></div>
+            <label class="form-field form-field--wide"><span>备注</span><textarea v-model="taskForm.note" rows="3" placeholder="补充背景、下一步或相关链接"></textarea></label>
+          </div>
+          <footer class="custom-dialog__foot"><button v-if="editingTask" class="text-danger" type="button" @click="deleteTask">删除任务</button><span v-else></span><div><button class="btn-secondary" type="button" @click="showTask = false">取消</button><button class="btn-primary" type="submit">保存任务</button></div></footer>
+        </form>
+      </section>
+    </div>
+    <div v-if="showIdea" class="custom-modal" @click.self="showIdea = false">
+      <section class="custom-dialog" role="dialog" aria-modal="true" aria-labelledby="idea-dialog-title">
+        <header class="custom-dialog__head"><div><span class="dialog-kicker">灵感收件箱</span><h3 id="idea-dialog-title">{{ editingIdea ? '编辑灵感' : '记下一个灵感' }}</h3></div><button class="dialog-close" type="button" aria-label="关闭" @click="showIdea = false">×</button></header>
+        <form class="custom-form" @submit.prevent="saveIdea"><div class="custom-form__body"><label class="form-field form-field--wide"><span>一句话记下它 <b>*</b></span><input v-model="ideaForm.title" required maxlength="100" placeholder="一个还不完整的想法也可以" /></label><label class="form-field form-field--wide"><span>多写一点 <small>选填</small></span><textarea v-model="ideaForm.body" rows="5" placeholder="写下背景、场景，或者你担心忘掉的细节"></textarea></label><fieldset class="form-field form-field--wide inline-options"><legend>归类</legend><div class="option-list"><label v-for="option in ideaTagOptions" :key="option.value" class="option-chip" :class="{ active: ideaForm.tag === option.value }"><input v-model="ideaForm.tag" type="radio" name="idea-tag" :value="option.value" /><span>{{ option.text }}</span></label></div></fieldset></div><footer class="custom-dialog__foot"><div class="foot-left"><button v-if="editingIdea" class="text-danger" type="button" @click="deleteIdea">删除</button><button v-if="editingIdea" class="btn-ghost" type="button" @click="convertIdea">转成任务</button></div><div><button class="btn-secondary" type="button" @click="showIdea = false">取消</button><button class="btn-primary" type="submit">保存灵感</button></div></footer></form>
+      </section>
+    </div>
+    <div v-if="showProject" class="custom-modal" @click.self="showProject = false">
+      <section class="custom-dialog" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title">
+        <header class="custom-dialog__head"><div><span class="dialog-kicker">项目管理</span><h3 id="project-dialog-title">{{ editingProject ? '项目设置' : '创建项目' }}</h3></div><button class="dialog-close" type="button" aria-label="关闭" @click="showProject = false">×</button></header>
+        <form class="custom-form" @submit.prevent="saveProject"><div class="custom-form__body"><label class="form-field form-field--wide"><span>项目名称 <b>*</b></span><input v-model="projectForm.name" required maxlength="60" placeholder="例如：个人网站改版" /></label><label class="form-field form-field--wide"><span>一句话说明 <small>选填</small></span><input v-model="projectForm.description" maxlength="120" placeholder="这个项目想要达成什么？" /></label><fieldset class="form-field color-field"><legend>项目颜色</legend><div class="color-choices"><span v-for="color in projectColors" :key="color" class="color-option"><button type="button" class="color-choice" :class="{ active: projectForm.color === color }" :style="{ '--choice-color': color }" :aria-label="`选择${projectColorNames[color]}色`" :aria-pressed="projectForm.color === color" @click="projectForm.color = color"></button><span class="color-name" :class="{ active: projectForm.color === color }">{{ projectColorNames[color] }}</span></span></div></fieldset></div><footer class="custom-dialog__foot"><div><button v-if="editingProject" class="btn-ghost" type="button" @click="archiveProject">{{ editingProject.archived ? '恢复项目' : '归档项目' }}</button><button v-if="editingProject" class="text-danger" type="button" @click="deleteProject">删除</button></div><div><button class="btn-secondary" type="button" @click="showProject = false">取消</button><button class="btn-primary" type="submit">保存项目</button></div></footer></form>
+      </section>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { showConfirmDialog, showToast } from 'vant'
+import BottomActions from '@/components/BottomActions/BottomActions.vue'
+import { preventBack } from '@/lib/router'
+import { createRequirement, deleteRequirement, fetchRequirements, updateRequirement, type RequirementData, type RequirementIdea, type RequirementProject, type RequirementTask } from '@/service/requirement'
+import { useResponsive } from '@/composables/useResponsive'
+import { isTauri } from '@/constants'
+
+defineOptions({ name: 'RequirementsView' })
+const view = ref<'home' | 'tasks' | 'ideas' | 'projects'>('home')
+const loading = ref(true)
+const data = reactive<RequirementData>({ projects: [], ideas: [], tasks: [] })
+const selectedProjectId = ref('')
+const search = ref('')
+const statusFilter = ref('all')
+const ideaFilter = ref('all')
+const showTask = ref(false), showIdea = ref(false), showProject = ref(false)
+const editingTask = ref<RequirementTask | null>(null), editingIdea = ref<RequirementIdea | null>(null), editingProject = ref<RequirementProject | null>(null)
+const taskForm = reactive({ title: '', projectId: '', status: 'todo' as RequirementTask['status'], progress: 0, priority: 'medium' as RequirementTask['priority'], due: '', note: '' })
+const ideaForm = reactive({ title: '', body: '', tag: '产品想法' })
+const projectForm = reactive({ name: '', description: '', color: '#2563eb' })
+const projectColors = ['#2563eb', '#0891b2', '#059669', '#ea580c', '#db2777', '#7c3aed']
+const projectColorNames: Record<string, string> = { '#2563eb': '海蓝', '#0891b2': '青碧', '#059669': '青绿', '#ea580c': '琥珀', '#db2777': '莓红', '#7c3aed': '鸢尾' }
+const { width } = useResponsive()
+const isMobile = computed(() => width.value < 480)
+const isTauriDesktop = computed(() => isTauri && !isMobile.value)
+const mobileStatusIndex = ref(0)
+const archivedProjects = computed(() => data.projects.filter(project => project.archived))
+const navigateView = (next: 'home' | 'tasks' | 'ideas' | 'projects') => { view.value = next; if (next !== 'tasks') selectedProjectId.value = '' }
+const tabs = computed(() => [{ key: 'home', label: '总览', icon: 'wap-home' }, { key: 'ideas', label: '灵感', icon: 'bulb-o', count: data.ideas.length }, { key: 'projects', label: '项目', icon: 'apps-o', count: activeProjects.value.length }, { key: 'tasks', label: '任务', icon: 'todo-list-o', count: openTasks.value.length }] as const)
+const mobileMenuItems = computed(() => tabs.value.map(item => ({ icon: item.icon, activeIcon: item.icon, activeColor: '#2563eb', text: item.label, active: view.value === item.key, handleClick: () => navigateView(item.key) })))
+const todayLabel = computed(() => new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }))
+const activeProjects = computed(() => data.projects.filter(project => !project.archived))
+const selectedProject = computed(() => data.projects.find(project => project.id === selectedProjectId.value))
+const openTasks = computed(() => data.tasks.filter(task => task.status !== 'done'))
+const upcomingTasks = computed(() => [...openTasks.value].sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999')).slice(0, 5))
+const stats = computed(() => [{ label: '进行中的任务', value: openTasks.value.length, unit: '项', icon: 'todo-list-o' }, { label: '正在推进的项目', value: activeProjects.value.length, unit: '个', icon: 'apps-o' }, { label: '今天到期', value: openTasks.value.filter(task => task.due === today()).length, unit: '项任务', icon: 'clock-o' }, { label: '整体完成率', value: data.tasks.length ? Math.round(data.tasks.filter(task => task.status === 'done').length / data.tasks.length * 100) : 0, unit: '%', icon: 'success' }])
+const columns = [{ key: 'todo', label: '待开始' }, { key: 'active', label: '进行中' }, { key: 'done', label: '已完成' }] as const
+const visibleColumns = computed(() => {
+  if (width.value <= 760) return [columns[mobileStatusIndex.value] || columns[0]]
+  return statusFilter.value === 'all' ? columns : columns.filter(column => column.key === statusFilter.value)
+})
+const statusOptions = [{ text: '所有状态', value: 'all' }, ...columns.map(column => ({ text: column.label, value: column.key }))]
+const activeStatusFilter = computed(() => (width.value <= 760 ? 'all' : statusFilter.value))
+const selectBoardColumn = (index: number) => { mobileStatusIndex.value = index }
+const statusChoices = [{ label: '待开始', value: 'todo' as const }, { label: '进行中', value: 'active' as const }, { label: '已完成', value: 'done' as const }]
+const priorityChoices = [{ label: '高', value: 'high' as const }, { label: '普通', value: 'medium' as const }, { label: '低', value: 'low' as const }]
+const ideaOptions = computed(() => [{ text: '所有灵感', value: 'all' }, ...[...new Set(data.ideas.map(idea => idea.tag))].map(tag => ({ text: tag, value: tag }))])
+const ideaTagOptions = ['产品想法', '交互体验', '体验优化', '技术探索', '随手记录'].map(tag => ({ text: tag, value: tag }))
+const projectOptions = computed(() => [{ text: '灵感收件箱', value: '' }, ...activeProjects.value.map(project => ({ text: project.name, value: project.id }))])
+const filteredIdeas = computed(() => data.ideas.filter(idea => ideaFilter.value === 'all' || idea.tag === ideaFilter.value))
+const TaskRow = defineComponent({
+  props: { task: { type: Object as () => RequirementTask, required: true } },
+  emits: ['edit', 'toggle'],
+  setup(props, { emit }) {
+    return () => h('button', { class: 'task-row', onClick: () => emit('edit') }, [
+      h('span', { class: ['task-check', { done: props.task.status === 'done' }], onClick: (event: Event) => { event.stopPropagation(); emit('toggle') } }, props.task.status === 'done' ? '✓' : ''),
+      h('span', { class: 'task-row-main' }, [
+        h('strong', { class: { done: props.task.status === 'done' } }, props.task.title),
+        h('small', `${props.task.note || '暂无备注'} · ${props.task.progress}%`),
+      ]),
+    ])
+  },
+})
+
+preventBack(showTask); preventBack(showIdea); preventBack(showProject)
+const today = () => new Date().toISOString().slice(0, 10)
+const load = async () => { loading.value = true; try { Object.assign(data, await fetchRequirements()) } catch { showToast('需求面板加载失败') } finally { loading.value = false } }
+onMounted(load)
+const projectName = (id: string) => data.projects.find(project => project.id === id)?.name || '灵感收件箱'
+const projectColor = (id: string) => {
+  const color = data.projects.find(project => project.id === id)?.color
+  return color && projectColors.includes(color) ? color : projectColors[0]
+}
+const projectTasks = (id: string) => data.tasks.filter(task => task.projectId === id)
+const projectTaskCount = (id: string) => projectTasks(id).length
+const projectOpenCount = (id: string) => projectTasks(id).filter(task => task.status !== 'done').length
+const projectProgress = (id: string) => { const tasks = projectTasks(id); return tasks.length ? Math.round(tasks.filter(task => task.status === 'done').length / tasks.length * 100) : 0 }
+const filteredTasks = (status: string) => data.tasks.filter(task => (!selectedProjectId.value || task.projectId === selectedProjectId.value) && (activeStatusFilter.value === 'all' || task.status === activeStatusFilter.value) && (!search.value || `${task.title} ${task.note} ${projectName(task.projectId)}`.toLowerCase().includes(search.value.toLowerCase())) && task.status === status)
+const tasksForStatus = (status: string) => data.tasks.filter(task => (!selectedProjectId.value || task.projectId === selectedProjectId.value) && task.status === status).length
+const relativeDate = (value: string) => { const days = Math.floor((Date.now() - new Date(value).getTime()) / 86400000); return days <= 0 ? '今天' : days === 1 ? '昨天' : `${days} 天前` }
+const openProjectTasks = (id: string) => { selectedProjectId.value = id; view.value = 'tasks' }
+const resetTask = (task?: RequirementTask) => Object.assign(taskForm, task ? { title: task.title, projectId: task.projectId, status: task.status, progress: task.progress, priority: task.priority, due: task.due, note: task.note } : { title: '', projectId: selectedProjectId.value, status: 'todo', progress: 0, priority: 'medium', due: '', note: '' })
+const openTask = (task?: RequirementTask) => { editingTask.value = task || null; resetTask(task); showTask.value = true }
+const saveTask = async () => { if (!taskForm.title.trim()) return showToast('请输入任务名称'); const payload = { ...taskForm, status: taskForm.progress === 100 ? 'done' : taskForm.status, progress: taskForm.status === 'done' ? 100 : taskForm.progress }; try { if (editingTask.value) await updateRequirement('task', editingTask.value.id, payload); else await createRequirement('task', payload); showTask.value = false; await load(); showToast('任务已保存') } catch { showToast('任务保存失败') } }
+const toggleTask = async (task: RequirementTask) => { try { await updateRequirement('task', task.id, { status: task.status === 'done' ? 'todo' : 'done', progress: task.status === 'done' ? 0 : 100 }); await load() } catch { showToast('任务更新失败') } }
+const deleteTask = () => showConfirmDialog({ title: '删除任务', message: '确定删除这项任务吗？' }).then(async () => { if (editingTask.value) { await deleteRequirement('task', editingTask.value.id); showTask.value = false; await load() } }).catch(() => undefined)
+const openIdea = (idea?: RequirementIdea) => { editingIdea.value = idea || null; Object.assign(ideaForm, idea ? { title: idea.title, body: idea.body, tag: idea.tag } : { title: '', body: '', tag: '产品想法' }); showIdea.value = true }
+const saveIdea = async () => { if (!ideaForm.title.trim()) return showToast('请输入灵感标题'); try { if (editingIdea.value) await updateRequirement('idea', editingIdea.value.id, ideaForm); else await createRequirement('idea', ideaForm); showIdea.value = false; await load(); showToast('灵感已保存') } catch { showToast('灵感保存失败') } }
+const deleteIdea = () => showConfirmDialog({ title: '删除灵感', message: '确定删除这条灵感吗？' }).then(async () => { if (editingIdea.value) { await deleteRequirement('idea', editingIdea.value.id); showIdea.value = false; await load() } }).catch(() => undefined)
+const convertIdea = async () => { if (!editingIdea.value) return; const idea = editingIdea.value; try { await createRequirement('task', { title: idea.title, note: idea.body, projectId: '', status: 'todo', progress: 0, priority: 'medium', due: '' }); await deleteRequirement('idea', idea.id); showIdea.value = false; await load(); view.value = 'tasks'; showToast('灵感已转成收件箱任务') } catch { showToast('转换失败') } }
+const openProject = (project?: RequirementProject) => { editingProject.value = project || null; Object.assign(projectForm, project ? { name: project.name, description: project.description, color: projectColor(project.id) } : { name: '', description: '', color: projectColors[0] }); showProject.value = true }
+const saveProject = async () => { if (!projectForm.name.trim()) return showToast('请输入项目名称'); try { if (editingProject.value) await updateRequirement('project', editingProject.value.id, projectForm); else await createRequirement('project', { ...projectForm, archived: false }); showProject.value = false; await load(); showToast('项目已保存') } catch { showToast('项目保存失败') } }
+const archiveProject = async () => {
+  if (!editingProject.value) return
+  const project = editingProject.value
+  const willArchive = !project.archived
+  const confirmed = await showConfirmDialog({
+    title: willArchive ? '归档项目' : '恢复项目',
+    message: willArchive ? `归档“${project.name}”后，项目会从进行中列表移入已归档。` : `将“${project.name}”恢复到进行中列表？`,
+    confirmButtonText: willArchive ? '归档项目' : '恢复项目',
+  }).then(() => true).catch(() => false)
+  if (!confirmed) return
+  try {
+    await updateRequirement('project', project.id, { archived: willArchive })
+    showProject.value = false
+    await load()
+    showToast(willArchive ? '项目已归档' : '项目已恢复')
+  } catch {
+    showToast(willArchive ? '项目归档失败' : '项目恢复失败')
+  }
+}
+const deleteProject = () => showConfirmDialog({ title: '删除项目', message: '项目任务会移入灵感收件箱，确定继续吗？' }).then(async () => { if (editingProject.value) { await deleteRequirement('project', editingProject.value.id); const tasks = data.tasks.filter(task => task.projectId === editingProject.value?.id); await Promise.all(tasks.map(task => updateRequirement('task', task.id, { projectId: '' }))); showProject.value = false; selectedProjectId.value = ''; await load() } }).catch(() => undefined)
+</script>
+
+<style scoped lang="scss">
+@use '@/styles/breakpoints.scss' as *;
+.requirements-view{--van-primary-color:#2563eb;--van-button-primary-background:#2563eb;--van-button-primary-border-color:#2563eb;--van-tabs-bottom-bar-color:#2563eb;--native-titlebar-height:0px;min-height:100%;background:#f7f8fa;color:#242a31;padding:0 28px 40px}.requirements-view.is-tauri-desktop{--native-titlebar-height:32px}.module-tabs{padding-top:var(--native-titlebar-height)}.heading-actions,.toolbar,.popup-actions{display:flex;align-items:center;gap:8px}.module-tabs{display:flex;gap:3px;border-bottom:1px solid #e8ebef}.module-tabs button{height:42px;padding:0 13px;display:inline-flex;align-items:center;gap:7px;border:0;border-bottom:2px solid transparent;background:transparent;color:#7c8791;font-size:12px;cursor:pointer}.module-tabs button.active{color:#2563eb;border-color:#2563eb;font-weight:650}.module-tabs em{font-size:10px;color:#9aa2aa;font-style:normal}.module-main{max-width:1280px;margin:0 auto;padding-top:28px}.heading-row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}.eyebrow{display:block;color:#2563eb;font-size:11px;font-weight:700;margin-bottom:5px}.heading-row h2{font-size:25px;line-height:1.2;margin:0;font-weight:650}.heading-row p{color:#7e8791;font-size:13px;margin:7px 0 0}.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}.stat-card{min-height:96px;padding:15px;background:#fff;border:1px solid #e8ebef;border-radius:8px;display:flex;align-items:flex-start;justify-content:space-between;color:#7e8791;font-size:11px}.stat-card strong{display:block;color:#242a31;font-size:24px;line-height:1.1;margin-top:10px}.stat-card small{font-size:11px;color:#98a0a8;margin-left:4px;font-weight:400}.stat-card>.van-icon{padding:7px;border-radius:6px;background:#f2f5f5;color:#2563eb;font-size:15px}.home-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(260px,.9fr);gap:15px}.side-panels{display:grid;gap:15px}.panel{background:#fff;border:1px solid #e8ebef;border-radius:8px}.panel-head{min-height:52px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eef0f2}.panel-head h3{font-size:13px;margin:0;font-weight:650}.panel-head small{font-size:11px;color:#9aa2aa;font-weight:400;margin-left:6px}.panel-head button{border:0;background:none;color:#2563eb;font-size:11px;cursor:pointer}.task-list{padding:0 16px}.task-row{width:100%;min-height:68px;padding:9px 0;display:flex;align-items:center;gap:10px;border:0;border-bottom:1px solid #f0f1f3;background:none;text-align:left;cursor:pointer}.task-row:last-child{border-bottom:0}.task-check{width:16px;height:16px;flex:none;border:1px solid #c7cfd4;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:10px}.task-check.done{background:#3b82f6;border-color:#3b82f6}.task-row-main{min-width:0;display:grid;gap:4px}.task-row-main strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.task-row-main strong.done{text-decoration:line-through;color:#9da5ad}.task-row-main small{color:#8b949e;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.project-list{padding:6px 14px 8px}.project-row,.idea-row{width:100%;display:flex;align-items:center;gap:9px;padding:10px 2px;border:0;border-bottom:1px solid #f0f1f3;background:none;text-align:left;cursor:pointer}.project-row:last-child,.idea-row:last-child{border:0}.project-row>i{width:8px;height:8px;border-radius:50%;flex:none}.project-row>span{min-width:0;flex:1}.project-row strong,.project-row small,.idea-row strong,.idea-row small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.project-row strong,.idea-row strong{font-size:11px}.project-row small,.idea-row small{color:#929aa3;font-size:10px;margin-top:2px}.project-row b{display:block;width:54px;height:4px;background:#edf0f1;border-radius:4px;margin-top:5px;overflow:hidden}.project-row b i{display:block;height:100%;background:#3b82f6}.project-row em{font-size:10px;color:#929aa3;font-style:normal}.idea-row{padding:11px 16px;gap:9px}.idea-row .van-icon{color:#3b82f6;font-size:15px}.empty{padding:25px 12px;text-align:center;color:#929ba4;font-size:12px}.toolbar{margin:-4px 0 17px}.toolbar .van-search{flex:1;min-width:160px;padding:0;background:transparent}.toolbar-count{margin-left:auto;color:#929aa3;font-size:11px}.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.board-column{background:#f0f2f4;border-radius:7px;padding:0 9px 10px;min-height:250px}.column-title{height:45px;padding:0 4px;display:flex;align-items:center;gap:8px}.column-title>.status-dot{width:8px;height:8px;flex:none;border-radius:50%;background:#9aa8ba}.column-title>.status-dot.active{background:#3b82f6}.column-title>.status-dot.done{background:#93b4ed}.column-title strong{font-size:11px}.column-title small{font-size:10px;color:#9aa1a8}.board-cards{display:grid;gap:8px}.task-card{padding:12px;background:#fff;border:1px solid #e6e9ec;border-radius:6px;text-align:left;cursor:pointer}.task-card strong{display:block;font-size:12px;line-height:1.5}.task-card p{font-size:10px;line-height:1.5;color:#8c959e;margin:5px 0 0}.task-card footer{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:11px 0 7px;color:#7c8790;font-size:10px}.task-card footer span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.task-card footer i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px}.task-card footer b{font-size:10px;color:#929ba3;font-weight:400}.idea-grid,.project-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.idea-card,.project-card{min-width:0;padding:15px;background:#fff;border:1px solid #e8ebef;border-radius:7px;text-align:left;cursor:pointer}.idea-card>span{display:inline-block;padding:3px 7px;border-radius:4px;background:#eff6ff;color:#2563eb;font-size:10px}.idea-card strong{display:block;font-size:14px;margin-top:12px}.idea-card p{min-height:42px;color:#78828c;font-size:11px;line-height:1.6;margin:6px 0 12px}.idea-card small{color:#a0a7ae;font-size:10px}.add-card{display:grid;place-items:center;align-content:center;gap:8px;min-height:150px;border-style:dashed;color:#818b94;text-align:center}.add-card .van-icon{font-size:20px}.project-card header{display:flex;align-items:center;gap:10px}.project-card header>i{width:34px;height:34px;display:grid;place-items:center;border-radius:7px;font-size:12px;font-style:normal}.project-card header>span{min-width:0;flex:1}.project-card header strong,.project-card header small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.project-card header strong{font-size:12px}.project-card header small{font-size:10px;color:#969ea6;margin-top:2px}.project-card header>.van-icon{font-size:17px;color:#8a949d}.project-card>p{min-height:36px;color:#7e8790;font-size:11px;line-height:1.6;margin:13px 0}.project-card footer{display:flex;justify-content:space-between;color:#8c959d;font-size:10px;margin-bottom:7px}.mobile-module-nav{display:none}.requirement-popup{max-height:90vh;overflow:auto}.popup-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e8ebef;font-size:15px}.popup-head .van-icon{font-size:19px;color:#737d86;cursor:pointer}.popup-actions{justify-content:flex-end;padding:14px 20px 20px}.field-dropdown{width:100%;box-shadow:none}.field-dropdown :deep(.van-dropdown-menu__bar){height:32px;box-shadow:none;background:transparent}.color-dot{display:block;width:18px;height:18px;border-radius:50%}
+@include desktop{.requirements-view{padding-left:28px;padding-right:28px}}
+@media(max-width:760px){.requirements-view{padding:0 16px calc(85px + var(--safe-area-bottom,0px));background:#f7f8fa}.module-tabs{display:none}.module-main{padding-top:calc(21px + var(--safe-area-top,0px))}.heading-row{align-items:flex-start;margin-bottom:16px}.heading-row h2{font-size:22px}.heading-row p{display:none}.heading-actions{flex-wrap:wrap;justify-content:flex-end}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:14px}.stat-card{min-height:84px;padding:12px}.stat-card strong{font-size:21px;margin-top:6px}.home-grid,.side-panels{grid-template-columns:1fr;gap:12px}.panel-head{min-height:49px;padding:0 13px}.task-list{padding:0 12px}.task-row{min-height:72px}.task-row-main strong{font-size:13px}.task-row-main small{font-size:11px}.project-row strong,.idea-row strong{font-size:13px}.project-row small,.idea-row small{font-size:11px}.toolbar{flex-wrap:wrap;margin-bottom:16px}.toolbar .search-field{flex-basis:100%}.toolbar .segmented--status{display:none}.board{display:block}.board-column{margin-bottom:10px;min-height:0}.column-switcher{margin:-6px 0 14px}.task-card strong{font-size:13px}.task-card p{font-size:11px}.idea-grid,.project-grid{grid-template-columns:1fr;gap:9px}.idea-card,.project-card{padding:14px}.idea-card strong{font-size:16px}.idea-card p,.project-card>p{font-size:13px}.add-card{min-height:110px}.archived-projects{grid-column:1/-1;padding:16px;background:#fff;border:1px solid #e8ebef;border-radius:7px}.archived-projects h3{font-size:13px;margin:0 0 10px}.archived-project{width:100%;display:flex;justify-content:space-between;padding:10px 0;border:0;border-top:1px solid #f0f1f3;background:#fff;text-align:left}.archived-project small{color:#2563eb}.requirement-popup{max-height:calc(92vh - var(--safe-area-top,0px));border-radius:12px 12px 0 0}.popup-head{padding:15px 17px}.popup-actions{flex-wrap:wrap;padding:12px 17px calc(16px + var(--safe-area-bottom,0px))}.popup-actions .van-button{min-width:74px}.van-cell-group--inset{margin:0 12px}}
+@media(min-width:761px) and (max-width:1100px){.home-grid{grid-template-columns:1fr}.side-panels{grid-template-columns:repeat(2,minmax(0,1fr))}.stats-grid{grid-template-columns:repeat(2,1fr)}.idea-grid,.project-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Module-owned form system: calm surfaces, clear hierarchy, and no library defaults. */
+.custom-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(25,31,38,.38);backdrop-filter:blur(7px);animation:modal-in .18s ease-out}.custom-dialog{width:min(100%,620px);max-height:min(760px,calc(100vh - 48px));display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid rgba(24,34,43,.12);border-radius:18px;box-shadow:0 24px 70px rgba(18,28,38,.2);color:#26313a}.custom-dialog__head{display:flex;align-items:flex-start;justify-content:space-between;padding:25px 28px 21px;border-bottom:1px solid #edf0f2}.dialog-kicker{display:block;margin-bottom:5px;color:#2563eb;font-size:11px;font-weight:700;letter-spacing:.08em}.custom-dialog__head h3{margin:0;color:#202930;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:-.02em}.dialog-close{width:38px;height:38px;display:grid;place-items:center;margin:-4px -7px 0 20px;border:0;border-radius:10px;background:transparent;color:#84909a;font-size:27px;font-weight:300;line-height:1;cursor:pointer}.dialog-close:hover{background:#f3f6f7;color:#26313a}.custom-form{display:flex;min-height:0;flex-direction:column}.custom-form__body{display:grid;gap:20px;padding:25px 28px;overflow:auto}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.form-field{display:grid;gap:9px;min-width:0}.form-field>span,.field-label-row>span{color:#56636d;font-size:12px;font-weight:700}.form-field>span b{color:#dc6b65}.form-field>span small{color:#9ca7ae;font-size:11px;font-weight:400;margin-left:4px}.form-field input:not([type=range]),.form-field select,.form-field textarea{width:100%;min-height:44px;padding:0 13px;border:1px solid #dce3e6;border-radius:10px;outline:0;background:#fbfcfc;color:#27333b;font-size:14px;transition:border-color .16s,box-shadow .16s,background .16s}.form-field textarea{height:auto;min-height:106px;padding:12px 13px;resize:vertical;line-height:1.55}.form-field input::placeholder,.form-field textarea::placeholder{color:#adb6bc}.form-field input:not([type=range]):focus,.form-field select:focus,.form-field textarea:focus{border-color:#60a5fa;background:#fff;box-shadow:0 0 0 4px rgba(59,130,246,.12)}.form-field select{appearance:none;background:#fbfcfc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237c8992' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 13px center;padding-right:38px}.choice-row{display:flex;min-height:44px;gap:6px;padding:4px;border:1px solid #dce3e6;border-radius:10px;background:#f5f7f7}.choice{flex:1;min-width:0;border:0;border-radius:7px;background:transparent;color:#7e8a93;font-size:12px;cursor:pointer;transition:background .16s,color .16s,box-shadow .16s}.choice:hover{color:#1d4ed8}.choice.active{background:#fff;color:#2563eb;box-shadow:0 2px 7px rgba(40,61,66,.1);font-weight:700}.choice--high.active{color:#2563eb}.choice--low.active{color:#2563eb}.choice-row--compact{max-width:260px}.field-label-row{display:flex;align-items:center;justify-content:space-between}.field-label-row strong{color:#2563eb;font-size:13px}.range-input{width:100%;height:6px;margin:8px 0 4px;accent-color:#3b82f6;cursor:pointer}.custom-dialog__foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 28px 20px;border-top:1px solid #edf0f2;background:#fff}.custom-dialog__foot>div{display:flex;align-items:center;gap:9px}.foot-left{display:flex;align-items:center;gap:13px}.btn-primary,.btn-secondary,.btn-ghost,.text-danger{min-height:40px;padding:0 16px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer}.btn-primary{border:1px solid #2563eb;background:#2563eb;color:#fff;box-shadow:0 4px 10px rgba(37,99,235,.18)}.btn-primary:hover{background:#1d4ed8;border-color:#1d4ed8}.btn-secondary{border:1px solid #dce3e6;background:#fff;color:#52606a}.btn-secondary:hover,.btn-ghost:hover{background:#f4f7f7}.btn-ghost{border:0;background:transparent;color:#2563eb}.text-danger{min-height:auto;padding:5px 0;border:0;background:transparent;color:#c0615b}.text-danger:hover{color:#a94d49}.custom-modal button:focus-visible,.custom-modal input:focus-visible,.custom-modal textarea:focus-visible,.custom-modal select:focus-visible{outline:3px solid rgba(59,130,246,.24);outline-offset:2px}.archived-projects{grid-column:1/-1}@keyframes modal-in{from{opacity:0}to{opacity:1}}
+@media(max-width:760px){.custom-modal{align-items:flex-end;padding:0;background:rgba(25,31,38,.34)}.custom-dialog{width:100%;max-height:calc(94dvh - var(--safe-area-top,0px));border-radius:20px 20px 0 0;border-bottom:0}.custom-dialog__head{padding:21px 20px 17px}.custom-dialog__head h3{font-size:19px}.custom-form__body{gap:18px;padding:21px 20px}.form-grid{grid-template-columns:1fr;gap:18px}.choice-row--compact{max-width:none}.custom-dialog__foot{padding:13px 20px calc(17px + var(--safe-area-bottom,0px))}.custom-dialog__foot>div:last-child{margin-left:auto}.custom-dialog__foot .btn-primary,.custom-dialog__foot .btn-secondary{min-width:86px}}
+@media(prefers-reduced-motion:reduce){.custom-modal{animation:none}.custom-dialog *{transition:none!important}}
+
+/* 需求工作台：清晰的层级与轻量的蓝色交互 */
+.requirements-view { background: #f6f8fc; color: #1e2b40; }
+.module-tabs { gap: 8px; border-color: #e6ebf3; }
+.module-tabs button { height: 52px; padding: 0 16px; font-size: 13px; color: #718096; transition: color .18s ease; }
+.module-tabs button:hover { color: #2563eb; }
+.module-main { padding-top: 32px; }
+.heading-row { align-items: center; margin-bottom: 24px; }
+.heading-row h2 { font-size: 24px; letter-spacing: -.03em; }
+.heading-row p:empty { display: none; }
+.eyebrow { font-size: 12px; margin-bottom: 8px; }
+.requirements-view :deep(.van-button--small) { height: 36px; padding: 0 15px; border-radius: 10px; font-weight: 600; }
+.requirements-view :deep(.van-button--primary) { box-shadow: 0 4px 12px rgba(37,99,235,.16); }
+.stats-grid { gap: 14px; }
+.stat-card, .panel, .idea-card, .project-card { border-color: #e8edf5; border-radius: 14px; box-shadow: 0 3px 14px rgba(30,53,91,.035); }
+.stat-card { min-height: 108px; padding: 18px; }
+.stat-card > .van-icon { background: #eff5ff; border-radius: 10px; }
+.panel-head { min-height: 58px; padding: 0 18px; }
+.panel-head h3 { font-size: 14px; }
+.idea-card, .project-card { transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.idea-card:hover, .project-card:hover { border-color: #c5d8fb; box-shadow: 0 8px 24px rgba(40,81,150,.08); transform: translateY(-2px); }
+.toolbar { gap: 10px; margin: 0 0 20px; }
+.search-field { position: relative; display: flex; flex: 1 1 240px; align-items: center; gap: 9px; min-width: 180px; height: 40px; padding: 0 12px; border: 1px solid #e3eaf5; border-radius: 11px; background: #fff; color: #94a3b8; transition: border-color .16s ease, box-shadow .16s ease; }
+.search-field:focus-within { border-color: #93b4ed; box-shadow: 0 0 0 4px rgba(59,130,246,.12); }
+.search-field input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: #1e2b40; font-size: 13px; }
+.search-field input::placeholder { color: #9aa8ba; }
+.search-field input::-webkit-search-cancel-button { display: none; }
+.search-clear { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: #eef3fa; color: #64748b; cursor: pointer; }
+.segmented { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid #e3eaf5; border-radius: 11px; background: #eef3fa; }
+.segmented button { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: #64748b; font-size: 12px; white-space: nowrap; cursor: pointer; transition: background .16s ease, color .16s ease, box-shadow .16s ease; }
+.segmented button:hover { color: #2563eb; }
+.segmented button.active { background: #fff; color: #2563eb; font-weight: 600; box-shadow: 0 1px 3px rgba(30,53,91,.12); }
+.board { gap: 14px; align-items: start; }
+.board-column { min-width: 0; min-height: 210px; padding: 12px; border: 1px solid #e8edf5; border-radius: 16px; background: #eef3fa; }
+.column-title { height: 36px; padding: 0 2px 0 4px; gap: 9px; }
+.column-title strong { font-size: 13px; color: #26364b; }
+.column-title small { min-width: 22px; padding: 3px 6px; border-radius: 7px; background: rgba(255,255,255,.8); color: #72839b; text-align: center; font-size: 11px; }
+.column-add { display: grid; place-items: center; width: 32px; height: 32px; margin-left: auto; padding: 0; border: 0; border-radius: 9px; background: transparent; color: #6b7c93; cursor: pointer; }
+.column-add:hover, .column-add:focus-visible { background: #fff; color: #2563eb; }
+.column-add .van-icon { font-size: 17px; }
+.board-cards { gap: 10px; padding-top: 8px; }
+.board-cards > .empty { display: grid; place-items: center; min-height: 116px; padding: 20px; border: 1px dashed #d5e0ef; border-radius: 12px; color: #8493a8; background: rgba(255,255,255,.42); }
+.task-card { width: 100%; padding: 15px; border-color: #e5ebf4; border-radius: 12px; box-shadow: 0 2px 8px rgba(28,55,97,.04); transition: border-color .18s ease, box-shadow .18s ease; }
+.task-card:hover { border-color: #bdd3f7; box-shadow: 0 5px 16px rgba(37,99,235,.08); }
+.task-card strong { font-size: 13px; }
+.task-card p { font-size: 12px; }
+.requirements-view button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+@media (max-width: 760px) {
+  .requirements-bottom-actions { display: block; }
+  .module-main { padding-top: calc(20px + var(--safe-area-top, 0px)); }
+  .heading-row { gap: 12px; }
+  .heading-row h2 { font-size: 21px; }
+  .board-column { min-height: 0; margin-bottom: 10px; }
+  .board-cards > .empty { min-height: 100px; }
+  .column-add { width: 40px; height: 40px; }
+  .stat-card { min-height: 92px; padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .requirements-view *, .requirements-view *::before, .requirements-view *::after { transition-duration: 0s !important; }
+}
+
+.inline-options { min-width: 0; margin: 0; padding: 0; border: 0; }
+.inline-options legend { padding: 0; margin-bottom: 9px; color: #52606a; font-size: 13px; font-weight: 600; }
+.option-list { display: flex; flex-wrap: wrap; gap: 8px; max-height: 144px; overflow-y: auto; padding: 2px; }
+.option-chip { position: relative; display: inline-flex; align-items: center; min-height: 36px; max-width: 100%; padding: 0 12px; border: 1px solid #e2e8f2; border-radius: 9px; background: #f8fafc; color: #52647a; font-size: 13px; cursor: pointer; }
+.option-chip span { overflow-wrap: anywhere; }
+.option-chip.active { border-color: #9fc1fc; background: #eff6ff; color: #2563eb; font-weight: 600; }
+.option-chip input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.option-chip:has(input:focus-visible) { outline: 2px solid #2563eb; outline-offset: 2px; }
+@media (max-width: 760px) { .option-chip { min-height: 40px; } }
+
+.column-switcher { display: none; gap: 6px; margin: -2px 0 16px; padding: 4px; border: 1px solid #e3eaf5; border-radius: 12px; background: #eef3fa; }
+.column-switcher button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border: 0; border-radius: 9px; background: transparent; color: #64748b; font-size: 13px; cursor: pointer; }
+.column-switcher button.active { background: #fff; color: #2563eb; font-weight: 600; box-shadow: 0 1px 3px rgba(30,53,91,.12); }
+.column-switcher em { padding: 1px 6px; border-radius: 7px; background: rgba(37,99,235,.08); color: inherit; font-style: normal; font-size: 11px; }
+.toolbar--ideas { align-items: center; }
+.segmented--ideas { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.segmented--ideas::-webkit-scrollbar { display: none; }
+@media (max-width: 760px) {
+  .column-switcher { display: flex; margin: -4px 0 14px; }
+  .segmented--ideas { flex: 0 1 auto; }
+  .toolbar--ideas .toolbar-count { margin-left: auto; }
+  .search-field { height: 44px; }
+  .segmented button { height: 34px; }
+}
+
+.color-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+.color-field legend { padding: 0; margin-bottom: 9px; color: #52606a; font-size: 13px; font-weight: 600; }
+.color-choices { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; }
+.color-option { display: flex; width: 48px; flex: 0 0 48px; flex-direction: column; align-items: center; gap: 7px; }
+.color-choice { position: relative; display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; padding: 0; border: 0; border-radius: 50%; outline: 0; background: var(--choice-color); color: #fff; box-shadow: none; cursor: pointer; transition: transform .16s ease; }
+.color-choice::after { content: ''; width: 11px; height: 6px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; opacity: 0; transform: translateY(-1px) rotate(-45deg); }
+.color-choice:hover { transform: scale(1.08); }
+.color-choice:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+.color-choice.active::after { opacity: 1; }
+.color-name { color: #64748b; font-size: 12px; white-space: nowrap; }
+.color-name.active { color: #26364b; font-weight: 600; }
+@media (max-width: 760px) { .color-choices { gap: 12px; } .color-option { width: 44px; flex-basis: 44px; } .color-choice { width: 34px; height: 34px; flex-basis: 34px; } }
+</style>

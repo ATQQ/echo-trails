@@ -147,6 +147,7 @@ const otherApps = ref<AppItem[]>([
   { text: '云盘', icon: 'cluster-o', color: '#1989fa', url: '/files', svg: cloudSvg },
   { text: '待办事项', icon: 'todo-list-o', color: '#6739b6', url: '/todo' },
   { text: '事件记录', icon: 'records-o', color: '#00bcd4', url: '/events' },
+  { text: '需求面板', icon: 'bulb-o', color: '#2563eb', url: '/requirements' },
 ]);
 
 // 隐藏未上线（无 url）入口
