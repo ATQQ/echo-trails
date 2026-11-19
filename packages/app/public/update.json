@@ -31,7 +31,13 @@
       "description": "新增需求与灵感工作台",
       "md5": "3cbafc569e11e4b963f0d0ecbfce030f",
       "fileSize": 0,
-      "nativeHash": "0c16360e9e44ba7c"
+      "nativeHash": "0c16360e9e44ba7c",
+      "webPackage": {
+        "version": "0.9.9",
+        "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.9.zip",
+        "md5": "0dd1ff986873e08829e9e55acd22bb20",
+        "fileSize": 4493980
+      }
     },
     {
       "version": "0.9.5",

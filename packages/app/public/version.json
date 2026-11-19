@@ -6,7 +6,13 @@
     "description": "新增需求与灵感工作台",
     "nativeHash": "0c16360e9e44ba7c",
     "md5": "",
-    "fileSize": 0
+    "fileSize": 0,
+    "webPackage": {
+      "version": "0.9.9",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.9.zip",
+      "md5": "0dd1ff986873e08829e9e55acd22bb20",
+      "fileSize": 4493980
+    }
   },
   "windows": {
     "version": "0.9.9",
@@ -15,7 +21,13 @@
     "description": "新增需求与灵感工作台",
     "nativeHash": "0c16360e9e44ba7c",
     "md5": "",
-    "fileSize": 0
+    "fileSize": 0,
+    "webPackage": {
+      "version": "0.9.9",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.9.zip",
+      "md5": "0dd1ff986873e08829e9e55acd22bb20",
+      "fileSize": 4493980
+    }
   },
   "linux": {
     "version": "0.9.9",
@@ -24,7 +36,13 @@
     "description": "新增需求与灵感工作台",
     "nativeHash": "0c16360e9e44ba7c",
     "md5": "",
-    "fileSize": 0
+    "fileSize": 0,
+    "webPackage": {
+      "version": "0.9.9",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.9.zip",
+      "md5": "0dd1ff986873e08829e9e55acd22bb20",
+      "fileSize": 4493980
+    }
   },
   "android": {
     "version": "0.9.9",
@@ -33,7 +51,13 @@
     "description": "新增需求与灵感工作台",
     "md5": "3cbafc569e11e4b963f0d0ecbfce030f",
     "nativeHash": "0c16360e9e44ba7c",
-    "fileSize": 0
+    "fileSize": 0,
+    "webPackage": {
+      "version": "0.9.9",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.9.zip",
+      "md5": "0dd1ff986873e08829e9e55acd22bb20",
+      "fileSize": 4493980
+    }
   },
   "ios": {
     "version": "0.1.2",
