@@ -1,31 +1,31 @@
 {
-  "version": "0.9.5",
-  "notes": "资产管理改版：支持卖出价、卖出时间与已实现盈亏；新增事件记录与打卡统计",
-  "pub_date": "2026-10-07T13:59:25.705Z",
+  "version": "0.9.9",
+  "notes": "新增需求与灵感工作台",
+  "pub_date": "2026-11-19T07:30:45.871Z",
   "platforms": {
-    "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWJEb2J6RWRYL3NrNm9KZ1RXZ2M1R2tEcWpsdEJRdmtkRjFNNkVMT3FEd25UT01ZRTUvVnRHa1Urb0FnVzU3ckxPSThrUURwV3JpTVpMVnZsZElrZlEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMzgxMjM5CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS41X2FtZDY0LkFwcEltYWdlCjR2UGxxcSs3cHBKMXRIWUR1R04zeUcrcE1UU1ZyckdWNmlEVDRGNEJTaW1QVWJzT1g5V0RtaWhOOXdLbFR5MzFVYzY0ZzNtSW1KRXZGaFFmM0VmbkFBPT0K",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.5/EchoTrails_amd64.AppImage"
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVoyZzhNdlovY01TTHpmMUczWW16WEpISWZlODNaYWtmWEk0OEprV0d6N0tOUlRpc1Q0V0lVOTR4QXZSbEhYQlAySTQwMzlkZFhHOXlIWFdPQW9LQ3cwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDczMjE0CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKMkFEWDY3RWIxTzVlV0VPNGlzL2FIaEZyWG9BdjUrMkFTaENZbVFhbnE5WXNnWjVGRkxtWHZISW5wVHUwWWRuM3JUTk1XK3hMeVBVR05wek9ZRG0zQ0E9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.9/EchoTrails_aarch64.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWVBQjZnYURXMm1lMG1TMHU0aFFuQ2FzbHZPb1lhbWU0SmtyOFBNSHZuVkdQN3ArbVBzMWxPVDA5MmdBZVIrYnRCU2M2ZlJiOWxYcVMvWVlVNldHM3dJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMzgxNDY4CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKMU5FTlFkN1BLeU9kYnIrcDdFazJmdGdUTC9YTkxDSitUMElzTWJNZ0JDelN2SlJnWWpxTFB5SjF2RC9wWWZUeFZ1KzRIZElmZENLbGlWY21GendTRFE9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.5/EchoTrails_x64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWVBVmtOaWJJbWNqNm1pbFBITWhXQTdvZXdRdDFVays5M2JNeXZ3NU5RUHFnSTR6QU1kemJWSkc0SjJKUm13OEU2RHl5OVU1a0xkS2JGUlBETDAxRnc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDczNDEwCWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKdUpPbFE3RWlJSnVNQXJORWpJREFJMmJ6YnFGT3V2MHRzekFwNzVLK3RuZUNTT2xWbDBBeDRnMmhjamUwQ2xSd0hSSzRQZGxjY0Q3VmkwMCtoSkVRQ3c9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.9/EchoTrails_x64.app.tar.gz"
     },
-    "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVRYejl0c0UwcTRid1ZDbkh2dVN1bGZ4SVM5azJhTHM2RGU5TWhadGZhV3BsK2JQMnVVS2puUnhBREdVSXE5Mi92T21lK2g3dFZYVTJVMVJGR0ZnSFFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMzgxMTY2CWZpbGU66K6w5b+G55qE5Zue5ZONLmFwcC50YXIuZ3oKYmpOdWphU2JROXdBaWx5ekNxbmJQdHNicmFKajR0eUNsZXNmbUE4Qml1QlhNZFdyaU9YRWR0RHJpdkJoSTNiT2RMLy9pQmd2dFE4ejZMQ2d0NnhnRGc9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.5/EchoTrails_aarch64.app.tar.gz"
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVpkTWtBam1VSTVUWUF6ZXdWM2gxUFB0bGY0RDB6bFRnN3kzQUQ0eDBncE05RWRYVDlGOEdzV21ybktBUEpCUzJzR1FLeVQzd2FUdkVqUWZVclZoUGdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDcyOTc0CWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS45X2FtZDY0LkFwcEltYWdlCktTYTdWOHFVVnh3TGNoV2ZiWU12VEthUmhycExJNCt4L0wrMXZETkZWdWt6UEZMNlVVSGpjeGd4aDloSUdwaVlGM0Q1OTFVSkllTnVpTG9kOFNBS0RBPT0K",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.9/EchoTrails_amd64.AppImage"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVVNGSEFwVDBXc0hYWFBiSVdYV1A3bjdHSWNGcmJMaXN6YURWVXZRYXV0c2VFV0I3bGd0eU90ZXpsa3NjSWNMNmU4Rjh5ZUdxYkJycVk3VmlTK3lYeVFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMzgxMzgwCWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS41X3g2NC1zZXR1cC5leGUKajV6ZzYybXVzZzRJYzFsTEozVDYyY1lNcEtBMTBRTlVXT0szM3J4eEI4c1pTemV3T0VlQmpWSk1Wem9JWTkzWUU3Y3UvQWZuVC9FL1ovaVp6MEpDQ3c9PQo=",
-      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.5/EchoTrails_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcUx6NWZ3QnZsVWNRRGhhSjRqVnNDUU1RRTh2UUV0VFRFbndwSGtsS0QwZm9DUXlkZ3BGN3ZUUHQwS2krMnpjRzRvVVdUclZlMXdGTWQ1WWhIRUx3a0x5am1SUkgza3dzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MDczMzMyCWZpbGU66K6w5b+G55qE5Zue5ZONXzAuOS45X3g2NC1zZXR1cC5leGUKMEhLVkExeGg3NVhSYlBBZ2RRWjBTWHdCOGV0OW5EcFRuc1hmRU9CVDJRWUNYNThGYlJydVJTSVJPSytYczkxYWxiOXExMkFZRUpFSGQ4Tno0UlhNQnc9PQo=",
+      "url": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.9/EchoTrails_x64-setup.exe"
     }
   },
   "android": {
-    "version": "0.9.5",
-    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.5/echo-trails-release-0.9.5.apk",
+    "version": "0.9.9",
+    "downloadUrl": "https://github.com/ATQQ/echo-trails/releases/download/v0.9.9/echo-trails-release-0.9.9.apk",
     "forceUpdate": false,
-    "description": "资产管理改版：支持卖出价、卖出时间与已实现盈亏；新增事件记录与打卡统计",
-    "md5": "19f55b1d09a28f28ddbd61328fbd51ad",
-    "nativeHash": "a99deb86fa77b045"
+    "description": "新增需求与灵感工作台",
+    "md5": "3cbafc569e11e4b963f0d0ecbfce030f",
+    "nativeHash": "0c16360e9e44ba7c"
   }
 }
