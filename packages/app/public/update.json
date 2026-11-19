@@ -25,6 +25,15 @@
   ],
   "android": [
     {
+      "version": "0.9.9",
+      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.9.apk",
+      "forceUpdate": false,
+      "description": "新增需求与灵感工作台",
+      "md5": "",
+      "fileSize": 0,
+      "nativeHash": "0c16360e9e44ba7c"
+    },
+    {
       "version": "0.9.5",
       "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.5.apk",
       "forceUpdate": false,

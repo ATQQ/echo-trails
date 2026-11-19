@@ -1,63 +1,39 @@
 {
   "macos": {
-    "version": "0.9.5",
+    "version": "0.9.9",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "待办事项支持隐藏已完成，并优先展示未完成项",
-    "nativeHash": "a99deb86fa77b045",
+    "description": "新增需求与灵感工作台",
+    "nativeHash": "0c16360e9e44ba7c",
     "md5": "",
-    "fileSize": 0,
-    "webPackage": {
-      "version": "0.9.8",
-      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.8.zip",
-      "md5": "4edede8cea817e4fc83e16b0436395b2",
-      "fileSize": 4479703
-    }
+    "fileSize": 0
   },
   "windows": {
-    "version": "0.9.5",
+    "version": "0.9.9",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "待办事项支持隐藏已完成，并优先展示未完成项",
-    "nativeHash": "a99deb86fa77b045",
+    "description": "新增需求与灵感工作台",
+    "nativeHash": "0c16360e9e44ba7c",
     "md5": "",
-    "fileSize": 0,
-    "webPackage": {
-      "version": "0.9.8",
-      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.8.zip",
-      "md5": "4edede8cea817e4fc83e16b0436395b2",
-      "fileSize": 4479703
-    }
+    "fileSize": 0
   },
   "linux": {
-    "version": "0.9.5",
+    "version": "0.9.9",
     "downloadUrl": "",
     "forceUpdate": false,
-    "description": "待办事项支持隐藏已完成，并优先展示未完成项",
-    "nativeHash": "a99deb86fa77b045",
+    "description": "新增需求与灵感工作台",
+    "nativeHash": "0c16360e9e44ba7c",
     "md5": "",
-    "fileSize": 0,
-    "webPackage": {
-      "version": "0.9.8",
-      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.8.zip",
-      "md5": "4edede8cea817e4fc83e16b0436395b2",
-      "fileSize": 4479703
-    }
+    "fileSize": 0
   },
   "android": {
-    "version": "0.9.5",
-    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.5.apk",
+    "version": "0.9.9",
+    "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-release-0.9.9.apk",
     "forceUpdate": false,
-    "description": "待办事项支持隐藏已完成，并优先展示未完成项",
-    "md5": "19f55b1d09a28f28ddbd61328fbd51ad",
-    "nativeHash": "a99deb86fa77b045",
-    "fileSize": 0,
-    "webPackage": {
-      "version": "0.9.8",
-      "downloadUrl": "https://three-source.cdn.sugarat.top/echo-trails/release/echo-trails-web-0.9.8.zip",
-      "md5": "4edede8cea817e4fc83e16b0436395b2",
-      "fileSize": 4479703
-    }
+    "description": "新增需求与灵感工作台",
+    "md5": "",
+    "nativeHash": "0c16360e9e44ba7c",
+    "fileSize": 0
   },
   "ios": {
     "version": "0.1.2",
